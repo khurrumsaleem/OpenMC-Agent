@@ -1,6 +1,12 @@
 # OpenMC-Agent 技术报告与进度总览
 
-维护日期：2026-07-24
+维护日期：2026-07-25
+
+### 2026-07-25
+
+- **Phase 8C Step 3J Placement canary 前置 Facts reviewer scope closure**：`--stop-after-gate placement` v3 未到 Placement，实际在 Facts Gate 被两个 reviewer finding 阻塞：fuel isotope composition 被误归 Facts，空 `operating_state` 被误判为 human-required。Facts staged prompt 与 Python normalization 现将 isotope/composition 归 Materials/MU downstream warning，将显式空 operating state 归 canonical `base` gap warning。
+- **验证结果**：新增离线 reviewer normalization 回归固定复现 v3 两类 finding，coverage 不再因 error severity 失败。Focused tests `10 passed`；全量非 OpenMC/非 LLM pytest `3694 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、baseline diff 均通过。
+- **风险/边界**：本轮未重跑真实 Placement canary；修复仅闭合上游 Facts reviewer 误阻塞，不声明 Placement/Axial/Assembled accepted。下一步用新 output dir 重跑 `--stop-after-gate placement`。
 
 ### 2026-07-24
 

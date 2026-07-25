@@ -97,6 +97,114 @@ def _normalize_confirmation_not_error_classification(
     return draft.model_copy(update={"severity": PlanFindingSeverity.WARNING}), original
 
 
+def _normalize_downstream_material_scope_classification(
+    draft: FactsReviewFindingDraft,
+) -> tuple[FactsReviewFindingDraft, dict[str, Any] | None]:
+    """Keep Materials/MU-owned fuel details from blocking the Facts Gate.
+
+    Facts fuel variants identify source-declared variants and coarse attributes
+    such as enrichment/density when supplied.  Isotope vectors, oxygen
+    stoichiometry, and material composition are enforced by Materials /
+    Material-Universe contracts.  A reviewer may still mention that downstream
+    gap while looking at ``/fuel_variant_requirements``; preserve it as a
+    warning with owner metadata instead of treating it as a Facts repair.
+    """
+
+    code = draft.code.strip().lower()
+    paths = tuple(draft.affected_json_paths)
+    message = draft.message.lower()
+    material_detail_markers = (
+        "isotope",
+        "isotopic",
+        "composition",
+        "stoichiometry",
+        "o-16",
+        "u-234",
+        "u-235",
+        "u-236",
+        "u-238",
+    )
+    is_known_code = code in {
+        "fuel_variant_missing_isotope_composition",
+        "facts.fuel_variant_missing_isotope_composition",
+    }
+    is_fuel_variant_material_detail = (
+        any(path == "/fuel_variant_requirements" or path.startswith("/fuel_variant_requirements/") for path in paths)
+        and any(marker in message for marker in material_detail_markers)
+    )
+    if not (is_known_code or is_fuel_variant_material_detail):
+        return draft, None
+
+    downstream_impact = list(dict.fromkeys([
+        *draft.downstream_impact,
+        "materials_contract",
+        "material_universe_contract",
+    ]))
+    original = {
+        "reason": "facts_downstream_material_scope",
+        "owner_route": "materials",
+        "original_severity": draft.severity.value,
+        "original_repairable_by_llm": draft.repairable_by_llm,
+        "original_requires_human": draft.requires_human,
+    }
+    return draft.model_copy(update={
+        "severity": PlanFindingSeverity.WARNING,
+        "repairable_by_llm": False,
+        "requires_human": False,
+        "downstream_impact": downstream_impact,
+    }), original
+
+
+def _normalize_blank_operating_state_classification(
+    draft: FactsReviewFindingDraft,
+) -> tuple[FactsReviewFindingDraft, dict[str, Any] | None]:
+    """Treat an explicitly blank operating state as a recorded base-state gap.
+
+    VERA-style inputs may carry an empty operating_state field to mean the case
+    has no named operating variant.  That is not a human-required Facts
+    ambiguity when the source itself is explicitly blank.  Downstream code uses
+    canonical base-state labels for control-state IDs; the Facts Gate should
+    keep this visible without blocking.
+    """
+
+    code = draft.code.strip().lower()
+    message = draft.message.lower()
+    paths = tuple(draft.affected_json_paths)
+    blank_markers = (
+        '""',
+        "blank",
+        "empty",
+        "omitted",
+        "unspecified",
+    )
+    is_operating_state_code = code in {
+        "missing_operating_state",
+        "missing_operating_state_unrecorded",
+        "facts.missing_operating_state",
+    }
+    is_selected_variant_path = any(
+        path == "/selected_variant" or path.startswith("/selected_variant/")
+        for path in paths
+    )
+    mentions_operating_state = "operating state" in message or "operating_state" in message
+    mentions_blank_source = any(marker in message for marker in blank_markers)
+    if not (is_operating_state_code and (is_selected_variant_path or mentions_operating_state) and mentions_blank_source):
+        return draft, None
+
+    original = {
+        "reason": "facts_blank_operating_state_base_gap",
+        "canonical_value": "base",
+        "original_severity": draft.severity.value,
+        "original_repairable_by_llm": draft.repairable_by_llm,
+        "original_requires_human": draft.requires_human,
+    }
+    return draft.model_copy(update={
+        "severity": PlanFindingSeverity.WARNING,
+        "repairable_by_llm": False,
+        "requires_human": False,
+    }), original
+
+
 def _normalize(output: FactsReviewModelOutput, pack: PlanEvidencePack) -> tuple[list[PlanReviewFinding], list[dict[str, Any]]]:
     evidence = {item.evidence_hash: item for item in pack.source_excerpts}
     facts = pack.relevant_patches.get("facts", {})
@@ -123,10 +231,12 @@ def _normalize(output: FactsReviewModelOutput, pack: PlanEvidencePack) -> tuple[
             rejected.append({"code": "facts_review.path_out_of_scope", "finding_code": draft.code})
             continue
         draft, classification_override = _normalize_recording_metadata_classification(draft)
-        confirmation_override = None
         if classification_override is None:
-            draft, confirmation_override = _normalize_confirmation_not_error_classification(draft)
-            classification_override = confirmation_override
+            draft, classification_override = _normalize_confirmation_not_error_classification(draft)
+        if classification_override is None:
+            draft, classification_override = _normalize_downstream_material_scope_classification(draft)
+        if classification_override is None:
+            draft, classification_override = _normalize_blank_operating_state_classification(draft)
         output.findings[index] = draft
         if draft.requires_human and draft.repairable_by_llm:
             rejected.append({"code": "facts_review.invalid_finding_contract", "finding_code": draft.code})

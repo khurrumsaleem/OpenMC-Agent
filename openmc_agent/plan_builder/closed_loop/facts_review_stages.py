@@ -164,7 +164,10 @@ _STAGE_INSTRUCTIONS: dict[FactsReviewStage, str] = {
     FactsReviewStage.FUEL_VARIANT: (
         "Focus ONLY on fuel variants: are all enrichment levels / fuel types "
         "mentioned in the evidence captured in fuel_variant_requirements?  "
-        "Flag missing variants or duplicate IDs."
+        "Flag missing variants or duplicate IDs. Do not require detailed "
+        "isotope vectors, oxygen stoichiometry, density, or material "
+        "composition here; those belong to Materials / Material-Universe "
+        "contracts, not the Facts Gate."
     ),
     FactsReviewStage.ASSEMBLY_STRUCTURE: (
         "Focus ONLY on assembly structure: do assembly_type_counts sum to "
@@ -186,8 +189,11 @@ _STAGE_INSTRUCTIONS: dict[FactsReviewStage, str] = {
         "source-backed fact belongs in the supplied FactsPatch fields. Material "
         "composition or density, detailed axial geometry, placement, and universe "
         "definition belong to downstream requirement contracts: record those only "
-        "as warnings with downstream_impact, never as a Facts Gate error. Check "
-        "missing_facts and assumptions for explicitly recorded gaps."
+        "as warnings with downstream_impact, never as a Facts Gate error. An "
+        "explicitly blank operating_state means no named variant was supplied; "
+        "treat it as an informational/base-state gap, not a human-required "
+        "Facts error. Check missing_facts and assumptions for explicitly "
+        "recorded gaps."
     ),
 }
 
