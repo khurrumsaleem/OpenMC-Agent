@@ -25,6 +25,7 @@ from openmc_agent.plan_builder.patches import (
 from openmc_agent.plan_builder.patch_generator import (
     FakePatchLLM,
     PatchGenerationContext,
+    _detect_retry_drift,
     generate_patch,
 )
 from openmc_agent.plan_builder.patch_prompts import (
@@ -257,6 +258,32 @@ def test_I_retry_changes_only_through_path_passes() -> None:
     assert len(result.attempts) == 2
     # No drift on the retry attempt
     assert result.attempts[1].retry_drift == []
+
+
+def test_I2_retry_schema_default_false_is_not_drift() -> None:
+    """Explicit default booleans emitted on retry are not semantic changes."""
+
+    previous = {"patch_type": "axial_overlays", "overlays": [{
+        "overlay_id": "sg1",
+        "overlay_kind": "spacer_grid",
+        "z_min_cm": 0.0,
+        "z_max_cm": 1.0,
+        "target_lattice_id": "lat",
+        "material_id": "missing_material",
+        "geometry_mode": "skeleton",
+    }]}
+    retry = {"patch_type": "axial_overlays", "overlays": [{
+        **previous["overlays"][0],
+        "material_id": "resolved_material",
+        "requires_human_confirmation": False,
+    }]}
+
+    assert _detect_retry_drift(
+        "axial_overlays",
+        previous,
+        retry,
+        ["patch.axial_overlays.material_missing"],
+    ) == []
 
 
 # ---------------------------------------------------------------------------

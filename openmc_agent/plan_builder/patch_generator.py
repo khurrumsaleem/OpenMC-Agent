@@ -1028,7 +1028,7 @@ def _detect_retry_drift(
                 continue
             pv = po.get(field)
             nv = no.get(field)
-            if pv != nv:
+            if not _retry_drift_values_equal(field, pv, nv):
                 drift.append({
                     "json_path": f"overlays[{overlay_id}].{field}",
                     "previous": pv,
@@ -1037,6 +1037,19 @@ def _detect_retry_drift(
                     "triggering_issue_codes": issue_codes,
                 })
     return drift
+
+
+def _retry_drift_values_equal(field: str, previous_value: Any, new_value: Any) -> bool:
+    """Return whether two retry values are semantically equivalent.
+
+    Providers often echo explicit schema defaults on retry.  That should not
+    count as semantic drift when the previous raw candidate omitted the field
+    and the parsed model would have supplied the same default.
+    """
+
+    if field == "requires_human_confirmation" and previous_value is None and new_value is False:
+        return True
+    return previous_value == new_value
 
 
 # ---------------------------------------------------------------------------

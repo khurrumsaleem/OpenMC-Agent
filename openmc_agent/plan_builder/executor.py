@@ -397,6 +397,73 @@ def required_patch_types_for_state(state: PlanBuildState) -> list[str]:
     return [t for t in _DEFAULT_ORDER if t in required]
 
 
+def _order_for_controlled_gate_barriers(
+    order: list[str],
+    *,
+    placement_controlled: bool,
+    material_universe_controlled: bool,
+    axial_geometry_controlled: bool,
+) -> list[str]:
+    """Reorder patch generation around controlled review barriers.
+
+    The default historical order is renderer-oriented.  Controlled gates need
+    milestone-oriented ordering: generate exactly the upstream patch family
+    needed for the next gate, run that gate, then continue.  In particular the
+    Placement Gate consumes placement patches (pin map / assembly catalog /
+    core layout) and must not wait behind axial geometry patches such as
+    ``axial_overlays``.
+    """
+
+    if not (placement_controlled or material_universe_controlled or axial_geometry_controlled):
+        return order
+
+    if not placement_controlled:
+        mu_types = {
+            "localized_insert_profiles",
+            "base_path_axial_profiles",
+            "pin_map",
+            "assembly_catalog",
+            "axial_layers",
+            "axial_overlays",
+            "core_layout",
+        } if material_universe_controlled else set()
+        early = [item for item in order if item in {"facts", "materials", "universes"}]
+        gated = [item for item in order if item in mu_types]
+        late = [item for item in order if item not in set(early) | set(gated)]
+        return early + gated + late
+
+    early_types = {"facts", "materials", "universes"}
+    placement_types = {
+        "localized_insert_profiles",
+        "pin_map",
+        "assembly_catalog",
+        "core_layout",
+    } if placement_controlled else set()
+    axial_types = {
+        "base_path_axial_profiles",
+        "axial_layers",
+        "axial_overlays",
+    } if axial_geometry_controlled or placement_controlled else set()
+
+    buckets: list[set[str]] = [
+        early_types,
+        placement_types,
+        axial_types,
+    ]
+    seen: set[str] = set()
+    result: list[str] = []
+    for bucket in buckets:
+        for item in order:
+            if item in bucket and item not in seen:
+                result.append(item)
+                seen.add(item)
+    for item in order:
+        if item not in seen:
+            result.append(item)
+            seen.add(item)
+    return result
+
+
 def _state_is_multi_assembly(state: PlanBuildState) -> bool:
     """Check whether the state describes a multi-assembly core model."""
     if state.resolved_planning_scope is not None:
@@ -1817,13 +1884,15 @@ def run_incremental_planning(
     axial_geometry_controlled = policy.mode is PlanLoopMode.CONTROLLED and policy.gate_enabled.get(PlanGateId.AXIAL_GEOMETRY, False) and policy.axial_geometry_review_mode == "controlled"
     if (placement_controlled or material_universe_controlled or axial_geometry_controlled) and task_order is None:
         # Patches that depend on Materials/Universes must wait until the
-        # Material-Universe Gate is accepted.
-        mu_types = {"localized_insert_profiles", "base_path_axial_profiles", "pin_map", "assembly_catalog", "axial_layers", "axial_overlays", "core_layout"} if material_universe_controlled else set()
-        placement_types = {"localized_insert_profiles", "base_path_axial_profiles", "pin_map", "assembly_catalog", "core_layout"} if placement_controlled else set()
-        early = [item for item in order if item in {"facts", "materials", "universes"}]
-        gated = [item for item in order if item in (mu_types | placement_types)]
-        late = [item for item in order if item not in set(early) | set(gated)]
-        order = early + gated + late
+        # Material-Universe Gate is accepted, but Placement-owned patches must
+        # still be generated before Axial-owned patches so the Placement gate
+        # can stop/review at its real milestone boundary.
+        order = _order_for_controlled_gate_barriers(
+            order,
+            placement_controlled=placement_controlled,
+            material_universe_controlled=material_universe_controlled,
+            axial_geometry_controlled=axial_geometry_controlled,
+        )
     required = required_patch_types_for_state(state)
     advisory_enabled = policy.mode is PlanLoopMode.ADVISORY
     artifact_writer = PlanLoopArtifactWriter(plan_loop_output_dir, policy.artifact_subdir)

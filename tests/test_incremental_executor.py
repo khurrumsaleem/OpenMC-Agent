@@ -10,6 +10,7 @@ import pytest
 from openmc_agent.plan_builder.assembler import assemble_simulation_plan_from_patches
 from openmc_agent.plan_builder.executor import (
     IncrementalExecutionResult,
+    _order_for_controlled_gate_barriers,
     build_deterministic_settings_patch,
     build_generation_context_from_state,
     default_patch_task_order,
@@ -908,6 +909,31 @@ def test_default_task_order_3d_assembly() -> None:
     assert "axial_overlays" in order  # spacer grids expected
     assert order.index("facts") < order.index("materials")
     assert order.index("materials") < order.index("universes")
+
+
+def test_controlled_placement_barrier_order_precedes_axial_patches() -> None:
+    order = [
+        "facts",
+        "materials",
+        "universes",
+        "assembly_catalog",
+        "axial_layers",
+        "axial_overlays",
+        "core_layout",
+        "settings",
+    ]
+
+    reordered = _order_for_controlled_gate_barriers(
+        order,
+        placement_controlled=True,
+        material_universe_controlled=True,
+        axial_geometry_controlled=False,
+    )
+
+    assert reordered.index("assembly_catalog") < reordered.index("axial_layers")
+    assert reordered.index("core_layout") < reordered.index("axial_layers")
+    assert reordered.index("core_layout") < reordered.index("axial_overlays")
+    assert reordered.index("settings") > reordered.index("axial_overlays")
 
 
 def test_required_patches_includes_overlays_for_spacer() -> None:
