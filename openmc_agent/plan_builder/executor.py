@@ -329,7 +329,7 @@ def default_patch_task_order(state: PlanBuildState) -> list[str]:
     if not has_spacer:
         order = [t for t in order if t != "axial_overlays"]
     # Remove localized_insert_profiles if no multi-segment inserts.
-    has_profiles = _state_has_feature(state, "has_localized_insert_profiles")
+    has_profiles = _state_requires_localized_insert_profiles(state)
     if not has_profiles:
         order = [t for t in order if t != "localized_insert_profiles"]
     # Remove base_path_axial_profiles unless explicitly requested.
@@ -371,7 +371,7 @@ def required_patch_types_for_state(state: PlanBuildState) -> list[str]:
         return list(state.canonical_task_plan.required_patch_types)
     is_multi = _state_is_multi_assembly(state)
     has_spacer = _state_has_feature(state, "has_spacer_grid")
-    has_profiles = _state_has_feature(state, "has_localized_insert_profiles")
+    has_profiles = _state_requires_localized_insert_profiles(state)
     has_special = _state_has_feature(state, "has_special_pin_map")
     has_large = bool(_state_has_feature(state, "large_lattice_dimension"))
     has_benchmark_variant = _state_has_feature(state, "has_benchmark_variant")
@@ -383,8 +383,6 @@ def required_patch_types_for_state(state: PlanBuildState) -> list[str]:
         ]
         if has_spacer:
             required.append("axial_overlays")
-        if has_profiles:
-            required.append("localized_insert_profiles")
         required.append("core_layout")
         required.append("settings")
     else:
@@ -393,6 +391,9 @@ def required_patch_types_for_state(state: PlanBuildState) -> list[str]:
             required.append("axial_overlays")
         if has_special or has_large or has_benchmark_variant:
             required.append("pin_map")
+
+    if has_profiles:
+        required.append("localized_insert_profiles")
 
     return [t for t in _DEFAULT_ORDER if t in required]
 
@@ -475,8 +476,14 @@ def _state_is_multi_assembly(state: PlanBuildState) -> bool:
     model_scope = state.extracted_facts.get("model_scope", "")
     if model_scope in ("multi_assembly_core", "full_core"):
         return True
+    facts_scope = _accepted_facts_content(state).get("model_scope")
+    if facts_scope in ("multi_assembly_core", "full_core"):
+        return True
     assembly_count = state.extracted_facts.get("assembly_count")
     if isinstance(assembly_count, int) and assembly_count > 1:
+        return True
+    facts_count = _accepted_facts_content(state).get("assembly_count")
+    if isinstance(facts_count, int) and facts_count > 1:
         return True
     return False
 
@@ -488,6 +495,62 @@ def _state_has_feature(state: PlanBuildState, feature: str) -> bool:
         return True
     # Also check extracted_facts.
     return bool(state.extracted_facts.get(feature))
+
+
+def _accepted_facts_content(state: PlanBuildState) -> dict[str, Any]:
+    facts = [
+        envelope.content
+        for envelope in state.patches.values()
+        if envelope.patch_type == "facts" and envelope.status == "valid"
+    ]
+    return facts[-1] if facts else {}
+
+
+def _state_requires_localized_insert_profiles(state: PlanBuildState) -> bool:
+    """Return whether accepted Facts require localized insert profiles."""
+
+    if _state_has_feature(state, "has_localized_insert_profiles"):
+        return True
+    facts = _accepted_facts_content(state)
+    requirements = facts.get("localized_insert_requirements", [])
+    if not isinstance(requirements, list):
+        return False
+    return any(
+        isinstance(item, dict)
+        and (item.get("required_profile_id") or item.get("required_segment_roles"))
+        for item in requirements
+    )
+
+
+def _sync_controlled_order_after_facts(
+    *,
+    state: PlanBuildState,
+    order: list[str],
+    required: list[str],
+    placement_controlled: bool,
+    material_universe_controlled: bool,
+    axial_geometry_controlled: bool,
+) -> None:
+    """Refresh controlled execution order once accepted Facts are available."""
+
+    refreshed_required = required_patch_types_for_state(state)
+    for patch_type in refreshed_required:
+        if patch_type not in order:
+            order.append(patch_type)
+    selected = set(order)
+    graph_ordered = [
+        patch_type
+        for patch_type in DEFAULT_PLAN_PATCH_DEPENDENCY_GRAPH._ORDER
+        if patch_type in selected
+    ]
+    graph_ordered.extend(patch_type for patch_type in order if patch_type not in graph_ordered)
+    order[:] = _order_for_controlled_gate_barriers(
+        graph_ordered,
+        placement_controlled=placement_controlled,
+        material_universe_controlled=material_universe_controlled,
+        axial_geometry_controlled=axial_geometry_controlled,
+    )
+    required[:] = refreshed_required
 
 
 # ---------------------------------------------------------------------------
@@ -4642,6 +4705,26 @@ def run_incremental_planning(
                 stopped_after_gate = _maybe_stop_after_gate(PlanGateId.FACTS)
                 if stopped_after_gate is not None:
                     return stopped_after_gate
+                if policy.mode is PlanLoopMode.CONTROLLED and task_order is None:
+                    previous_order = list(order)
+                    _sync_controlled_order_after_facts(
+                        state=state,
+                        order=order,
+                        required=required,
+                        placement_controlled=placement_controlled,
+                        material_universe_controlled=material_universe_controlled,
+                        axial_geometry_controlled=axial_geometry_controlled,
+                    )
+                    if order != previous_order:
+                        state.add_event(
+                            "planning.task_order_refreshed_after_facts",
+                            "controlled patch order refreshed after accepted Facts",
+                            {
+                                "previous_order": previous_order,
+                                "order": order,
+                                "required": required,
+                            },
+                        )
                 if (policy.mode is PlanLoopMode.CONTROLLED and state.canonical_task_plan is not None
                         and task_order is None and required != ["facts"]):
                     # Mutate the iterated list in-place: the remaining work is
@@ -4649,6 +4732,14 @@ def run_incremental_planning(
                     # detector-only order calculated before Facts existed.
                     order[:] = list(state.canonical_task_plan.ordered_patch_types)
                     required[:] = list(state.canonical_task_plan.required_patch_types)
+                    _sync_controlled_order_after_facts(
+                        state=state,
+                        order=order,
+                        required=required,
+                        placement_controlled=placement_controlled,
+                        material_universe_controlled=material_universe_controlled,
+                        axial_geometry_controlled=axial_geometry_controlled,
+                    )
                     state.add_event("planning.task_plan_reconciled", "provisional task order replaced by canonical task plan", {"plan_hash": state.canonical_task_plan.plan_hash, "order": order})
             # Phase-4: Material-Universe Gate runs after Materials and
             # Universes become valid, before any downstream patch that

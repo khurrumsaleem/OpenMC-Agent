@@ -11,6 +11,7 @@ from openmc_agent.plan_builder.assembler import assemble_simulation_plan_from_pa
 from openmc_agent.plan_builder.executor import (
     IncrementalExecutionResult,
     _order_for_controlled_gate_barriers,
+    _sync_controlled_order_after_facts,
     build_deterministic_settings_patch,
     build_generation_context_from_state,
     default_patch_task_order,
@@ -934,6 +935,78 @@ def test_controlled_placement_barrier_order_precedes_axial_patches() -> None:
     assert reordered.index("core_layout") < reordered.index("axial_layers")
     assert reordered.index("core_layout") < reordered.index("axial_overlays")
     assert reordered.index("settings") > reordered.index("axial_overlays")
+
+
+def test_accepted_facts_profile_contract_requires_profile_patch() -> None:
+    state = PlanBuildState(state_id="profile-contract", requirement_text="multi assembly with profiled inserts")
+    state.add_patch(PlanPatchEnvelope(
+        patch_id="facts",
+        patch_type="facts",
+        content={
+            "patch_type": "facts",
+            "model_scope": "multi_assembly_core",
+            "assembly_count": 2,
+            "assembly_type_counts": {"A": 2},
+            "has_spacer_grids": False,
+            "localized_insert_requirements": [{
+                "requirement_id": "insert",
+                "insert_kind": "control_rod",
+                "required_profile_id": "profile_1",
+                "required_segment_roles": ["absorber"],
+            }],
+        },
+        status="valid",
+    ))
+
+    assert "localized_insert_profiles" in required_patch_types_for_state(state)
+    assert "localized_insert_profiles" in default_patch_task_order(state)
+
+
+def test_controlled_order_refresh_inserts_profile_after_facts() -> None:
+    state = PlanBuildState(state_id="profile-contract", requirement_text="multi assembly with profiled inserts")
+    state.add_patch(PlanPatchEnvelope(
+        patch_id="facts",
+        patch_type="facts",
+        content={
+            "patch_type": "facts",
+            "model_scope": "multi_assembly_core",
+            "assembly_count": 2,
+            "assembly_type_counts": {"A": 2},
+            "has_spacer_grids": True,
+            "localized_insert_requirements": [{
+                "requirement_id": "insert",
+                "insert_kind": "control_rod",
+                "required_profile_id": "profile_1",
+                "required_segment_roles": ["absorber"],
+            }],
+        },
+        status="valid",
+    ))
+    order = [
+        "facts",
+        "materials",
+        "universes",
+        "assembly_catalog",
+        "core_layout",
+        "axial_layers",
+        "axial_overlays",
+        "settings",
+    ]
+    required = ["facts", "materials", "universes", "assembly_catalog", "core_layout", "axial_layers", "axial_overlays", "settings"]
+
+    _sync_controlled_order_after_facts(
+        state=state,
+        order=order,
+        required=required,
+        placement_controlled=True,
+        material_universe_controlled=True,
+        axial_geometry_controlled=False,
+    )
+
+    assert "localized_insert_profiles" in required
+    assert order.index("universes") < order.index("localized_insert_profiles")
+    assert order.index("localized_insert_profiles") < order.index("assembly_catalog")
+    assert order.index("core_layout") < order.index("axial_layers")
 
 
 def test_required_patches_includes_overlays_for_spacer() -> None:

@@ -4,6 +4,10 @@
 
 ### 2026-07-25
 
+- **Phase 8C Step 3J Placement profile task-order closure**：Placement v5 使用最新 commit 且网络正常，Facts/MU accepted，但 Placement review 未启动；离线审计显示 `placement_gate_ready=False`，原因是 accepted Facts 声明 `required_profile_id/required_segment_roles`，但初始 task order 未生成 `localized_insert_profiles`。executor 现在从 accepted Facts 推导 profile patch requirement，并在 Facts accepted 后刷新 controlled order/required patch set。
+- **验证结果**：新增 accepted-Facts profile contract 与 controlled order refresh 回归，证明 `localized_insert_profiles` 被插入到 `universes` 后、`assembly_catalog/core_layout` 前。Focused tests `38 passed`；全量非 OpenMC/非 LLM pytest `3698 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、baseline diff 均通过。
+- **风险/边界**：本修复只保证 Placement gate 的输入 profile patch 会生成；尚未声明 Placement reviewer accepted。下一步用新 output dir 重跑 `--stop-after-gate placement`。
+
 - **Phase 8C Step 3J Placement barrier ordering closure**：Placement v4 真实 run 网络正常、Facts/MU 均 accepted，但在 Placement review 前抢跑 `axial_overlays` 并因 grid material ID/semantic drift 失败。Controlled gate 排序现按 milestone 分层：Facts/Materials/Universes → MU Gate → Placement-owned patches (`assembly_catalog/core_layout/...`) → Placement Gate → Axial patches；`--stop-after-gate placement` 不再依赖 `axial_overlays`。
 - **验证结果**：新增排序回归证明 `core_layout` 在 `axial_layers/axial_overlays` 前生成；新增 retry drift 回归允许 schema default 等价变化 `requires_human_confirmation: None → False`。Focused tests `54 passed`；全量非 OpenMC/非 LLM pytest `3696 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、baseline diff 均通过。
 - **风险/边界**：本轮未声明 Axial Gate 通过；v4 暴露的 grid material 缺口属于下一阶段 Axial/material contract 问题。下一步重跑 Placement stop-after 应只验证 Placement boundary。
