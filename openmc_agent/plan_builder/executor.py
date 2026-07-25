@@ -553,6 +553,23 @@ def _sync_controlled_order_after_facts(
     required[:] = refreshed_required
 
 
+def _retry_outcome_requires_downstream_resume(outcome: Any) -> bool:
+    """Return whether a committed retry owner requires downstream rebuild.
+
+    ``execute_plan_retry_loop`` can return ``resolved`` when the owner commit
+    already removes the selected issue from its local issue set.  That still
+    changes workflow state and invalidates dependent patches, so the executor
+    must resume downstream just like the explicit ``resumed`` status.
+    """
+
+    status = getattr(getattr(outcome, "status", None), "value", getattr(outcome, "status", ""))
+    return bool(getattr(outcome, "workflow_behavior_changed", False)) and status in {
+        "resumed",
+        "resolved",
+        "partially_resolved",
+    }
+
+
 # ---------------------------------------------------------------------------
 # Context propagation
 # ---------------------------------------------------------------------------
@@ -3937,7 +3954,7 @@ def run_incremental_planning(
             )
             artifact_writer.write_retry_artifact(f"retry_execution_plan_{len(state.plan_retry_rounds):03d}.json", state.plan_retry_execution_plans)
             artifact_writer.write_retry_artifact("retry_outcome.json", outcome)
-            if outcome.status.value == "resumed":
+            if _retry_outcome_requires_downstream_resume(outcome):
                 # Resume only invalidated downstream tasks.  The recursive
                 # call observes committed owner envelopes and skips them; it
                 # never clears the state or enters a monolithic fallback.

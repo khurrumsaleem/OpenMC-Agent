@@ -11,12 +11,17 @@ from openmc_agent.plan_builder.assembler import assemble_simulation_plan_from_pa
 from openmc_agent.plan_builder.executor import (
     IncrementalExecutionResult,
     _order_for_controlled_gate_barriers,
+    _retry_outcome_requires_downstream_resume,
     _sync_controlled_order_after_facts,
     build_deterministic_settings_patch,
     build_generation_context_from_state,
     default_patch_task_order,
     required_patch_types_for_state,
     run_incremental_planning,
+)
+from openmc_agent.plan_builder.closed_loop.retry_models import (
+    RetryExecutionOutcome,
+    RetryExecutionStatus,
 )
 from openmc_agent.plan_builder.mode import should_use_incremental_planning
 from openmc_agent.plan_builder.patches import (
@@ -1007,6 +1012,26 @@ def test_controlled_order_refresh_inserts_profile_after_facts() -> None:
     assert order.index("universes") < order.index("localized_insert_profiles")
     assert order.index("localized_insert_profiles") < order.index("assembly_catalog")
     assert order.index("core_layout") < order.index("axial_layers")
+
+
+def test_retry_resolved_owner_commit_requires_downstream_resume() -> None:
+    outcome = RetryExecutionOutcome(
+        status=RetryExecutionStatus.RESOLVED,
+        detail="owner committed; reclassification=resolved",
+        workflow_behavior_changed=True,
+    )
+
+    assert _retry_outcome_requires_downstream_resume(outcome)
+
+
+def test_retry_resolved_without_workflow_change_does_not_resume() -> None:
+    outcome = RetryExecutionOutcome(
+        status=RetryExecutionStatus.RESOLVED,
+        detail="no pending retry requests",
+        workflow_behavior_changed=False,
+    )
+
+    assert not _retry_outcome_requires_downstream_resume(outcome)
 
 
 def test_required_patches_includes_overlays_for_spacer() -> None:

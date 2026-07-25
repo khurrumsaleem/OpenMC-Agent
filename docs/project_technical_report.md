@@ -4,6 +4,10 @@
 
 ### 2026-07-25
 
+- **Phase 8C Step 3J Placement retry resolved-state closure**：Placement v6 已进入 Placement review，Facts accepted、Placement review_count=1、网络正常；retry controller 成功提交 Universes owner 并返回 `status=resolved`、`workflow_behavior_changed=True`，但 executor 只对 `resumed` 继续 downstream rebuild，错误地把 `planning.retry.resolved` 当 blocker。executor 现在将已提交 owner 且改变 workflow 的 `resolved/resumed/partially_resolved` 都视为需要 downstream resume。
+- **验证结果**：新增 retry outcome 回归覆盖 `resolved + workflow_behavior_changed` 必须 resume、无 workflow change 不 resume。Focused tests `52 passed`；全量非 OpenMC/非 LLM pytest `3700 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、baseline diff 均通过。
+- **风险/边界**：本修复闭合 retry 状态机错误，不声明 Placement semantic findings 已清零；下一次 v7 应继续 owner commit 后的 downstream rebuild/Placement rereview。
+
 - **Phase 8C Step 3J Placement profile task-order closure**：Placement v5 使用最新 commit 且网络正常，Facts/MU accepted，但 Placement review 未启动；离线审计显示 `placement_gate_ready=False`，原因是 accepted Facts 声明 `required_profile_id/required_segment_roles`，但初始 task order 未生成 `localized_insert_profiles`。executor 现在从 accepted Facts 推导 profile patch requirement，并在 Facts accepted 后刷新 controlled order/required patch set。
 - **验证结果**：新增 accepted-Facts profile contract 与 controlled order refresh 回归，证明 `localized_insert_profiles` 被插入到 `universes` 后、`assembly_catalog/core_layout` 前。Focused tests `38 passed`；全量非 OpenMC/非 LLM pytest `3698 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、baseline diff 均通过。
 - **风险/边界**：本修复只保证 Placement gate 的输入 profile patch 会生成；尚未声明 Placement reviewer accepted。下一步用新 output dir 重跑 `--stop-after-gate placement`。
