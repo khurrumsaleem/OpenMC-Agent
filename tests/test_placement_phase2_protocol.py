@@ -69,6 +69,56 @@ def test_reviewer_rejects_unknown_evidence_ref() -> None:
     assert result.ok and result.rejected[0]["code"] == "placement_review.unknown_evidence_ref"
 
 
+def test_placement_review_complete_with_gaps_is_coverage_complete() -> None:
+    state = _state()
+    policy = PlanClosedLoopPolicy(mode="advisory")
+    pack = build_placement_evidence_pack(state=state, policy=policy)
+    payload = {
+        "review_status": "complete_with_gaps",
+        "reviewed_contract_row_ids": ["absorber"],
+        "reviewed_evidence_refs": [item.ref_id for item in pack.evidence_items],
+        "coverage_summary": {
+            "reviewed_contract_row_count": 1,
+            "omitted_contract_row_count": 0,
+            "reviewed_evidence_item_count": len(pack.evidence_items),
+            "omitted_evidence_item_count": 0,
+        },
+        "findings": [{
+            "code": "placement.semantic_warning",
+            "severity": "warning",
+            "category": "representation_error",
+            "message": "covered review with a non-blocking gap",
+            "evidence_refs": [pack.evidence_items[0].ref_id],
+            "affected_contract_rows": ["absorber"],
+            "affected_json_paths": ["/localized_insert_intents"],
+            "repairable_by_llm": False,
+            "requires_human": True,
+            "confidence": 0.8,
+        }],
+    }
+    result = run_placement_review(evidence_pack=pack, reviewer_client=lambda _: json.dumps(payload), state=state, policy=policy)
+    assert result.ok
+    assert result.coverage_complete
+    assert result.error_code == ""
+    assert [finding.code for finding in result.findings] == ["placement.semantic_warning"]
+
+
+def test_placement_review_missing_coverage_ref_fails_closed() -> None:
+    state = _state()
+    policy = PlanClosedLoopPolicy(mode="advisory")
+    pack = build_placement_evidence_pack(state=state, policy=policy)
+    payload = {
+        "review_status": "complete_with_gaps",
+        "reviewed_contract_row_ids": ["absorber"],
+        "reviewed_evidence_refs": [item.ref_id for item in pack.evidence_items[:-1]],
+        "coverage_summary": {"omitted_evidence_item_count": 1},
+        "findings": [],
+    }
+    result = run_placement_review(evidence_pack=pack, reviewer_client=lambda _: json.dumps(payload), state=state, policy=policy)
+    assert not result.ok
+    assert result.error_code == "placement_review.coverage_incomplete"
+
+
 def test_review_io_uses_last_schema_valid_embedded_object() -> None:
     state = PlanBuildState(state_id="io", requirement_text="r")
     policy = PlanClosedLoopPolicy(mode="advisory")

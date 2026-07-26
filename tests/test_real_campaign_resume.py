@@ -6,6 +6,7 @@ from openmc_agent.real_campaign_harness import (
     compute_resume_fingerprint,
     detect_provider_environment,
     make_five_gate_controlled_policy,
+    _resumable_campaign_results,
 )
 
 
@@ -108,3 +109,13 @@ def test_compute_resume_fingerprint_uses_case_and_policy():
     assert fp.provider == "ds"
     assert fp.universes_generation_mode == "fragmented"
     assert fp.universe_fragment_max_tokens == 4000
+
+
+def test_resume_filters_failed_run_records_so_they_rerun():
+    results = [
+        {"run_id": "run_001", "final_disposition": "PLANNING_FAILURE"},
+        {"run_id": "run_002", "final_disposition": "BLOCKED_BY_GATE:placement"},
+        {"run_id": "run_003", "final_disposition": "STOP_AFTER_GATE_PASSED:placement"},
+    ]
+    resumable = _resumable_campaign_results(results)
+    assert [item["run_id"] for item in resumable] == ["run_003"]

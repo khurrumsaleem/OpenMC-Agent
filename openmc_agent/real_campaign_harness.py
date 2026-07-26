@@ -1019,6 +1019,25 @@ def _validate_stage(stage: str) -> str:
     return stage
 
 
+def _campaign_run_passed(result: dict[str, Any]) -> bool:
+    """Return True only when a campaign run reached a passing disposition.
+
+    Resume may reuse checkpoints stored under a failed run directory, but the
+    failed run record itself must not be counted as completed; otherwise
+    ``--resume`` can instantly replay the old failed manifest without
+    dispatching any work.
+    """
+
+    disposition = str(result.get("final_disposition", ""))
+    return "PASSED" in disposition and "FAIL" not in disposition
+
+
+def _resumable_campaign_results(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Filter loaded campaign results to the runs safe to skip on resume."""
+
+    return [item for item in results if _campaign_run_passed(item)]
+
+
 # --------------------------------------------------------------------------- #
 # Main per-run executor
 # --------------------------------------------------------------------------- #
@@ -1845,7 +1864,7 @@ def run_real_canary_campaign(
                 return manifest
             old_results_path = output_dir / "campaign_results.json"
             if old_results_path.exists():
-                results = json.loads(old_results_path.read_text())
+                results = _resumable_campaign_results(json.loads(old_results_path.read_text()))
         except Exception as exc:
             manifest["aggregate_status"] = "CONFIG_MISMATCH"
             manifest["resume_mismatches"] = ["resume_fingerprint"]
@@ -1854,10 +1873,7 @@ def run_real_canary_campaign(
             return manifest
 
     manifest["completed_runs"] = len(results)
-    manifest["successful_runs"] = sum(
-        1 for r in results
-        if "PASSED" in r.get("final_disposition", "") and "FAIL" not in r.get("final_disposition", "")
-    )
+    manifest["successful_runs"] = sum(1 for r in results if _campaign_run_passed(r))
     manifest["failed_runs"] = manifest["completed_runs"] - manifest["successful_runs"]
     completed_indices = {
         int(str(r.get("run_id", "0")).removeprefix("run_"))
@@ -1954,10 +1970,7 @@ def run_real_canary_campaign(
         results.append(result_dict)
 
         manifest["completed_runs"] = len(results)
-        manifest["successful_runs"] = sum(
-            1 for r in results
-            if "PASSED" in r.get("final_disposition", "") and "FAIL" not in r.get("final_disposition", "")
-        )
+        manifest["successful_runs"] = sum(1 for r in results if _campaign_run_passed(r))
         manifest["failed_runs"] = manifest["completed_runs"] - manifest["successful_runs"]
         manifest["pending_runs"] = list(range(len(results) + 1, campaign.runs + 1))
         _write_json_atomic(output_dir / "campaign_manifest.json", manifest)
@@ -1988,10 +2001,7 @@ def _aggregate_canary_metrics(
     requested_runs: int,
 ) -> dict[str, Any]:
     completed = len(results)
-    successful = sum(
-        1 for r in results
-        if "PASSED" in r.get("final_disposition", "") and "FAIL" not in r.get("final_disposition", "")
-    )
+    successful = sum(1 for r in results if _campaign_run_passed(r))
     five_gate_accepted = sum(1 for r in results if r.get("five_gate_accepted"))
     fragmented = sum(1 for r in results if r.get("fragmented_universes_used"))
     return {

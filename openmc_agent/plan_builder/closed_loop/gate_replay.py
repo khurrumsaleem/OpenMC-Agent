@@ -557,6 +557,24 @@ def _run_production_review(
                 calls["count"] += 1
                 payload = dict(recorded_review)
                 payload.setdefault("review_status", "complete")
+                if bundle.gate_id in DOWNSTREAM_GATE_IDS:
+                    reviewed_rows = [
+                        row_id
+                        for row in pack.contract_matrix.rows
+                        for row_id in [getattr(row, "row_id", None) or getattr(row, "requirement_id", None)]
+                        if row_id
+                    ]
+                    reviewed_refs = [item.ref_id for item in pack.evidence_items]
+                    if not payload.get("reviewed_contract_row_ids"):
+                        payload["reviewed_contract_row_ids"] = reviewed_rows
+                    if not payload.get("reviewed_evidence_refs"):
+                        payload["reviewed_evidence_refs"] = reviewed_refs
+                    coverage = dict(payload.get("coverage_summary") or {})
+                    coverage.setdefault("reviewed_contract_row_count", len(reviewed_rows))
+                    coverage.setdefault("omitted_contract_row_count", 0)
+                    coverage.setdefault("reviewed_evidence_item_count", len(reviewed_refs))
+                    coverage.setdefault("omitted_evidence_item_count", 0)
+                    payload["coverage_summary"] = coverage
                 return payload
 
             reviewer_client = recorded_reviewer

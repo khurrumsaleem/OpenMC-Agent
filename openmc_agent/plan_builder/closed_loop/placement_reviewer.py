@@ -90,8 +90,17 @@ def run_placement_review(*, evidence_pack: PlacementEvidencePack, reviewer_clien
     findings, rejected = _normalize(output, evidence_pack)
     required_rows = {item.requirement_id for item in evidence_pack.contract_matrix.rows}
     required_refs = {item.ref_id for item in evidence_pack.evidence_items}
-    # review_status="complete" implies coverage; per-item lists are advisory.
-    result.coverage_complete = output.review_status == "complete"
+    reviewed_rows = set(output.reviewed_contract_row_ids)
+    reviewed_refs = set(output.reviewed_evidence_refs)
+    # ``complete_with_gaps`` means the reviewer completed coverage and found
+    # semantic gaps; it must not be treated as a coverage failure.  The
+    # row/ref lists are the deterministic proof of coverage and remain
+    # fail-closed for incomplete or malformed reviewer outputs.
+    result.coverage_complete = (
+        output.review_status in {"complete", "complete_with_gaps"}
+        and required_rows.issubset(reviewed_rows)
+        and required_refs.issubset(reviewed_refs)
+    )
     if not result.coverage_complete:
         result.error_code = "placement_review.coverage_incomplete"
     result.ok = result.coverage_complete

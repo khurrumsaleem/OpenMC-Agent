@@ -1,6 +1,16 @@
 # OpenMC-Agent 技术报告与进度总览
 
-维护日期：2026-07-25
+维护日期：2026-07-26
+
+### 2026-07-26
+
+- **Phase 8C Step 3J Placement review coverage-status closure**：Placement v7 已到 Facts/MU accepted 且 reviewer 返回 `complete_with_gaps`，但 normalizer 只接受 `complete`，错误地把 coverage-complete finding review 记为 `placement_review.coverage_incomplete`。Placement reviewer 现在将 `complete_with_gaps` 作为覆盖完成状态，同时仍要求全部 contract rows 与 evidence refs 显式覆盖。
+- **验证结果**：v7 artifact 离线 replay 从 `coverage_incomplete` 变为 `ok=True/coverage_complete=True`，保留 `SEMANTIC_ROLE_NAMING_CONFLICT` 与 `WATER_GUIDE_ROLE_HAS_NO_SUPPLIER` warning findings；focused tests `47 passed`。全量非 OpenMC/非 LLM pytest `3702 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、fixture baseline diff 均通过；默认 `data/evals/workflow/baseline` 路径仍缺失。
+- **风险/边界**：本修复只闭合 reviewer coverage-status 协议错误，不声明 Placement Gate accepted；下一次 Placement milestone 应进入 deterministic `localized_insert_profiles` retry/repair，而不是停在 coverage normalization。
+
+- **Phase 8C Step 3J campaign resume failed-run dispatch closure**：Placement v8 resume 没有重跑，原因是 harness 在 `--resume` 时把旧 `campaign_results.json` 中的 failed run 也计为 completed，导致 `pending_runs=[]` 并瞬间复写旧失败。Resume 现在只跳过 `*_PASSED` run；failed/blocked run 保留其 run_dir checkpoint，但会重新调度。
+- **验证结果**：v8 result 离线过滤从 `old_results=1` 变为 `kept_results=0/pending_after_filter=[1]`；focused campaign resume/harness tests `32 passed`。全量非 OpenMC/非 LLM pytest `3703 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、fixture baseline diff 均通过。
+- **风险/边界**：本修复只保证 resume 会重新 dispatch failed run；如果 provider 继续返回 invalid/ConnectError，仍会停在 Facts investigation，但不再是假 resume。
 
 ### 2026-07-25
 
