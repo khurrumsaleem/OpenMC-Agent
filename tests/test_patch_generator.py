@@ -20,6 +20,7 @@ from openmc_agent.plan_builder.patch_generator import (
     generate_patch,
     parse_llm_patch_json,
 )
+from openmc_agent.plan_builder.patch_prompts import build_patch_prompt
 from openmc_agent.plan_builder.closed_loop.fingerprints import compute_candidate_hash
 from openmc_agent.plan_builder.patches import PatchParseError
 from openmc_agent.plan_builder.state import (
@@ -332,6 +333,58 @@ def test_persisted_duplicate_candidate_stops_before_budget_exhaustion() -> None:
     assert "patch_generation.max_attempts_exceeded" not in {
         issue["code"] for issue in result.issues
     }
+
+
+def test_retry_context_is_rendered_on_first_generation_prompt() -> None:
+    raw = json.dumps({
+        "patch_type": "universes",
+        "universes": [
+            {"universe_id": "rcca_aic", "kind": "control_rod", "cells": [{"id": "aic", "role": "absorber", "material_id": "aic"}]},
+        ],
+    })
+    fake = FakePatchLLM([raw])
+
+    result = generate_patch(
+        patch_type="universes",
+        requirement="reactor-neutral retry",
+        llm_client=fake,
+        context=RetryPatchGenerationContext(
+            base_context=PatchGenerationContext(
+                known_material_ids=["aic"],
+            ),
+            retry_request_id="retry_1",
+            reason_code="localized_insert.required_universe_missing",
+            source_issue_codes=["localized_insert.required_universe_missing"],
+            required_ids=["rcca_aic", "rcca_b4c"],
+        ),
+        max_attempts=1,
+    )
+
+    assert result.ok
+    assert fake.prompts
+    assert "=== Executable retry context ===" in fake.prompts[0]
+    assert "Required IDs: rcca_aic, rcca_b4c" in fake.prompts[0]
+
+
+def test_localized_insert_requirements_are_rendered_in_patch_context() -> None:
+    prompt = build_patch_prompt(
+        "universes",
+        "reactor-neutral prompt",
+        PatchGenerationContext(
+            localized_insert_requirements=[
+                {
+                    "requirement_id": "control_insert",
+                    "insert_kind": "control_rod",
+                    "required_profile_id": "control_profile",
+                    "expected_insert_universe_ids": ["rcca_aic", "rcca_b4c"],
+                }
+            ]
+        ),
+    )
+
+    assert "localized_insert_requirements" in prompt
+    assert "rcca_aic" in prompt
+    assert "rcca_b4c" in prompt
 
 
 def test_axial_schema_normalizes_only_known_role_aliases_and_default_priority() -> None:

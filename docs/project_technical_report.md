@@ -4,6 +4,10 @@
 
 ### 2026-07-26
 
+- **Phase 8C Step 3J Placement dependency retry prompt closure**：Placement v12 不是网络失败；Facts/MU accepted，Placement reviewer complete 且无 finding，但 deterministic preflight 缺 localized insert universes，legacy dependency retry 未把 exact required IDs/accepted Facts insert contract 注入 Universes first-attempt prompt，且失败 artifact 吞掉 generation issue 详情。
+- **验证结果**：v12 artifact 离线复核中 required IDs 从 `pyrex_plenum/pyrex_poison/thimble_plug/rcca_aic` 补全为包含 `rcca_b4c/rcca_plenum` 的 6 个合同 ID；focused Placement/retry tests `42 passed`。全量非 OpenMC/非 LLM pytest `3712 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、fixture baseline diff 均通过。
+- **风险/边界**：本修复使 Universes retry 有完整 source-backed 靶子并保留失败 diagnostics；尚未声明 Placement Gate accepted，需要下一次 `--stop-after-gate placement` milestone 验证。
+
 - **Phase 8C Step 3J Placement review coverage-status closure**：Placement v7 已到 Facts/MU accepted 且 reviewer 返回 `complete_with_gaps`，但 normalizer 只接受 `complete`，错误地把 coverage-complete finding review 记为 `placement_review.coverage_incomplete`。Placement reviewer 现在将 `complete_with_gaps` 作为覆盖完成状态，同时仍要求全部 contract rows 与 evidence refs 显式覆盖。
 - **验证结果**：v7 artifact 离线 replay 从 `coverage_incomplete` 变为 `ok=True/coverage_complete=True`，保留 `SEMANTIC_ROLE_NAMING_CONFLICT` 与 `WATER_GUIDE_ROLE_HAS_NO_SUPPLIER` warning findings；focused tests `47 passed`。全量非 OpenMC/非 LLM pytest `3702 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、fixture baseline diff 均通过；默认 `data/evals/workflow/baseline` 路径仍缺失。
 - **风险/边界**：本修复只闭合 reviewer coverage-status 协议错误，不声明 Placement Gate accepted；下一次 Placement milestone 应进入 deterministic `localized_insert_profiles` retry/repair，而不是停在 coverage normalization。

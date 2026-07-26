@@ -573,6 +573,8 @@ def _retry_outcome_requires_downstream_resume(outcome: Any) -> bool:
 def _placement_dependency_required_ids(
     issues: list[dict[str, Any]],
     dependency_code: str,
+    *,
+    state: PlanBuildState | None = None,
 ) -> list[str]:
     """Collect concrete IDs required by a Placement dependency issue set.
 
@@ -581,6 +583,14 @@ def _placement_dependency_required_ids(
     producer is asked to regenerate a dependency without a target and can fail
     without making progress.
     """
+    requirement_ids: list[str] = []
+    for item in issues:
+        if item.get("code") != dependency_code:
+            continue
+        req_id = item.get("requirement_id")
+        if isinstance(req_id, str) and req_id:
+            requirement_ids.append(req_id)
+
     required: list[str] = []
     for item in issues:
         if item.get("code") != dependency_code:
@@ -601,6 +611,37 @@ def _placement_dependency_required_ids(
                 tail = message.split(marker, 1)[1]
                 item_required.append(tail.split("'", 1)[0])
         required.extend(item_required)
+
+    # Placement preflight may report a localized insert requirement as soon as
+    # the first missing universe is detected.  For an upstream Universes retry,
+    # the owner needs the whole source-backed contract row, not just the first
+    # missing segment.  Enrich from accepted Facts using the requirement IDs
+    # carried by the deterministic preflight issues.
+    if state is not None and requirement_ids:
+        facts_env = next(
+            (
+                item for item in state.patches.values()
+                if item.patch_type == "facts" and item.status == "valid"
+            ),
+            None,
+        )
+        rows = (
+            facts_env.content.get("localized_insert_requirements", [])
+            if facts_env is not None and isinstance(facts_env.content, dict)
+            else []
+        )
+        wanted = set(requirement_ids)
+        if isinstance(rows, list):
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                if row.get("requirement_id") not in wanted:
+                    continue
+                values = row.get("expected_insert_universe_ids", [])
+                values = values if isinstance(values, list) else [values]
+                for candidate in values:
+                    if isinstance(candidate, str) and candidate:
+                        required.append(candidate)
     return list(dict.fromkeys(required))
 
 
@@ -3902,17 +3943,28 @@ def run_incremental_planning(
             state.add_event("planning.placement_human_question_created", "placement ambiguity requires typed confirmation", {"input_hash": pack.input_hash})
             return IncrementalExecutionIssue(code="planning.placement_awaiting_human", severity="error", message="placement gate awaiting human confirmation", patch_type="placement")
         if action is PlanReviewAction.RETRY_DEPENDENCY:
+            dependency_code = str(dependency["code"])
+            dependency_issues = [
+                item for item in preflight["issues"]
+                if item.get("code") == dependency_code
+            ]
+            requirement_ids = list(dict.fromkeys(
+                str(item.get("requirement_id"))
+                for item in dependency_issues
+                if item.get("requirement_id")
+            ))
             expected_ids = _placement_dependency_required_ids(
-                preflight["issues"], dependency["code"]
+                preflight["issues"], dependency_code, state=state
             )
             request = {
                 "request_id": f"placement_dependency_{len(state.placement_dependency_requests):03d}",
                 "gate_id": "placement",
-                "dependency_patch_type": placement_issue_owner(dependency["code"]).get("dependency_patch_type", "universes"),
-                "issue_codes": [dependency["code"]],
+                "dependency_patch_type": placement_issue_owner(dependency_code).get("dependency_patch_type", "universes"),
+                "issue_codes": [dependency_code],
                 "finding_ids": [item.finding_id for item in all_findings],
                 "required_ids": expected_ids,
                 "requirement_id": dependency.get("requirement_id"),
+                "requirement_ids": requirement_ids,
                 "gate_input_hash": pack.input_hash,
                 "reason": "placement gate dependency requires a prior gate",
                 "downstream_patch_types": ["localized_insert_profiles", "pin_map", "assembly_catalog", "core_layout"],
@@ -3936,7 +3988,7 @@ def run_incremental_planning(
                 state=state,
                 downstream_patch_types=request["downstream_patch_types"],
                 gate_input_hash=pack.input_hash,
-                consumer_ids=[str(request["requirement_id"])] if request.get("requirement_id") else [],
+                consumer_ids=requirement_ids,
             )
             if typed_request is None:
                 transition_stage(stage, PlanStageStatus.BLOCKED)
@@ -3953,17 +4005,62 @@ def run_incremental_planning(
                 for owner_patch_type in retry_request.owner_patch_types:
                     if owner_patch_type == "planning_task_plan":
                         continue
+                    base_context = build_generation_context_from_state(
+                        clone_state, owner_patch_type, few_shot_case_ids=few_shot_case_ids
+                    )
+                    retry_context = RetryPatchGenerationContext(
+                        base_context=base_context,
+                        retry_request_id=getattr(retry_request, "request_id", ""),
+                        reason_code=getattr(retry_request, "reason_code", ""),
+                        source_issue_codes=list(getattr(retry_request, "source_issue_codes", [])),
+                        required_ids=sorted({
+                            item for target in retry_request.targets
+                            for item in getattr(target, "required_ids", [])
+                        }),
+                        required_properties=sorted({
+                            item for target in retry_request.targets
+                            for item in getattr(target, "required_properties", [])
+                        }),
+                        affected_json_paths=sorted({
+                            item for target in retry_request.targets
+                            for item in getattr(target, "affected_json_paths", [])
+                        }),
+                        protected_invariants=sorted({
+                            item for target in retry_request.targets
+                            for item in getattr(target, "protected_json_paths", [])
+                        }),
+                        prior_candidate_hashes=list(
+                            state.plan_retry_candidate_hashes_by_fingerprint.get(
+                                getattr(retry_request, "request_fingerprint", ""), []
+                            )
+                        ),
+                    )
                     generated = generate_patch(
                         patch_type=owner_patch_type,
                         requirement=requirement,
                         state=clone_state,
-                        context=build_generation_context_from_state(clone_state, owner_patch_type, few_shot_case_ids=few_shot_case_ids),
+                        context=retry_context,
                         llm_client=llm_client,
                         max_attempts=max_patch_attempts,
                         max_tokens=LARGE_PATCH_MAX_TOKENS.get(owner_patch_type),
                     )
                     if not generated.ok or generated.parsed_patch is None:
-                        raise ValueError(f"retry owner generation failed: {owner_patch_type}")
+                        issue_codes = [
+                            str(issue.get("code"))
+                            for issue in getattr(generated, "issues", [])
+                            if isinstance(issue, dict) and issue.get("code")
+                        ]
+                        state.add_event(
+                            "planning.retry_owner_generation_failed",
+                            f"retry owner generation failed: {owner_patch_type}",
+                            {
+                                "owner_patch_type": owner_patch_type,
+                                "issue_codes": issue_codes,
+                                "issues": getattr(generated, "issues", []),
+                            },
+                        )
+                        suffix = f": {', '.join(issue_codes)}" if issue_codes else ""
+                        raise ValueError(f"retry owner generation failed: {owner_patch_type}{suffix}")
                     candidates[owner_patch_type] = generated.parsed_patch
                 return candidates
 

@@ -163,6 +163,35 @@ class RetryPatchGenerationContext(AgentBaseModel):
         return self.base_context or PatchGenerationContext()
 
 
+def _retry_context_requirement_block(retry_context: RetryPatchGenerationContext) -> str:
+    """Render retry constraints for the first generation attempt.
+
+    ``build_retry_prompt`` only runs after a candidate has failed validation.
+    Owner retry requests need their exact IDs and protected invariants in the
+    first attempt as well, otherwise the producer can regenerate a plausible
+    patch that does not target the dependency issue.
+    """
+
+    lines = [
+        "=== Executable retry context ===",
+        f"Retry request: {retry_context.retry_request_id or '(unknown)'}",
+        f"Reason code: {retry_context.reason_code or '(unknown)'}",
+        f"Source issue codes: {', '.join(retry_context.source_issue_codes) or '(none)'}",
+        f"Required IDs: {', '.join(retry_context.required_ids) or '(none)'}",
+        f"Required properties: {', '.join(retry_context.required_properties) or '(none)'}",
+        f"Affected JSON paths: {', '.join(retry_context.affected_json_paths) or '(none)'}",
+        f"Protected invariants: {', '.join(retry_context.protected_invariants) or '(none)'}",
+        "Constraints:",
+        "- Generate ONLY the requested owner patch; do NOT generate a full plan.",
+        "- Include every required ID exactly as listed; do NOT substitute similar IDs.",
+        "- Preserve every protected invariant and every already-valid unrelated object.",
+        "- Do NOT modify patches outside the requested owner patch.",
+    ]
+    if retry_context.prior_failure_codes:
+        lines.append(f"- Prior failure codes: {', '.join(retry_context.prior_failure_codes)}")
+    return "\n".join(lines)
+
+
 class PatchGenerationAttempt(AgentBaseModel):
     """Record of a single LLM call attempt."""
 
@@ -1136,6 +1165,9 @@ def generate_patch(
     if isinstance(context, RetryPatchGenerationContext):
         retry_context = context
         context = retry_context.unwrap()
+        retry_block = _retry_context_requirement_block(retry_context)
+        if retry_block and "=== Executable retry context ===" not in requirement:
+            requirement = f"{requirement}\n\n{retry_block}"
 
     # Enrich context with validated patch summaries from state.
     effective_context = context or PatchGenerationContext()

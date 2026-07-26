@@ -252,6 +252,10 @@ Rules:
   will fail with lattice_transform.replacement_universe_missing.
 - Every universe_id used in downstream patches MUST exactly match a universe_id
   declared here.  Do NOT expect downstream patches to create their own universes.
+- If Context/Facts.localized_insert_requirements declares expected_insert_universe_ids,
+  define universes with those exact universe_id values. Do NOT replace them with
+  generated profile_* IDs, insert_kind aliases, or material names. These IDs are
+  source-backed placement contract targets used by downstream localized profiles.
 - fuel_pin should have a fuel material cell.
 - Mark through-path cells with protected_through_path=true.
 - If Context shows N distinct fuel_variant_requirements, generate at least N distinct
@@ -1175,6 +1179,9 @@ def _context_block(context: Any | None) -> str:
         "movable_insert_facts",
         "fuel_variant_requirements", "material_summaries",
         "universe_summaries", "assembly_fuel_binding_summaries",
+        "localized_insert_requirements",
+        "localized_insert_universe_summaries",
+        "assembly_insert_binding_summaries",
     ):
         val = getattr(context, attr, None)
         if val is None:

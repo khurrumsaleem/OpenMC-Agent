@@ -85,6 +85,24 @@ def test_placement_missing_universe_issue_carries_retry_ids() -> None:
     )
 
 
+def test_placement_dependency_required_ids_enrich_from_facts_contract() -> None:
+    state = _state()
+    req = state.patches["facts"].content["localized_insert_requirements"][0]
+    req["expected_insert_universe_ids"] = ["abs", "abs_plenum", "abs_end"]
+    state.patches["universes"].content["universes"] = [
+        {"universe_id": "fuel", "kind": "fuel_pin", "cells": []},
+    ]
+    issues = run_placement_preflight(state=state)["issues"]
+
+    required = executor._placement_dependency_required_ids(
+        issues,
+        "localized_insert.required_universe_missing",
+        state=state,
+    )
+
+    assert set(required) == {"abs", "abs_plenum", "abs_end"}
+
+
 def test_multi_assembly_placement_owner_routing_excludes_pin_map() -> None:
     assert placement_issue_owner(
         "localized_insert.anchor_mismatch",
