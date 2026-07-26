@@ -12,6 +12,8 @@ def test_material_issues_route_to_material_owner():
         "material_universe.material_density_missing",
         "material_universe.required_density_missing",
         "material_universe.compound_isotope_unresolved",
+        "materials.composition_fraction_sum_invalid",
+        "qualification.schema_materials.composition_fraction_sum_invalid",
     ):
         policy = retry_owner_policy(code)
         assert policy is not None

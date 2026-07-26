@@ -417,12 +417,51 @@ _ENUM_SYNONYMS: dict[str, dict[str, str]] = {
 
 def _normalize_material_enum_synonyms(mat_data: dict[str, Any]) -> dict[str, Any]:
     """Map common LLM enum synonyms to valid Pydantic literal values."""
+    mat_data = dict(mat_data)
     for field, mapping in _ENUM_SYNONYMS.items():
         val = mat_data.get(field)
         if isinstance(val, str):
             normalized = mapping.get(val.strip().lower())
             if normalized:
                 mat_data[field] = normalized
+    return mat_data
+
+
+def _normalize_percent_style_fraction_basis(mat_data: dict[str, Any]) -> dict[str, Any]:
+    """Normalize obvious percent-style vectors under fraction bases.
+
+    LLMs often emit alloy compositions as ``composition_basis='weight_frac'``
+    with values like Fe=69.5, Cr=19.0, ... because the source text uses wt%.
+    The patch contract, however, treats atom_frac/weight_frac as normalized
+    fractions.  When the vector is unambiguously percent-style (sum≈100), scale
+    it to fractions before schema validation so the accepted fragment cannot
+    carry a known MU reviewer blocker downstream.
+    """
+    basis = str(mat_data.get("composition_basis") or "").strip().lower()
+    if basis not in {"atom_frac", "weight_frac"}:
+        return mat_data
+    composition = mat_data.get("composition")
+    if not isinstance(composition, dict) or not composition:
+        return mat_data
+    numeric: dict[str, float] = {}
+    try:
+        for key, value in composition.items():
+            numeric[str(key)] = float(value)
+    except (TypeError, ValueError):
+        return mat_data
+    total = sum(numeric.values())
+    if abs(total - 100.0) > 1.0e-2:
+        return mat_data
+
+    normalized = {key: value / 100.0 for key, value in numeric.items()}
+    mat_data = dict(mat_data)
+    mat_data["composition"] = normalized
+    current_warnings = mat_data.get("warnings") or []
+    warnings = list(current_warnings) if isinstance(current_warnings, list) else [str(current_warnings)]
+    warnings.append(
+        "deterministically normalized percent-style composition values to fractions"
+    )
+    mat_data["warnings"] = warnings
     return mat_data
 
 
@@ -507,8 +546,9 @@ def qualify_material_fragment(
                 ok=False, material_id=frag_mid, issues=issues,
                 qualification_attempt=attempt_index)
 
-    # 3b. Normalize common LLM enum synonyms before schema validation.
+    # 3b. Normalize common LLM enum/value synonyms before schema validation.
     mat_data = _normalize_material_enum_synonyms(mat_data)
+    mat_data = _normalize_percent_style_fraction_basis(mat_data)
 
     # 4. Schema validation via authoritative MaterialsPatch.
     try:

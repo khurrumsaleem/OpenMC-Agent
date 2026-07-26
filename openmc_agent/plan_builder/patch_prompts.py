@@ -168,8 +168,10 @@ Rules:
 - Every material must be transport-ready after deterministic species resolution.
 
 composition_basis semantics (MUST declare for every material with a composition):
-- "atom_frac": each value is an atom fraction (e.g., U235=3.1 means 3.1 at% U-235).
-- "weight_frac": each value is a weight fraction (e.g., Zr=98.2 means 98.2 wt% Zr).
+- "atom_frac": each value is a normalized atom fraction. If the source gives
+  atom percent, divide by 100 first (e.g., 3.1 at% -> 0.031).
+- "weight_frac": each value is a normalized weight fraction. If the source
+  gives wt%, divide by 100 first (e.g., 98.2 wt% -> 0.982).
 - "atom_density_barn_cm": each value is an absolute atom density in atoms/barn-cm
   (use this when the source gives values like 2.233e-2).
 - "stoichiometric_ratio": the fuel nuclides sum to ~100 (enrichment vector,
@@ -197,8 +199,8 @@ Minimal example:
  {{"material_id": "glass", "name": "Borosilicate glass", "role": "absorber",
    "density_g_cm3": 2.25, "composition": {{}}, "composition_basis": "weight_frac",
    "compound_components": [
-     {{"formula": "B2O3", "fraction": 12.5, "fraction_basis": "weight_frac", "isotope_policy": "natural_elements"}},
-     {{"formula": "SiO2", "fraction": 87.5, "fraction_basis": "weight_frac", "isotope_policy": "natural_elements"}}
+     {{"formula": "B2O3", "fraction": 0.125, "fraction_basis": "weight_frac", "isotope_policy": "natural_elements"}},
+     {{"formula": "SiO2", "fraction": 0.875, "fraction_basis": "weight_frac", "isotope_policy": "natural_elements"}}
    ], "composition_status": "approximate"}}
 ]}}""",
 

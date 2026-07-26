@@ -73,6 +73,29 @@ def test_atom_frac_stoichiometric_ratio_detected_before_reviewer() -> None:
     assert any(i.get("source_validator") for i in result.issues if i["code"] == "materials.composition_fraction_sum_invalid")
 
 
+def test_weight_frac_percent_style_vector_detected_before_reviewer() -> None:
+    state = _state(materials={"patch_type": "materials", "materials": [
+        {
+            "material_id": "steel",
+            "name": "SS304",
+            "role": "structural",
+            "density_g_cm3": 7.9,
+            "composition": {"Fe": 69.5, "Cr": 19.0, "Ni": 9.5, "Mn": 2.0},
+            "composition_basis": "weight_frac",
+            "composition_status": "approximate",
+        },
+        {"material_id": "fuel", "name": "f", "role": "fuel", "density_g_cm3": 10.0},
+        {"material_id": "coolant", "name": "w", "role": "coolant", "density_g_cm3": 0.99},
+    ]})
+    result = run_material_universe_preflight(state=state, policy=_policy())
+    assert not result.ok
+    assert any(
+        i["code"] == "materials.composition_fraction_sum_invalid"
+        and i.get("source_validator")
+        for i in result.issues
+    )
+
+
 def test_shared_localized_insert_profile_metadata_covers_multiple_requirements() -> None:
     facts = {
         "patch_type": "facts",

@@ -250,6 +250,30 @@ class TestFragmentQualification:
             for i in result.issues
         )
 
+    def test_weight_frac_percent_style_vector_normalized_before_fragment_acceptance(self):
+        item = _make_manifest_item(mid="mat_steel", role="structural", variant=None)
+        data = _make_material_data(
+            mid="mat_steel",
+            role="structural",
+            variant=None,
+            density=7.9,
+            composition={"Fe": 69.5, "Cr": 19.0, "Ni": 9.5, "Mn": 2.0},
+        )
+        data["composition_basis"] = "weight_frac"
+        result = qualify_material_fragment(
+            raw_fragment={"materials": [data]},
+            manifest_item=item,
+            all_manifest_material_ids={item.material_id},
+        )
+        assert result.ok
+        assert result.canonical_material_data["composition"] == {
+            "Fe": 0.695,
+            "Cr": 0.19,
+            "Ni": 0.095,
+            "Mn": 0.02,
+        }
+        assert any("percent-style" in warning for warning in result.canonical_material_data["warnings"])
+
     def test_placeholder_material_id_rejected(self):
         item = _make_manifest_item(mid="mat_fuel_1")
         data = _make_material_data(mid="REPLACE")

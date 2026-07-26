@@ -62,6 +62,8 @@ _FACTS_CODES = {
 # material_universe_issue_policy.  These are preserved here for
 # backward compat but the canonical registry takes priority.
 _LEGACY_MATERIAL_CODES = {
+    "materials.composition_fraction_sum_invalid",
+    "qualification.schema_materials.composition_fraction_sum_invalid",
     "materials.execution_density_required",
     "assembly.unresolved_material_reference",
     "materials.compound_in_transport_composition",

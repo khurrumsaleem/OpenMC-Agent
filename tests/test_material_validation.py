@@ -130,22 +130,42 @@ def test_materials_patch_rejects_stoichiometric_ratio_declared_as_atom_frac():
     )
 
 
-def test_materials_patch_accepts_fraction_and_percent_sums():
-    for composition in ({"H1": 0.6666667, "O16": 0.3333333}, {"H1": 66.66667, "O16": 33.33333}):
-        patch = MaterialsPatch.model_validate({
-            "patch_type": "materials",
-            "materials": [{
-                "material_id": "water",
-                "name": "water",
-                "role": "coolant",
-                "density_g_cm3": 0.743,
-                "composition": composition,
-                "composition_basis": "atom_frac",
-                "composition_status": "confirmed",
-            }],
-        })
-        result = validate_patch(patch)
-        assert not any(issue.code == "materials.composition_fraction_sum_invalid" for issue in result.issues)
+def test_materials_patch_accepts_fraction_sum():
+    patch = MaterialsPatch.model_validate({
+        "patch_type": "materials",
+        "materials": [{
+            "material_id": "water",
+            "name": "water",
+            "role": "coolant",
+            "density_g_cm3": 0.743,
+            "composition": {"H1": 0.6666667, "O16": 0.3333333},
+            "composition_basis": "atom_frac",
+            "composition_status": "confirmed",
+        }],
+    })
+    result = validate_patch(patch)
+    assert not any(issue.code == "materials.composition_fraction_sum_invalid" for issue in result.issues)
+
+
+def test_materials_patch_rejects_percent_style_sum_under_fraction_basis():
+    patch = MaterialsPatch.model_validate({
+        "patch_type": "materials",
+        "materials": [{
+            "material_id": "steel",
+            "name": "SS304",
+            "role": "structural",
+            "density_g_cm3": 7.9,
+            "composition": {"Fe": 69.5, "Cr": 19.0, "Ni": 9.5, "Mn": 2.0},
+            "composition_basis": "weight_frac",
+            "composition_status": "approximate",
+        }],
+    })
+    result = validate_patch(patch)
+    assert any(
+        issue.code == "materials.composition_fraction_sum_invalid"
+        and issue.expected == "0 < sum <= 1.0"
+        for issue in result.issues
+    )
 
 
 def test_materials_patch_accepts_partial_fraction_vector():
