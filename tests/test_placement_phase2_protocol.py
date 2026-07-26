@@ -12,6 +12,7 @@ from openmc_agent.plan_builder.closed_loop.placement_evidence import (
 )
 from openmc_agent.plan_builder.closed_loop.placement_preflight import run_placement_preflight
 from openmc_agent.plan_builder.closed_loop.placement_reviewer import run_placement_review
+from openmc_agent.plan_builder.closed_loop.placement_issue_policy import placement_issue_owner
 from openmc_agent.plan_builder.closed_loop.review_io import StructuredReviewCallSpec, run_structured_review_call
 from openmc_agent.plan_builder.closed_loop.models import PlacementReviewModelOutput
 from openmc_agent.plan_builder.state import PlanBuildState, PlanPatchEnvelope
@@ -58,6 +59,17 @@ def test_single_assembly_view_preflight_and_hash_are_deterministic() -> None:
 def test_missing_intent_is_deterministic_placement_failure() -> None:
     issues = run_placement_preflight(state=_state(missing_intent=True))["issues"]
     assert {item["code"] for item in issues} >= {"localized_insert.required_placement_missing"}
+
+
+def test_multi_assembly_placement_owner_routing_excludes_pin_map() -> None:
+    assert placement_issue_owner(
+        "localized_insert.anchor_mismatch",
+        canonical_scope="multi_assembly",
+    )["owner_patch_types"] == ["assembly_catalog", "localized_insert_profiles"]
+    assert placement_issue_owner(
+        "localized_insert.control_state_mismatch",
+        canonical_scope="multi_assembly",
+    )["owner_patch_types"] == ["assembly_catalog"]
 
 
 def test_reviewer_rejects_unknown_evidence_ref() -> None:

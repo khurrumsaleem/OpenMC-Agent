@@ -3773,6 +3773,9 @@ def run_incremental_planning(
         preflight = run_placement_preflight(state=state)
         state.add_event("planning.placement_preflight_completed", "placement deterministic preflight completed", {"issue_count": len(preflight["issues"])})
         pack = build_placement_evidence_pack(state=state, policy=policy, deterministic_issues=preflight["issues"])
+        placement_scope_kind = ""
+        if isinstance(preflight.get("binding_view"), dict):
+            placement_scope_kind = str(preflight.get("binding_view", {}).get("scope_kind") or "")
         stage.metadata.update({"reviewed_input_hash": pack.input_hash, "review_model": getattr(plan_reviewer_client, "model_name", None)})
         for name, value in (("placement_binding_view.json", preflight.get("binding_view")), ("placement_contract_matrix.json", pack.contract_matrix), ("placement_evidence_pack.json", pack), ("placement_preflight.json", preflight)):
             path = artifact_writer._write(name, value)
@@ -3813,8 +3816,8 @@ def run_incremental_planning(
         deterministic_findings = [
             PlanReviewFinding(gate_id=PlanGateId.PLACEMENT, code=item["code"], severity=PlanFindingSeverity.ERROR if item.get("severity") == "error" else PlanFindingSeverity.WARNING,
                               category=PlanFindingCategory.PLACEMENT_GAP, message=item.get("message", item["code"]), source_evidence=[],
-                              affected_patch_types=placement_issue_owner(item["code"]).get("owner_patch_types", []), affected_json_paths=[],
-                              repairable_by_llm=bool(placement_issue_owner(item["code"]).get("owner_patch_types")), requires_human=False, confidence=1.0,
+                              affected_patch_types=placement_issue_owner(item["code"], canonical_scope=placement_scope_kind).get("owner_patch_types", []), affected_json_paths=[],
+                              repairable_by_llm=bool(placement_issue_owner(item["code"], canonical_scope=placement_scope_kind).get("owner_patch_types")), requires_human=False, confidence=1.0,
                               metadata={"deterministic": True, "requirement_id": item.get("requirement_id")})
             for item in preflight["issues"]
         ]
@@ -4014,7 +4017,27 @@ def run_incremental_planning(
                 transition_stage(stage, PlanStageStatus.BLOCKED)
                 state.add_event("planning.placement_budget_exhausted", "placement repair budget exhausted", {})
                 return IncrementalExecutionIssue(code="planning.closed_loop.issue_attempt_budget_exhausted", severity="error", message="placement repair budget exhausted", patch_type="placement")
-            current = {patch_type: next(env.content for env in state.patches.values() if env.patch_type == patch_type and env.status == "valid") for patch_type in sorted({ptype for finding in blocking for ptype in finding.affected_patch_types})}
+            current = {}
+            missing_owner_patch_types: list[str] = []
+            for patch_type in sorted({ptype for finding in blocking for ptype in finding.affected_patch_types}):
+                env = next((item for item in state.patches.values() if item.patch_type == patch_type and item.status == "valid"), None)
+                if env is None:
+                    missing_owner_patch_types.append(patch_type)
+                    continue
+                current[patch_type] = env.content
+            if missing_owner_patch_types:
+                transition_stage(stage, PlanStageStatus.BLOCKED)
+                state.add_event(
+                    "planning.placement_repair_owner_missing",
+                    "placement repair owner patch is not present in the current state",
+                    {"missing_patch_types": missing_owner_patch_types, "issue_fingerprint": issue_fingerprint},
+                )
+                return IncrementalExecutionIssue(
+                    code="planning.placement_repair_owner_missing",
+                    severity="error",
+                    message="placement repair requires a missing owner patch",
+                    patch_type=missing_owner_patch_types[0],
+                )
             prompt = build_placement_revision_prompt(
                 patches=current, findings=[item.model_dump(mode="json") for item in blocking], evidence_pack=pack.model_dump(mode="json"),
                 allowed_paths=allowed_paths_for_placement_findings(blocking), confirmed_records=[item.model_dump(mode="json") for item in state.plan_confirmed_plan_fact_records.values()],

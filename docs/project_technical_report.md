@@ -12,6 +12,10 @@
 - **验证结果**：v8 result 离线过滤从 `old_results=1` 变为 `kept_results=0/pending_after_filter=[1]`；focused campaign resume/harness tests `32 passed`。全量非 OpenMC/非 LLM pytest `3703 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、fixture baseline diff 均通过。
 - **风险/边界**：本修复只保证 resume 会重新 dispatch failed run；如果 provider 继续返回 invalid/ConnectError，仍会停在 Facts investigation，但不再是假 resume。
 
+- **Phase 8C Step 3J Placement multi-assembly owner routing closure**：Placement v9 已到 MU accepted 并进入 Placement review，但 deterministic repair target 同时包含 `pin_map`；multi-assembly/full-core state 没有 valid `pin_map` patch，executor 用裸 `next()` 收集 owner patch 时抛出 `StopIteration`，外层误归 `graph_invocation` infrastructure。Placement deterministic owner routing 现在使用 binding view scope，multi-assembly 不再路由到 `pin_map`；缺 owner patch 也会结构化返回 `planning.placement_repair_owner_missing`。
+- **验证结果**：v9 artifact 离线 owner 集合从 `assembly_catalog/localized_insert_profiles/pin_map` 收敛为 `assembly_catalog/localized_insert_profiles`；focused Placement/incremental/downstream tests `48 passed`。全量非 OpenMC/非 LLM pytest `3704 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、fixture baseline diff 均通过。
+- **风险/边界**：本修复闭合 harness crash；Placement Gate 仍需继续处理真实 deterministic findings（profile id、anchor、control_state），不声明 accepted。
+
 ### 2026-07-25
 
 - **Phase 8C Step 3J Placement retry resolved-state closure**：Placement v6 已进入 Placement review，Facts accepted、Placement review_count=1、网络正常；retry controller 成功提交 Universes owner 并返回 `status=resolved`、`workflow_behavior_changed=True`，但 executor 只对 `resumed` 继续 downstream rebuild，错误地把 `planning.retry.resolved` 当 blocker。executor 现在将已提交 owner 且改变 workflow 的 `resolved/resumed/partially_resolved` 都视为需要 downstream resume。
