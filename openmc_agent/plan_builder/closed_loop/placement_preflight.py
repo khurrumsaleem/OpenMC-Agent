@@ -77,7 +77,16 @@ def validate_placement_binding_view(view: Any) -> list[dict[str, Any]]:
                     issues.append(_issue("localized_insert.required_universe_missing", "intent references an unavailable universe", requirement.requirement_id, actual=intent.get("insert_universe_id")))
                 if requirement.anchor_z_cm is not None and intent.get("anchor_z_cm") != requirement.anchor_z_cm:
                     issues.append(_issue("localized_insert.anchor_mismatch", "intent anchor differs from accepted Facts contract", requirement.requirement_id, expected=requirement.anchor_z_cm, actual=intent.get("anchor_z_cm")))
-                if requirement.control_state_id is not None and intent.get("control_state_id") != requirement.control_state_id:
+                # Static inserts may carry a source-state label in Facts, but
+                # only movable control inserts need the intent to bind a
+                # runtime control state.  Keep this aligned with
+                # required_placement_validator to avoid deterministic false
+                # positives for stationary Pyrex / thimble plug placements.
+                if (
+                    requirement.control_state_id is not None
+                    and requirement.insert_kind == "control_rod"
+                    and intent.get("control_state_id") != requirement.control_state_id
+                ):
                     issues.append(_issue("localized_insert.control_state_mismatch", "intent control state differs from accepted Facts contract", requirement.requirement_id, expected=requirement.control_state_id, actual=intent.get("control_state_id")))
     return issues
 

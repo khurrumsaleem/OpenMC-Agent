@@ -570,6 +570,40 @@ def _retry_outcome_requires_downstream_resume(outcome: Any) -> bool:
     }
 
 
+def _placement_dependency_required_ids(
+    issues: list[dict[str, Any]],
+    dependency_code: str,
+) -> list[str]:
+    """Collect concrete IDs required by a Placement dependency issue set.
+
+    Placement preflight can report the same root cause once per contract row.
+    The retry request must carry every missing ID; otherwise the upstream
+    producer is asked to regenerate a dependency without a target and can fail
+    without making progress.
+    """
+    required: list[str] = []
+    for item in issues:
+        if item.get("code") != dependency_code:
+            continue
+        item_required: list[str] = []
+        for key in ("expected", "missing_ids", "required_ids"):
+            value = item.get(key)
+            values = value if isinstance(value, list) else [value]
+            for candidate in values:
+                if isinstance(candidate, str) and candidate:
+                    item_required.append(candidate)
+        # Backward-compatible fallback for old artifacts where the validator
+        # embedded the universe ID only in the message text.
+        if not item_required:
+            message = str(item.get("message") or "")
+            marker = "Required universe '"
+            if marker in message:
+                tail = message.split(marker, 1)[1]
+                item_required.append(tail.split("'", 1)[0])
+        required.extend(item_required)
+    return list(dict.fromkeys(required))
+
+
 # ---------------------------------------------------------------------------
 # Context propagation
 # ---------------------------------------------------------------------------
@@ -3868,13 +3902,9 @@ def run_incremental_planning(
             state.add_event("planning.placement_human_question_created", "placement ambiguity requires typed confirmation", {"input_hash": pack.input_hash})
             return IncrementalExecutionIssue(code="planning.placement_awaiting_human", severity="error", message="placement gate awaiting human confirmation", patch_type="placement")
         if action is PlanReviewAction.RETRY_DEPENDENCY:
-            expected_ids = dependency.get("expected")
-            if isinstance(expected_ids, str):
-                expected_ids = [expected_ids]
-            elif not isinstance(expected_ids, list):
-                actual_id = dependency.get("actual")
-                expected_ids = [actual_id] if isinstance(actual_id, str) else []
-            expected_ids = [str(item) for item in expected_ids if item]
+            expected_ids = _placement_dependency_required_ids(
+                preflight["issues"], dependency["code"]
+            )
             request = {
                 "request_id": f"placement_dependency_{len(state.placement_dependency_requests):03d}",
                 "gate_id": "placement",

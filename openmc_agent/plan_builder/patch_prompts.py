@@ -496,6 +496,11 @@ Rules:
 - The multiplicity_hint is advisory; the core_layout patch determines actual placement.
 - Every localized_insert_requirement in Context MUST be fulfilled by a matching
   localized_insert_intent in the corresponding assembly type's pin_map.
+- For each localized_insert_requirement, copy required_profile_id exactly into
+  the matching intent.axial_profile_id when it is provided. Do NOT substitute
+  insert_kind or an invented profile synonym.
+- For each localized_insert_requirement, copy control_state_id exactly into the
+  matching intent.control_state_id when it is provided for a movable insert.
 - An assembly type whose name or role contains "control" or "RCCA" MUST have a
   localized_insert_intent with insert_kind="control_rod" — the name alone does
   NOT satisfy the placement requirement.
@@ -573,6 +578,14 @@ Rules:
   downstream assembly_catalog generation.
 - anchor_kind determines coordinate translation: bottom=additive, top=subtractive, center=bilateral.
 - Use anchor_kind="absolute" only when segments are already in global coordinates.
+- If Context/Facts.localized_insert_requirements declares required_profile_id,
+  define that exact profile_id. Do NOT replace it with insert_kind or an invented synonym.
+- If Context/Facts.localized_insert_requirements declares required_segment_roles and
+  expected_insert_universe_ids with the same length, the profile segments MUST use those
+  role and universe_id values one-to-one in source order.
+- If the required universe IDs are not present in known_universe_ids, do not invent
+  substitute profile_* IDs; leave a clear assumption/warning only if the upstream
+  universes patch is incomplete.
 
 Reactor-neutral example (multi-segment control rod profile):
 {{"patch_type": "localized_insert_profiles",

@@ -330,6 +330,8 @@ def validate_required_localized_insert_placements(
                                 ),
                                 requirement_id=req.requirement_id,
                                 assembly_type_id=tid,
+                                expected=seg.universe_id,
+                                actual=list(known_universe_ids),
                             ))
 
                 # 10b. Expected insert universe IDs exist
@@ -343,6 +345,8 @@ def validate_required_localized_insert_placements(
                             ),
                             requirement_id=req.requirement_id,
                             assembly_type_id=tid,
+                            expected=uid,
+                            actual=list(known_universe_ids),
                         ))
 
                 # 11. Anchor check

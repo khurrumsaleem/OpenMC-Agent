@@ -65,6 +65,12 @@
 - **验证结果**：下游 offline qualification 继续通过，Placement/Axial/Assembled 三个 fixture 的 preflight 与 recorded-review 均 accepted、blocking/rejected finding 为 0；focused downstream tests `30 passed`。本轮未运行完整 Facts→MU canary，避免把里程碑 canary 用作日常定位。
 - **风险/边界**：MU target acceptance 证明当前 bundle/reviewer path 已闭合，但不等同于新的真实 Facts→Materials→Universes generation 成功。下一步真实验收应在 production campaign 到达 MU accepted checkpoint 后提取下游 bundles，按 Placement → Axial → Assembled 执行 target-only live-review；三者闭合后再跑一次完整 milestone canary。
 
+### 2026-07-26
+
+- **Phase 8C Step 3J Placement retry targeting**：v11 真实 canary 已越过 MU（Facts/MU accepted）并在 Placement blocked；失败不是网络问题，而是 Placement dependency retry 丢失 missing universe IDs，同时静态 Pyrex/Thimble 插入被 control_state equality 误报。
+- **验证结果**：Placement/retry focused tests `21 passed`，downstream replay/retry tests `67 passed`，全量非 OpenMC/非 LLM `3709 passed, 2 skipped, 392 deselected`；`compileall`、fake benchmark `21/21`、baseline regression diff 均通过。
+- **风险/边界**：本修复保证 Placement dependency retry 有明确 Universes target，并减少静态 insert false positive；v11 reviewer 仍暴露多段 insert segment universe/material fidelity gap，需下一次 target canary 验证 Universes/Profile regeneration 是否闭合。
+
 ### 2026-07-22
 
 - **Phase 8C Step 3G 下游 Gate 恢复循环 + Live-Review 编排**：(1) 新增 `tests/test_downstream_gate_recovery.py`（10 tests）覆盖 Placement retry_controller 完整循环（resolved/no-progress/budget/stale）和 Axial/Assembled re-replay 恢复（block→mutate→accepted、rejected fail-closed、deterministic replay）。(2) 新增 `scripts/extract_downstream_replay_bundles.py` 从真实 `campaign_checkpoint.json` 提取 `production_accepted` 下游 bundle。(3) 新增 `scripts/run_downstream_live_review.py` 按 Placement→Axial→Assembled 顺序运行 preflight+review（支持 live/recorded/preflight 三模式、early-break/continue-on-fail），MU accepted 后可直接使用。

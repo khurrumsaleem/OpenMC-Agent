@@ -61,6 +61,30 @@ def test_missing_intent_is_deterministic_placement_failure() -> None:
     assert {item["code"] for item in issues} >= {"localized_insert.required_placement_missing"}
 
 
+def test_static_insert_control_state_is_not_required_on_intent() -> None:
+    state = _state()
+    pin = state.patches["pin_map"].content
+    pin["localized_insert_intents"][0]["control_state_id"] = None
+    issues = run_placement_preflight(state=state)["issues"]
+    assert "localized_insert.control_state_mismatch" not in {item["code"] for item in issues}
+
+
+def test_placement_missing_universe_issue_carries_retry_ids() -> None:
+    state = _state()
+    state.patches["universes"].content["universes"] = [
+        {"universe_id": "fuel", "kind": "fuel_pin", "cells": []},
+    ]
+    issues = run_placement_preflight(state=state)["issues"]
+    missing = [
+        item for item in issues
+        if item["code"] == "localized_insert.required_universe_missing"
+    ]
+    assert missing
+    assert "abs" in executor._placement_dependency_required_ids(
+        issues, "localized_insert.required_universe_missing"
+    )
+
+
 def test_multi_assembly_placement_owner_routing_excludes_pin_map() -> None:
     assert placement_issue_owner(
         "localized_insert.anchor_mismatch",
