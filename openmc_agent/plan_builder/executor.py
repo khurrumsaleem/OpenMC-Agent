@@ -2233,6 +2233,8 @@ def run_incremental_planning(
         stage = _facts_stage()
         if stage is None:
             return None
+        if _reuse_frozen_accepted_gate(PlanGateId.FACTS):
+            return None
         initial_decision_result: dict[str, Any] | None = None
         candidate_validation_rounds: list[dict[str, Any]] = []
         candidate_commit_result: dict[str, Any] = {
@@ -3157,6 +3159,54 @@ def run_incremental_planning(
     def _stage_for_gate(gate_id: PlanGateId):
         return state.plan_loop_stages.get(f"plan_gate_{gate_id.value}")
 
+    def _target_seed_gate() -> PlanGateId | None:
+        if not state.metadata.get("accepted_plan_build_state_seed"):
+            return None
+        raw = state.metadata.get("target_gate_seed_gate")
+        if raw is None:
+            return None
+        try:
+            return PlanGateId(str(raw))
+        except ValueError:
+            return None
+
+    def _target_seed_freezes_gate(gate_id: PlanGateId) -> bool:
+        """Accepted target-gate seeds reuse upstream accepted boundaries.
+
+        A target review is not authorized to relitigate earlier gates; if an
+        upstream accepted gate would otherwise see a hash drift or reviewer
+        drift, that becomes a target-gate blocker/classification item rather
+        than an upstream re-review inside this run.
+        """
+        target = _target_seed_gate()
+        if target is None:
+            return False
+        order = [
+            PlanGateId.FACTS,
+            PlanGateId.MATERIAL_UNIVERSE,
+            PlanGateId.PLACEMENT,
+            PlanGateId.AXIAL_GEOMETRY,
+            PlanGateId.ASSEMBLED_PLAN,
+        ]
+        if gate_id not in order or target not in order:
+            return False
+        return order.index(gate_id) < order.index(target)
+
+    def _reuse_frozen_accepted_gate(gate_id: PlanGateId) -> bool:
+        stage = _stage_for_gate(gate_id)
+        if (
+            stage is not None
+            and stage.status is PlanStageStatus.ACCEPTED
+            and _target_seed_freezes_gate(gate_id)
+        ):
+            state.add_event(
+                f"planning.{gate_id.value}_gate_reused_from_target_seed",
+                "accepted upstream gate reused by target-gate seed run",
+                {"gate_id": gate_id.value, "target_gate": _target_seed_gate().value if _target_seed_gate() else None},
+            )
+            return True
+        return False
+
     def _maybe_stop_after_gate(gate_id: PlanGateId) -> IncrementalExecutionResult | None:
         """Return a milestone success once the requested gate has accepted.
 
@@ -3371,6 +3421,8 @@ def run_incremental_planning(
         stage = _axial_geometry_stage()
         if stage is None:
             return None
+        if _reuse_frozen_accepted_gate(PlanGateId.AXIAL_GEOMETRY):
+            return None
         # Controlled barrier: Facts, Material-Universe, and Placement must be accepted first.
         if policy.mode is PlanLoopMode.CONTROLLED:
             if stage.status is PlanStageStatus.BLOCKED:
@@ -3519,6 +3571,8 @@ def run_incremental_planning(
 
         stage = _material_universe_stage()
         if stage is None:
+            return None
+        if _reuse_frozen_accepted_gate(PlanGateId.MATERIAL_UNIVERSE):
             return None
         if guard_blocked_stage(stage):
             return None
@@ -3769,6 +3823,8 @@ def run_incremental_planning(
 
         stage = _placement_stage()
         if stage is None:
+            return None
+        if _reuse_frozen_accepted_gate(PlanGateId.PLACEMENT):
             return None
         if policy.mode is PlanLoopMode.CONTROLLED:
             facts_stage = _facts_stage()

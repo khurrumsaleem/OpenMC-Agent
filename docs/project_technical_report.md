@@ -4,6 +4,10 @@
 
 ### 2026-07-27
 
+- **Phase 8C Step 3K target-seed upstream gate reuse closure**：Axial seed v4 已不再 invalidated Placement-owned patches，但仍在 Axial target run 内重新调用 Placement reviewer，因 reviewer coverage drift 将已 accepted Placement 标成 blocked，继而 Axial barrier 报 `planning.axial_geometry_requires_accepted_placement`。现新增 target-seed upstream gate freeze：accepted seed 下，目标 gate 之前的 accepted stages 无条件复用，不因 hash drift 或循环调用重新 reviewer；Axial target 冻结 Facts/MU/Placement，Assembled target 冻结 Facts/MU/Placement/Axial。
+- **验证结果**：新增回归覆盖 Axial target seed 即使 Placement accepted hash stale 也不重审且不触发 placement blocker；相关 focused tests `31 passed`。全量非 OpenMC/非 LLM pytest `3731 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、fixture baseline diff 均通过。
+- **风险/边界**：冻结只适用于显式 accepted-state target seed run；普通 canary/resume 仍按 hash drift 重新打开 gate。若 target reviewer 发现 upstream semantic gap，应作为 target blocker/replay 分类，不在该 target run 内重开上游。
+
 - **Phase 8C Step 3K Assembled target-seed routing hardening**：提前审查 Axial seed 系列暴露的 graph/campaign/retry 接线问题在 Assembled Gate 的复现风险。修复 `accepted_plan_build_state + assembled_plan` fast-path：当存在 `stop_after_gate` 时不再直接返回 assembled plan，而是进入 incremental executor，让 Assembled Gate preflight/reviewer 实际执行。Assembled target seed 下所有 patch-owner retry 均被冻结；上游 Facts/MU/Placement/Axial finding 作为 target blocker 输出，不在 Assembled run 内重开上游。run-level `campaign_config.json` 现在记录脱敏 seed 标志与路径，便于排障。
 - **验证结果**：新增 Assembled target seed graph routing 与 retry 冻结回归；相关 focused tests `30 passed`。全量非 OpenMC/非 LLM pytest `3730 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、fixture baseline diff 均通过。
 - **风险/边界**：本修复只保证 Assembled target canary 的路由和冻结边界正确，不声明 Assembled Gate accepted；真实 Assembled finding 仍需按 replay 分类闭合。
