@@ -1932,7 +1932,7 @@ def run_real_canary_campaign(
             human_answers=dict(campaign.human_answers),
             human_answer_hash=campaign.human_answer_hash,
             acceptance_callback=campaign.acceptance_callback,
-            metadata={"llm_budget": llm_budget.to_dict()},
+            metadata={**dict(campaign.metadata), "llm_budget": llm_budget.to_dict()},
             plan_investigation_mode=campaign.plan_investigation_mode,
             plan_investigation_patch_types=campaign.plan_investigation_patch_types,
             plan_investigation_model=campaign.plan_investigation_model,

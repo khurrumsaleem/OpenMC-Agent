@@ -4,6 +4,10 @@
 
 ### 2026-07-27
 
+- **Phase 8C Step 3K Axial campaign-to-run seed propagation closure**：Axial seed v2 仍未到 Axial；不是网络问题，`failed_network_call_count=0`。顶层 manifest 有 `accepted_plan_build_state_seed=true`，但 per-run `campaign_config.json.metadata={}`，因为 campaign → run config 构造只写入 `llm_budget`，未合并 `campaign.metadata`，导致 graph 初始状态仍没有 seed 并重新生成 Facts/Materials/Universes，最终停在 `BLOCKED_BY_GATE:material_universe`。现已将 campaign metadata 传递到每个 `CanaryRunConfig`。
+- **验证结果**：新增 campaign metadata propagation 回归；相关 focused tests `19 passed`。全量非 OpenMC/非 LLM pytest `3724 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、fixture baseline diff 均通过。
+- **风险/边界**：本修复只闭合 seed 从 campaign 传到 run 的接线；不声明 Axial accepted。下一次 Axial 验收仍应使用新 output dir（例如 `phase8c_step3k_vera4_axial_gate_seed_v3`），不要 resume v1/v2 失败目录。
+
 - **Phase 8C Step 3K Axial accepted-seed graph handoff closure**：Axial seed v1 失败不是网络或 Axial reviewer 问题；manifest 已记录 `accepted_plan_build_state_seed=true`，但 graph 的 requirement 接收节点未把 `accepted_plan_build_state` 继续传给 generate-plan 节点，导致 seed 分支失效并重新从 Facts/MU 跑起，最终停在 `planning.investigation_materials_blocked`。现已在 `_receive_requirement` 保留 sanitized accepted seed，使 Axial target run 可直接从 Placement accepted `plan_build_state.json` 进入下游。
 - **验证结果**：新增 graph seed handoff 回归；Axial seed/readiness/evidence/mode focused tests `17 passed`。全量非 OpenMC/非 LLM pytest `3723 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、fixture baseline diff 均通过。下一次真实 Axial 验收必须用新 output dir（例如 `phase8c_step3k_vera4_axial_gate_seed_v2`），不要 `--resume` 到 v1 失败目录。
 - **风险/边界**：本修复只闭合 seed handoff；不声明 Axial Gate accepted，也不改变 resume 的 git/fingerprint 严格校验。若 v2 到达 Axial 后仍失败，应导出脱敏 Axial replay fixture 离线分类闭合。
