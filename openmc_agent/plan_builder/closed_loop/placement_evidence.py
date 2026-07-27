@@ -213,6 +213,8 @@ def build_placement_evidence_pack(*, state: Any, policy: PlanClosedLoopPolicy, d
         add("accepted_fact_contract", "F", "facts", "/localized_insert_requirements", f"accepted placement requirement {requirement.requirement_id}", requirement.model_dump(mode="json"), {"evidence_origin": "accepted_facts_contract"})
     for scope in view.assembly_scopes:
         add("patch_fragment", "A", scope.source_patch_type, scope.source_json_path, f"placement scope {scope.scope_id}", scope.model_dump(mode="json"))
+    if "core_layout" in patches:
+        add("patch_fragment", "C", "core_layout", "/core_layout", "core layout", patches["core_layout"].content)
     for profile in view.profiles:
         add("patch_fragment", "P", "localized_insert_profiles", f"/profiles/{profile.profile_id}", f"localized profile {profile.profile_id}", profile.model_dump(mode="json"))
     for universe in view.universes:

@@ -195,6 +195,28 @@ def test_shared_profile_across_authorized_assembly_scopes_is_not_unexpected() ->
     assert rows["plug_edge"].static_binding_status == "pass"
 
 
+def test_placement_evidence_pack_includes_required_core_layout_fragment() -> None:
+    state = _shared_profile_multi_assembly_state()
+
+    pack = build_placement_evidence_pack(
+        state=state,
+        policy=PlanClosedLoopPolicy(mode="advisory"),
+    )
+
+    required = set(pack.required_patch_types)
+    represented = {
+        item.patch_type
+        for item in pack.evidence_items
+        if item.patch_type is not None
+    }
+    assert "core_layout" in required
+    assert required <= represented
+    assert any(
+        item.patch_type == "core_layout" and item.json_path == "/core_layout"
+        for item in pack.evidence_items
+    )
+
+
 def test_missing_intent_is_deterministic_placement_failure() -> None:
     issues = run_placement_preflight(state=_state(missing_intent=True))["issues"]
     assert {item["code"] for item in issues} >= {"localized_insert.required_placement_missing"}
