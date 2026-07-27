@@ -4,6 +4,10 @@
 
 ### 2026-07-28
 
+- **Phase 8C Step 3L Assembled seed axial-overlay material normalization**：Assembled seed v1 未进入 Assembled reviewer，失败在补齐 `axial_overlays` 的 patch validation：LLM 生成了 `zircaloy4`/`inconel718`，但 accepted Materials 只含 hashed material IDs，且 Zircaloy-4 有多个候选、Inconel-718 不存在。现新增通用材料 alias 推断（仅唯一匹配才解析）与 axial overlay 生成期 normalization；未知/歧义材料不伪造，降级为 skeleton overlay + human confirmation。
+- **验证结果**：新增回归覆盖唯一材料名 alias、歧义 alias fail-closed、生成阶段 unresolved material skeleton 化；focused tests `120 passed`。全量非 OpenMC/非 LLM pytest `3745 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21` 通过；baseline diff 因 `data/evals/workflow/baseline/evaluation_report.json` 不存在跳过。
+- **风险/边界**：本修复不补造缺失的 Inconel 材料，也不声明 Assembled Gate accepted；下一次真实验收应使用新 output dir 重跑 `--stop-after-gate assembled_plan`，观察 reviewer 是否将 skeleton overlay 作为 source/material blocker。
+
 - **Phase 8C Step 3L Assembled four-gate seed fixture**：真实 Axial target seed v7 在 commit `164278f` 上通过，`STOP_AFTER_GATE_PASSED:axial_geometry`，Facts/MU/Placement/Axial 四个 gate 均 accepted。新增脱敏最小 PlanBuildState fixture，保留 valid patches 与 accepted hashes，显式设置 Assembled pending。
 - **验证结果**：新增回归覆盖 fixture 隐私扫描、`--accepted-plan-build-state` 对 `assembled_plan` 的四 gate accepted 校验、缺 Axial accepted fail-closed、graph 进入 incremental executor、Assembled target seed 上游 owner retry 冻结；focused tests `21 passed`。全量非 OpenMC/非 LLM pytest `3741 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21` 通过；baseline diff 因 `data/evals/workflow/baseline/evaluation_report.json` 不存在跳过。
 - **风险/边界**：fixture 不包含 raw prompt/provider/reasoning/API key，不声明 Assembled accepted；下一步真实验收应基于 v7 seed 新目录运行 `--stop-after-gate assembled_plan`。

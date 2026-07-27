@@ -36,6 +36,7 @@ from .patch_generator import (
 )
 from .llm_adapter import LARGE_PATCH_MAX_TOKENS
 from .closed_loop.fingerprints import compute_candidate_hash
+from .material_resolution import infer_material_aliases
 from .validators import validate_patch
 from .scoped_counts import resolve_expected_counts_for_pin_map
 from .reference_patches import (
@@ -805,7 +806,9 @@ def build_generation_context_from_state(
                     material_roles_by_id[mid] = role
                 material_summaries.append({
                     "material_id": mid,
+                    "name": mat.get("name"),
                     "role": role,
+                    "aliases": mat.get("aliases"),
                     "source_variant_id": mat.get("source_variant_id"),
                     "density_g_cm3": mat.get("density_g_cm3"),
                     "composition_basis": mat.get("composition_basis"),
@@ -932,11 +935,16 @@ def build_generation_context_from_state(
     ctx.reference_expected_counts = reference_expected_counts
     ctx.expected_counts_complete = bool(state.metadata.get("expected_counts_complete", False))
     ctx.known_material_ids = list(dict.fromkeys(known_material_ids))
-    ctx.material_aliases = {
+    explicit_material_aliases = {
         str(k): str(v)
         for k, v in state.metadata.get("material_aliases", {}).items()
         if isinstance(k, str) and isinstance(v, str)
     }
+    inferred_material_aliases = infer_material_aliases(
+        material_summaries,
+        set(known_material_ids),
+    )
+    ctx.material_aliases = {**inferred_material_aliases, **explicit_material_aliases}
     ctx.known_universe_ids = list(dict.fromkeys(known_universe_ids))
     ctx.active_fuel_region_cm = active_fuel
     ctx.axial_domain_cm = axial_domain

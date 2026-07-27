@@ -34,8 +34,75 @@ def _normalize_material_id(material_id: str) -> str:
     return mid
 
 
+def _compact_material_key(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", value.strip().lower())
+
+
+def _material_alias_candidates(value: str) -> set[str]:
+    """Return separator-insensitive lexical aliases for a material label.
+
+    The candidates are intentionally lexical only: this function never maps one
+    material family to another.  Ambiguous candidates are discarded by
+    :func:`infer_material_aliases`.
+    """
+    tokens = re.findall(r"[a-z0-9]+", value.lower())
+    candidates = {
+        _normalize_material_id(value),
+        _compact_material_key(value),
+    }
+    for start in range(len(tokens)):
+        for end in range(start + 1, min(len(tokens), start + 3) + 1):
+            window = tokens[start:end]
+            joined = "".join(window)
+            underscored = "_".join(window)
+            if joined:
+                candidates.add(joined)
+            if underscored:
+                candidates.add(underscored)
+    return {c for c in candidates if c}
+
+
 def _known_lookup(known_material_ids: set[str]) -> dict[str, str]:
     return {_normalize_material_id(mid): mid for mid in known_material_ids}
+
+
+def infer_material_aliases(
+    material_summaries: list[dict[str, object]],
+    known_material_ids: set[str] | list[str],
+) -> dict[str, str]:
+    """Infer unambiguous aliases from accepted material IDs and names.
+
+    This supports safe cases such as a generated ``zircaloy4`` reference when
+    there is exactly one accepted material named ``Zircaloy-4``.  If two
+    accepted materials could match the same alias, the alias is omitted so
+    callers fail closed instead of guessing.
+    """
+    known = set(known_material_ids)
+    buckets: dict[str, set[str]] = {}
+    for summary in material_summaries:
+        mid = summary.get("material_id")
+        if not isinstance(mid, str) or mid not in known:
+            continue
+        labels: list[str] = [mid]
+        for key in ("name", "display_name", "source_label"):
+            value = summary.get(key)
+            if isinstance(value, str) and value:
+                labels.append(value)
+        aliases = summary.get("aliases")
+        if isinstance(aliases, list):
+            labels.extend(value for value in aliases if isinstance(value, str))
+        for label in labels:
+            for candidate in _material_alias_candidates(label):
+                buckets.setdefault(candidate, set()).add(mid)
+                buckets.setdefault(_normalize_material_id(candidate), set()).add(mid)
+
+    inferred: dict[str, str] = {}
+    for alias, targets in buckets.items():
+        if len(targets) == 1:
+            target = next(iter(targets))
+            inferred[alias] = target
+            inferred[_normalize_material_id(alias)] = target
+    return inferred
 
 
 def resolve_material_id(
@@ -75,6 +142,12 @@ def resolve_material_id(
             resolved = alias_target
         else:
             resolved = lookup.get(_normalize_material_id(alias_target))
+            if resolved is None:
+                chained_target = alias_map.get(_normalize_material_id(alias_target))
+                if chained_target in known_material_ids:
+                    resolved = chained_target
+                elif chained_target is not None:
+                    resolved = lookup.get(_normalize_material_id(chained_target))
         if resolved is not None:
             return MaterialResolutionResult(
                 ok=True,
@@ -107,4 +180,8 @@ def resolve_material_id(
     )
 
 
-__all__ = ["MaterialResolutionResult", "resolve_material_id"]
+__all__ = [
+    "MaterialResolutionResult",
+    "infer_material_aliases",
+    "resolve_material_id",
+]

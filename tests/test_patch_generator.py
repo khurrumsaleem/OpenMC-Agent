@@ -955,6 +955,90 @@ def test_vera3_3b_axial_overlays_generation() -> None:
         assert ov["through_path_preserved"] is True
 
 
+def test_axial_overlay_unique_material_alias_normalized_before_validation() -> None:
+    raw = json.dumps({
+        "patch_type": "axial_overlays",
+        "overlays": [{
+            "overlay_id": "grid_1",
+            "overlay_kind": "spacer_grid",
+            "z_min_cm": 10.0,
+            "z_max_cm": 12.0,
+            "target_lattice_id": "assembly_lattice",
+            "material_id": "zircaloy4",
+            "geometry_mode": "homogenized_open_region",
+            "through_path_preserved": True,
+        }],
+    })
+    result = generate_patch(
+        patch_type="axial_overlays",
+        requirement="spacer grids",
+        llm_client=FakePatchLLM([raw]),
+        context=PatchGenerationContext(
+            known_material_ids=["mat_zirc"],
+            material_summaries=[
+                {"material_id": "mat_zirc", "name": "Zircaloy-4 Cladding"},
+            ],
+        ),
+        max_attempts=1,
+    )
+    assert result.ok is True
+    assert result.parsed_patch["overlays"][0]["material_id"] == "mat_zirc"
+    assert result.attempts[0].semantic_normalizations[0]["kind"] == (
+        "axial_overlay_material_alias"
+    )
+
+
+def test_axial_overlay_ambiguous_or_missing_material_degrades_to_skeleton() -> None:
+    raw = json.dumps({
+        "patch_type": "axial_overlays",
+        "overlays": [
+            {
+                "overlay_id": "grid_1",
+                "overlay_kind": "spacer_grid",
+                "z_min_cm": 10.0,
+                "z_max_cm": 12.0,
+                "target_lattice_id": "assembly_lattice",
+                "material_id": "zircaloy4",
+                "geometry_mode": "homogenized_open_region",
+                "through_path_preserved": True,
+            },
+            {
+                "overlay_id": "grid_2",
+                "overlay_kind": "spacer_grid",
+                "z_min_cm": 20.0,
+                "z_max_cm": 22.0,
+                "target_lattice_id": "assembly_lattice",
+                "material_id": "inconel718",
+                "geometry_mode": "homogenized_open_region",
+                "through_path_preserved": True,
+            },
+        ],
+    })
+    result = generate_patch(
+        patch_type="axial_overlays",
+        requirement="spacer grids",
+        llm_client=FakePatchLLM([raw]),
+        context=PatchGenerationContext(
+            known_material_ids=["mat_zirc_a", "mat_zirc_b"],
+            material_summaries=[
+                {"material_id": "mat_zirc_a", "name": "Zircaloy-4 Cladding"},
+                {"material_id": "mat_zirc_b", "name": "Zircaloy-4 Guide Tube"},
+            ],
+        ),
+        max_attempts=1,
+    )
+    assert result.ok is True
+    overlays = result.parsed_patch["overlays"]
+    assert [ov["geometry_mode"] for ov in overlays] == ["skeleton", "skeleton"]
+    assert [ov["material_id"] for ov in overlays] == [None, None]
+    assert all(ov["requires_human_confirmation"] is True for ov in overlays)
+    kinds = [n["kind"] for n in result.attempts[0].semantic_normalizations]
+    assert kinds == [
+        "axial_overlay_unresolved_material_skeleton",
+        "axial_overlay_unresolved_material_skeleton",
+    ]
+
+
 # ---------------------------------------------------------------------------
 # 15. VERA3 3B patch generation + assembler smoke at unit level
 # ---------------------------------------------------------------------------

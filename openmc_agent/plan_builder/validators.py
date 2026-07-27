@@ -30,7 +30,7 @@ from openmc_agent.material_species import (
     parse_empirical_formula,
 )
 
-from .material_resolution import resolve_material_id
+from .material_resolution import infer_material_aliases, resolve_material_id
 from .patches import (
     AxialLayerPatchItem,
     AxialLayersPatch,
@@ -1324,6 +1324,13 @@ def _validate_axial_overlays(
 ) -> list[PatchValidationIssue]:
     issues: list[PatchValidationIssue] = []
     seen_ids: set[str] = set()
+    material_aliases = {
+        **infer_material_aliases(
+            context.material_summaries,
+            set(context.known_material_ids),
+        ),
+        **context.material_aliases,
+    }
 
     for ov in patch.overlays:
         if ov.overlay_id in seen_ids:
@@ -1401,7 +1408,7 @@ def _validate_axial_overlays(
                 resolved = resolve_material_id(
                     ov.material_id,
                     set(context.known_material_ids),
-                    context.material_aliases,
+                    material_aliases,
                 )
                 if not resolved.ok:
                     issues.append(PatchValidationIssue(
@@ -1470,7 +1477,7 @@ def _validate_axial_overlays(
                 resolved = resolve_material_id(
                     ov.material_id,
                     set(context.known_material_ids),
-                    context.material_aliases,
+                    material_aliases,
                 )
                 if not resolved.ok:
                     issues.append(PatchValidationIssue(

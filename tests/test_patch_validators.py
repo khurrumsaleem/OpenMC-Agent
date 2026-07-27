@@ -29,7 +29,10 @@ from openmc_agent.plan_builder.validators import (
     PatchValidationResult,
     validate_patch,
 )
-from openmc_agent.plan_builder.material_resolution import resolve_material_id
+from openmc_agent.plan_builder.material_resolution import (
+    infer_material_aliases,
+    resolve_material_id,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -652,6 +655,53 @@ def test_overlay_material_alias_resolves() -> None:
     resolved = resolve_material_id("grid_zircaloy4", {"zircaloy4", "inconel718"})
     assert resolved.ok is True
     assert resolved.resolved_id == "zircaloy4"
+
+
+def test_overlay_material_alias_inferred_from_unique_material_name() -> None:
+    patch = AxialOverlaysPatch(overlays=[
+        AxialOverlayPatchItem(
+            overlay_id="grid1",
+            overlay_kind="spacer_grid",
+            z_min_cm=10.0,
+            z_max_cm=12.0,
+            target_lattice_id="assembly_lattice",
+            material_id="zircaloy4",
+            geometry_mode="homogenized_open_region",
+            through_path_preserved=True,
+        ),
+    ])
+    context = PatchValidationContext(
+        known_material_ids=["mat_zirc"],
+        material_summaries=[
+            {"material_id": "mat_zirc", "name": "Zircaloy-4 Cladding"},
+        ],
+    )
+    result = validate_patch(patch, context)
+    assert result.ok is True
+    assert "patch.axial_overlays.material_alias_resolved" in _codes(result)
+
+    aliases = infer_material_aliases(context.material_summaries, context.known_material_ids)
+    assert aliases["zircaloy4"] == "mat_zirc"
+    assert aliases["zircaloy_4"] == "mat_zirc"
+
+    resolved = resolve_material_id(
+        "zircaloy-4",
+        {"mat_zirc"},
+        aliases,
+    )
+    assert resolved.ok is True
+    assert resolved.resolved_id == "mat_zirc"
+
+
+def test_overlay_material_alias_inference_drops_ambiguous_names() -> None:
+    aliases = infer_material_aliases(
+        [
+            {"material_id": "mat_zirc_a", "name": "Zircaloy-4 Cladding"},
+            {"material_id": "mat_zirc_b", "name": "Zircaloy-4 Guide Tube"},
+        ],
+        ["mat_zirc_a", "mat_zirc_b"],
+    )
+    assert "zircaloy4" not in aliases
 
 
 def test_overlay_unresolved_material_still_fails() -> None:

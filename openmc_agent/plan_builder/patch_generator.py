@@ -35,6 +35,7 @@ from .patches import (
 from .patch_prompts import build_patch_prompt, build_retry_prompt
 from .state import PlanBuildState, PlanPatchEnvelope
 from .closed_loop.fingerprints import compute_candidate_hash
+from .material_resolution import infer_material_aliases, resolve_material_id
 from .validators import (
     PatchValidationContext,
     PatchValidationResult,
@@ -896,6 +897,82 @@ def _normalize_axial_schema_defaults(content: dict[str, Any]) -> list[dict[str, 
     return normalizations
 
 
+_OVERLAY_MATERIAL_REQUIRED_MODES = frozenset({
+    "homogenized_open_region",
+    "mass_conserving_outer_frame",
+})
+
+
+def _normalize_axial_overlay_material_references(
+    content: dict[str, Any],
+    context: PatchGenerationContext,
+) -> list[dict[str, Any]]:
+    """Normalize axial overlay material references without inventing materials.
+
+    If a generated material ID has a unique accepted-material alias, replace it
+    with the canonical ID.  If a material-required overlay references an
+    unresolved or ambiguous material, degrade that overlay to a skeleton with
+    human confirmation.  This preserves the source-backed grid location while
+    avoiding a false executable material assignment.
+    """
+    if not context.known_material_ids:
+        return []
+
+    aliases = {
+        **infer_material_aliases(
+            context.material_summaries,
+            set(context.known_material_ids),
+        ),
+        **context.material_aliases,
+    }
+    known = set(context.known_material_ids)
+    normalizations: list[dict[str, Any]] = []
+    for index, overlay in enumerate(content.get("overlays", [])):
+        if not isinstance(overlay, dict):
+            continue
+        mode = overlay.get("geometry_mode")
+        material_id = overlay.get("material_id")
+        if not isinstance(mode, str) or not isinstance(material_id, str) or not material_id:
+            continue
+
+        resolved = resolve_material_id(material_id, known, aliases)
+        if resolved.ok and resolved.resolved_id and resolved.resolved_id != material_id:
+            overlay["material_id"] = resolved.resolved_id
+            normalizations.append({
+                "kind": "axial_overlay_material_alias",
+                "json_path": f"/overlays/{index}/material_id",
+                "from": material_id,
+                "to": resolved.resolved_id,
+            })
+            continue
+
+        if not resolved.ok and mode in _OVERLAY_MATERIAL_REQUIRED_MODES:
+            overlay["geometry_mode"] = "skeleton"
+            overlay["material_id"] = None
+            overlay["requires_human_confirmation"] = True
+            if overlay.get("through_path_preserved") is False:
+                overlay["through_path_preserved"] = None
+            assumptions = overlay.get("assumptions")
+            if not isinstance(assumptions, list):
+                assumptions = []
+            note = (
+                f"Generated material reference {material_id!r} is not a unique "
+                "accepted material; retained as skeleton overlay pending "
+                "source-backed material confirmation."
+            )
+            if note not in assumptions:
+                assumptions.append(note)
+            overlay["assumptions"] = assumptions
+            normalizations.append({
+                "kind": "axial_overlay_unresolved_material_skeleton",
+                "json_path": f"/overlays/{index}",
+                "from": {"geometry_mode": mode, "material_id": material_id},
+                "to": {"geometry_mode": "skeleton", "material_id": None},
+                "reason": resolved.reason,
+            })
+    return normalizations
+
+
 # ---------------------------------------------------------------------------
 # Semantic normalization detection (through_path_preserved derivation audit)
 # ---------------------------------------------------------------------------
@@ -1316,6 +1393,11 @@ def generate_patch(
         schema_normalizations: list[dict[str, Any]] = []
         if patch_type == "axial_layers":
             schema_normalizations = _normalize_axial_schema_defaults(content)
+        elif patch_type == "axial_overlays":
+            schema_normalizations = _normalize_axial_overlay_material_references(
+                content,
+                effective_context,
+            )
         attempt.semantic_normalizations = schema_normalizations
 
         # Record a canonical candidate before model parsing.  Schema-invalid
