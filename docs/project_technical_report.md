@@ -4,6 +4,10 @@
 
 ### 2026-07-27
 
+- **Phase 8C Step 3K Axial target-seed upstream freeze closure**：Axial seed v3 已真正使用 Placement accepted seed（`state_id` 与 v16 一致、Facts/MU accepted 复用、LLM calls 降到 3），但 Axial retry 将 upstream Placement-owned patches（`assembly_catalog/core_layout/localized_insert_profiles`）连同 `axial_layers` 一起 invalidated，导致 Placement Gate 从 accepted 退回 pending，并以 `incremental.patch_generation_failed` 收尾。现为 accepted-state target run 写入 seed metadata，并在 retry execution plan 编译阶段冻结 upstream owners：`axial_geometry` target 只允许 `base_path_axial_profiles/axial_layers/axial_overlays` owner 与 Axial Gate replay。
+- **验证结果**：新增 target-seed retry 冻结回归，覆盖 upstream owner、canonical task-plan owner fail-closed 与 Axial owner invalidation 限界；相关 focused tests `27 passed`。全量非 OpenMC/非 LLM pytest `3727 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、fixture baseline diff 均通过。
+- **风险/边界**：本修复不伪造 Axial 通过；如果下一次 Axial reviewer 仍要求修改 upstream Placement/Facts/MU owner，该 finding 应作为 target run blocker 输出并离线分类，而不是在 Axial run 内重开已 accepted 上游。
+
 - **Phase 8C Step 3K Axial campaign-to-run seed propagation closure**：Axial seed v2 仍未到 Axial；不是网络问题，`failed_network_call_count=0`。顶层 manifest 有 `accepted_plan_build_state_seed=true`，但 per-run `campaign_config.json.metadata={}`，因为 campaign → run config 构造只写入 `llm_budget`，未合并 `campaign.metadata`，导致 graph 初始状态仍没有 seed 并重新生成 Facts/Materials/Universes，最终停在 `BLOCKED_BY_GATE:material_universe`。现已将 campaign metadata 传递到每个 `CanaryRunConfig`。
 - **验证结果**：新增 campaign metadata propagation 回归；相关 focused tests `19 passed`。全量非 OpenMC/非 LLM pytest `3724 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、fixture baseline diff 均通过。
 - **风险/边界**：本修复只闭合 seed 从 campaign 传到 run 的接线；不声明 Axial accepted。下一次 Axial 验收仍应使用新 output dir（例如 `phase8c_step3k_vera4_axial_gate_seed_v3`），不要 resume v1/v2 失败目录。

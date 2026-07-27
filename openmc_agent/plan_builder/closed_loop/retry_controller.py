@@ -51,6 +51,62 @@ def _state_hash(state: PlanBuildState) -> str:
     return hashlib.sha256(canonical_json_dumps(payload).encode("utf-8")).hexdigest()
 
 
+_TARGET_GATE_SEED_ALLOWED_OWNER_PATCH_TYPES: dict[str, set[str]] = {
+    "axial_geometry": {"base_path_axial_profiles", "axial_layers", "axial_overlays"},
+    "assembled_plan": {
+        "base_path_axial_profiles",
+        "axial_layers",
+        "axial_overlays",
+        "settings",
+    },
+}
+
+_TARGET_GATE_SEED_ALLOWED_GATE_REPLAYS: dict[str, set[PlanGateId]] = {
+    "axial_geometry": {PlanGateId.AXIAL_GEOMETRY},
+    "assembled_plan": {PlanGateId.AXIAL_GEOMETRY, PlanGateId.ASSEMBLED_PLAN},
+}
+
+
+def _target_gate_seed_gate(state: PlanBuildState) -> str | None:
+    """Return the target gate for an accepted-state seed run, if any.
+
+    Accepted target runs deliberately reuse upstream accepted gate boundaries.
+    Dependency retry must therefore be constrained to the target gate's own
+    patch family; upstream owners remain controlled blockers instead of being
+    regenerated inside the target run.
+    """
+    if not state.metadata.get("accepted_plan_build_state_seed"):
+        return None
+    gate = state.metadata.get("target_gate_seed_gate")
+    return str(gate) if gate else None
+
+
+def _constrain_target_gate_seed_retry_plan(
+    *,
+    state: PlanBuildState,
+    owner_types: list[str],
+    invalidated: list[str],
+    gates: list[PlanGateId],
+) -> tuple[list[str], list[PlanGateId]]:
+    target_gate = _target_gate_seed_gate(state)
+    if target_gate is None:
+        return invalidated, gates
+    allowed_owners = _TARGET_GATE_SEED_ALLOWED_OWNER_PATCH_TYPES.get(target_gate)
+    if not allowed_owners:
+        return invalidated, gates
+    disallowed_owners = sorted({owner for owner in owner_types if owner not in allowed_owners})
+    if disallowed_owners:
+        raise ValueError(
+            "planning.retry_owner_frozen_by_target_seed:"
+            f"{target_gate}:{','.join(disallowed_owners)}"
+        )
+    invalidated = [patch_type for patch_type in invalidated if patch_type in allowed_owners]
+    allowed_gates = _TARGET_GATE_SEED_ALLOWED_GATE_REPLAYS.get(target_gate)
+    if allowed_gates is not None:
+        gates = [gate for gate in gates if gate in allowed_gates]
+    return invalidated, gates
+
+
 def normalize_retry_request(
     source: Any,
     *,
@@ -224,6 +280,12 @@ def compile_retry_execution_plan(
     if request.action is PlanRetryAction.RECOMPUTE_TASK_PLAN:
         invalidated = list(state.canonical_task_plan.ordered_patch_types) if state.canonical_task_plan else []
         gates = [PlanGateId.PLACEMENT, PlanGateId.ASSEMBLED_PLAN]
+    invalidated, gates = _constrain_target_gate_seed_retry_plan(
+        state=state,
+        owner_types=list(request.owner_patch_types),
+        invalidated=invalidated,
+        gates=gates,
+    )
     plan_payload = {"request": request.request_fingerprint, "owners": owner_types, "invalidated": invalidated, "gates": [gate.value for gate in gates], "action": request.action.value}
     fingerprint = hashlib.sha256(canonical_json_dumps(plan_payload).encode("utf-8")).hexdigest()
     plan = RetryExecutionPlan(

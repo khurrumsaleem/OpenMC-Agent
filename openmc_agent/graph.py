@@ -1604,7 +1604,15 @@ def _run_incremental_plan_generation(
 
     # Accepted-fixture evaluation must exercise the production downstream
     # workflow without regenerating its source patches.
-    if state.get("accepted_plan_build_state") and build_state.assembled_plan is not None:
+    accepted_seed = bool(state.get("accepted_plan_build_state"))
+    if accepted_seed:
+        build_state.metadata["accepted_plan_build_state_seed"] = True
+        stop_after_gate = getattr(plan_loop_policy, "stop_after_gate", None)
+        if stop_after_gate is not None:
+            build_state.metadata["target_gate_seed_gate"] = (
+                stop_after_gate.value if hasattr(stop_after_gate, "value") else str(stop_after_gate)
+            )
+    if accepted_seed and build_state.assembled_plan is not None:
         plan = SimulationPlan.model_validate(build_state.assembled_plan)
         artifact_paths = _write_final_simulation_plan(state, plan)
         return {
