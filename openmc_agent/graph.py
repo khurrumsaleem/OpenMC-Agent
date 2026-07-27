@@ -1267,6 +1267,8 @@ def _receive_requirement(state: GraphState) -> GraphState:
                     "requirement_resolution": resolved_summary,
                 },
             )
+        else:
+            updates["accepted_plan_build_state"] = build_state.model_dump(mode="json")
         updates["plan_build_state"] = build_state.model_dump(mode="json")
     return updates
 

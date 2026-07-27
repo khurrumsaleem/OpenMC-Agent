@@ -4,6 +4,10 @@
 
 ### 2026-07-27
 
+- **Phase 8C Step 3K Axial accepted-seed graph handoff closure**：Axial seed v1 失败不是网络或 Axial reviewer 问题；manifest 已记录 `accepted_plan_build_state_seed=true`，但 graph 的 requirement 接收节点未把 `accepted_plan_build_state` 继续传给 generate-plan 节点，导致 seed 分支失效并重新从 Facts/MU 跑起，最终停在 `planning.investigation_materials_blocked`。现已在 `_receive_requirement` 保留 sanitized accepted seed，使 Axial target run 可直接从 Placement accepted `plan_build_state.json` 进入下游。
+- **验证结果**：新增 graph seed handoff 回归；Axial seed/readiness/evidence/mode focused tests `17 passed`。全量非 OpenMC/非 LLM pytest `3723 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、fixture baseline diff 均通过。下一次真实 Axial 验收必须用新 output dir（例如 `phase8c_step3k_vera4_axial_gate_seed_v2`），不要 `--resume` 到 v1 失败目录。
+- **风险/边界**：本修复只闭合 seed handoff；不声明 Axial Gate accepted，也不改变 resume 的 git/fingerprint 严格校验。若 v2 到达 Axial 后仍失败，应导出脱敏 Axial replay fixture 离线分类闭合。
+
 - **Phase 8C Step 3K Axial Gate offline readiness diagnostic**：新增 `scripts/inspect_axial_gate_readiness.py`，可从 sanitized `plan_build_state.json` 或 `campaign_checkpoint.json` 读取 Axial Gate 前置状态，输出 accepted upstream、required axial patch availability、preflight issue codes、owner routes 与下一步建议，不读取/输出 prompt、raw provider response 或 reasoning。
 - **验证结果**：新增 Axial readiness focused tests 与既有 Axial/preflight/stop-after tests 合计 `34 passed`；全量非 OpenMC/非 LLM pytest `3718 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、fixture baseline diff 均通过。对 v16 artifact 离线诊断显示 Facts/MU/Placement accepted，Axial stage 尚未初始化，`base_path_axial_profiles`、`axial_layers`、`axial_overlays` 均无 valid patch，推荐动作是新目录运行 `--stop-after-gate axial_geometry` 生成并验证 Axial patches。
 - **风险/边界**：本轮只补诊断和文档，不声明 Axial Gate accepted；不从 v16 resume，因为后续 commit 会改变 `git_sha` 并触发 strict resume mismatch。真实 Axial canary 若失败，应先导出脱敏 fixture 并离线闭合，不连续重跑。
