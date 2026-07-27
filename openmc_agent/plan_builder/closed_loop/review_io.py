@@ -84,7 +84,7 @@ class StructuredReviewResult(AgentBaseModel):
 
 _FIELD_ALIASES: dict[str, tuple[str, ...]] = {
     "message": ("description", "detail", "reason", "explanation"),
-    "code": ("finding_id", "issue_id", "name"),
+    "code": ("finding_code", "issue_code", "finding_id", "issue_id", "name"),
 }
 
 _CONFIDENCE_LABELS: dict[str, float] = {
@@ -93,9 +93,24 @@ _CONFIDENCE_LABELS: dict[str, float] = {
     "certain": 1.0, "confident": 0.9,
 }
 
+_SEVERITY_LABELS: dict[str, str] = {
+    "error": "error",
+    "err": "error",
+    "blocking": "error",
+    "blocker": "error",
+    "critical": "error",
+    "warning": "warning",
+    "warn": "warning",
+    "nonblocking": "warning",
+    "non_blocking": "warning",
+    "info": "info",
+    "informational": "info",
+    "note": "info",
+}
+
 _VALID_FINDING_CATEGORIES = frozenset({
     "source_coverage", "unsupported_inference", "cross_patch_mismatch",
-    "placement_gap", "reachability_gap", "physical_ambiguuity",
+    "placement_gap", "reachability_gap", "physical_ambiguity",
     "representation_error", "schema_or_format", "no_progress",
     "budget_exhausted",
 })
@@ -134,6 +149,12 @@ def _normalize_finding(f: dict[str, Any]) -> dict[str, Any]:
     cat = f.get("category")
     if isinstance(cat, str) and cat.lower() not in _VALID_FINDING_CATEGORIES:
         f["category"] = "cross_patch_mismatch"
+    elif isinstance(cat, str):
+        f["category"] = cat.lower().strip()
+    severity = f.get("severity")
+    if isinstance(severity, str):
+        label = severity.lower().strip().replace("-", "_").replace(" ", "_")
+        f["severity"] = _SEVERITY_LABELS.get(label, label)
     conf = f.get("confidence")
     if isinstance(conf, str):
         label = conf.lower().strip()
@@ -213,7 +234,8 @@ def normalize_llm_review_candidate(candidate: dict[str, Any], output_model: Any)
     # 3. Review status fix.
     status = data.get("review_status")
     if isinstance(status, str):
-        data["review_status"] = _REVIEW_STATUS_FIXES.get(status.lower().strip(), status)
+        normalized_status = status.lower().strip().replace("-", "_").replace(" ", "_")
+        data["review_status"] = _REVIEW_STATUS_FIXES.get(normalized_status, normalized_status)
     # 4. Top-level confidence.
     conf = data.get("confidence")
     if isinstance(conf, str):

@@ -4,6 +4,10 @@
 
 ### 2026-07-27
 
+- **Phase 8C Step 3K Axial reviewer schema-drift normalization**：Axial seed v6 已复用 accepted 上游并通过 deterministic preflight（blocking 0），但真实 Axial reviewer 两次结构化输出均 schema invalid：第一次 severity enum drift，retry 后 findings 使用非规范 code 字段。现扩展 shared review normalizer，支持 `finding_code/issue_code` alias、severity/review_status 大小写与常见 blocking 标签，并修正 `physical_ambiguity` category 拼写白名单。
+- **验证结果**：新增 shared review I/O 回归，focused reviewer normalization tests `12 passed`。全量非 OpenMC/非 LLM pytest `3736 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21` 通过；baseline diff 因 `data/evals/workflow/baseline/evaluation_report.json` 不存在跳过。
+- **风险/边界**：本修复只提升 structured-review 协议容错；不忽略 finding、不把 Axial reviewer accepted 伪造为通过。下一次仍需新 output dir target-seed Axial canary。
+
 - **Phase 8C Step 3K Axial target-seed deterministic preflight closure**：Axial seed v5 已复用 Facts/MU/Placement accepted 上游并停在 `BLOCKED_BY_GATE:axial_geometry`；失败不是网络或上游 gate 回退，而是 Axial deterministic preflight 将 `assembly_lattice` family alias 判为缺失、将已有 `total_mass_g` 的 spacer grid 误判为缺 density，并忽略已存在的 `localized_insert_profiles`。
 - **验证结果**：修复后 v5 `plan_build_state.json` 离线重放 Axial preflight 为 `ok=True`、blocking `0`；focused Axial preflight/retry-policy tests `39 passed`。全量非 OpenMC/非 LLM pytest `3734 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21` 通过；baseline diff 因 `data/evals/workflow/baseline/evaluation_report.json` 不存在跳过。
 - **风险/边界**：本修复只闭合 deterministic binding/preflight 假阳性，不声明 Axial reviewer accepted。下一次真实验收仍应使用新 output dir 的 target-seed Axial canary。
