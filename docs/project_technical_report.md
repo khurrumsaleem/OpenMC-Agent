@@ -4,6 +4,10 @@
 
 ### 2026-07-26
 
+- **Phase 8C Step 3J Placement shared-profile scope closure**：Placement v14 已到 Facts/MU accepted、profiles 生成成功、reviewer complete 且无 finding，但 deterministic preflight 把 C/E 两个各自合法的 `thimble_plug` intent 互相误判为 `localized_insert.unexpected_assembly_scope`。根因是两个 Facts row 共享同一个 insert kind/profile，而 validator 未检查该 intent 是否已被另一个 assembly-scope row 授权。
+- **验证结果**：v14 artifact 离线重放 Placement preflight 从 2 个 `unexpected_assembly_scope` 变为 `ok=True, issue_count=0`；focused Placement/validator tests `58 passed`。全量非 OpenMC/非 LLM pytest `3714 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、fixture baseline diff 均通过。
+- **风险/边界**：本修复只闭合 deterministic false positive；不修改 core layout、renderer 或 reactor-specific 规则。下一次应新目录重跑 `--stop-after-gate placement`。
+
 - **Phase 8C Step 3J fragmented Universes localized-insert alias closure**：Placement v13 不是网络失败；Facts/MU accepted，但 run 在 Placement 前的 `localized_insert_profiles` patch generation 阶段失败。根因是 fragmented Universes 只生成 `profile_*` universe 并用 metadata 表示覆盖 localized insert requirement，而 accepted Facts/Profile 合同引用的是 exact `expected_insert_universe_ids`。
 - **验证结果**：v13 artifact 离线应用新 alias materialization 后新增 `pyrex_poison/pyrex_plenum/thimble_plug/rcca_aic/rcca_b4c/rcca_plenum/rcca_endplug`，`missing_after=[]`；focused universe/MU/profile tests `58 passed`。全量非 OpenMC/非 LLM pytest `3713 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、fixture baseline diff 均通过。
 - **风险/边界**：本修复只保证 Universes patch 暴露下游可引用的 exact IDs；不声明 Placement Gate accepted。下一次应新目录重跑 `--stop-after-gate placement`。

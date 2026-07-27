@@ -86,6 +86,33 @@ def _find_matching_intents(
     ]
 
 
+def _intent_is_authorized_for_assembly(
+    intent: LocalizedInsertIntentPatchItem,
+    req: LocalizedInsertPlacementRequirementPatchItem,
+    assembly_type_id: str,
+) -> bool:
+    """Return whether a requirement row authorizes an intent in this assembly.
+
+    Different requirement rows may deliberately share the same insert kind and
+    axial profile while applying to disjoint assembly types.  Such a shared
+    profile must not be mistaken for leakage into the wrong assembly scope.
+    """
+
+    if req.assembly_type_ids and assembly_type_id not in req.assembly_type_ids:
+        return False
+    if intent.insert_kind != req.insert_kind:
+        return False
+    if req.required_profile_id and intent.axial_profile_id != req.required_profile_id:
+        return False
+    if (
+        req.insert_kind == "control_rod"
+        and req.control_state_id is not None
+        and intent.control_state_id != req.control_state_id
+    ):
+        return False
+    return True
+
+
 def validate_required_localized_insert_placements(
     facts_patch: FactsPatch | None,
     universes_patch: UniversesPatch | None,
@@ -445,6 +472,10 @@ def validate_required_localized_insert_placements(
                     if i.insert_kind == req.insert_kind
                     and req.required_profile_id is not None
                     and i.axial_profile_id == req.required_profile_id
+                    and not any(
+                        _intent_is_authorized_for_assembly(i, other_req, at.assembly_type_id)
+                        for other_req in requirements
+                    )
                 ]
                 if wrong_intents:
                     issues.append(PlacementValidationIssue(

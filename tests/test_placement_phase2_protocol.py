@@ -44,6 +44,126 @@ def _state(*, missing_intent: bool = False) -> PlanBuildState:
     return state
 
 
+def _shared_profile_multi_assembly_state() -> PlanBuildState:
+    facts = {
+        "patch_type": "facts",
+        "model_scope": "multi_assembly_core",
+        "assembly_count": 2,
+        "assembly_type_counts": {"C": 1, "E": 1},
+        "localized_insert_requirements": [
+            {
+                "requirement_id": "plug_corner",
+                "insert_kind": "thimble_plug",
+                "assembly_type_ids": ["C"],
+                "expected_coordinate_count_per_assembly": 1,
+                "expected_assembly_instance_count": 1,
+                "host_kind": "guide_tube",
+                "required_profile_id": "shared_plug_profile",
+                "required_segment_roles": ["structural"],
+                "expected_insert_universe_ids": ["plug_u"],
+                "anchor_z_cm": 1.0,
+                "control_state_id": "base",
+            },
+            {
+                "requirement_id": "plug_edge",
+                "insert_kind": "thimble_plug",
+                "assembly_type_ids": ["E"],
+                "expected_coordinate_count_per_assembly": 2,
+                "expected_assembly_instance_count": 1,
+                "host_kind": "guide_tube",
+                "required_profile_id": "shared_plug_profile",
+                "required_segment_roles": ["structural"],
+                "expected_insert_universe_ids": ["plug_u"],
+                "anchor_z_cm": 1.0,
+                "control_state_id": "base",
+            },
+        ],
+    }
+    universes = {
+        "patch_type": "universes",
+        "universes": [
+            {"universe_id": "fuel", "kind": "fuel_pin", "cells": [{"id": "f", "role": "fuel", "material_id": "fuel"}]},
+            {"universe_id": "plug_u", "kind": "thimble_plug", "cells": [{"id": "p", "role": "structural", "material_id": "steel"}]},
+        ],
+    }
+    profiles = {
+        "patch_type": "localized_insert_profiles",
+        "profiles": [
+            {
+                "profile_id": "shared_plug_profile",
+                "anchor_kind": "bottom",
+                "anchor_z_cm": None,
+                "segments": [
+                    {
+                        "segment_id": "plug",
+                        "relative_z_min_cm": 0.0,
+                        "relative_z_max_cm": 1.0,
+                        "universe_id": "plug_u",
+                        "role": "structural",
+                    }
+                ],
+            }
+        ],
+    }
+    catalog = {
+        "patch_type": "assembly_catalog",
+        "assembly_types": [
+            {
+                "assembly_type_id": "C",
+                "pin_map": {
+                    "lattice_size": [3, 3],
+                    "default_universe_id": "fuel",
+                    "guide_tube_coords": [[1, 1]],
+                    "instrument_tube_coords": [],
+                    "localized_insert_intents": [
+                        {
+                            "insert_id": "plug_C",
+                            "insert_kind": "thimble_plug",
+                            "insert_universe_id": "plug_u",
+                            "coordinates": [[1, 1]],
+                            "axial_profile_id": "shared_plug_profile",
+                            "anchor_z_cm": 1.0,
+                            "control_state_id": "base",
+                        }
+                    ],
+                },
+            },
+            {
+                "assembly_type_id": "E",
+                "pin_map": {
+                    "lattice_size": [3, 3],
+                    "default_universe_id": "fuel",
+                    "guide_tube_coords": [[0, 0], [2, 2]],
+                    "instrument_tube_coords": [],
+                    "localized_insert_intents": [
+                        {
+                            "insert_id": "plug_E",
+                            "insert_kind": "thimble_plug",
+                            "insert_universe_id": "plug_u",
+                            "coordinates": [[0, 0], [2, 2]],
+                            "axial_profile_id": "shared_plug_profile",
+                            "anchor_z_cm": 1.0,
+                            "control_state_id": "base",
+                        }
+                    ],
+                },
+            },
+        ],
+    }
+    layout = {
+        "patch_type": "core_layout",
+        "core_lattice_id": "core",
+        "shape": [1, 2],
+        "assembly_pitch_cm": 1.0,
+        "assembly_pattern": [["C", "E"]],
+        "expected_assembly_type_counts": {"C": 1, "E": 1},
+    }
+    state = PlanBuildState(state_id="shared-profile-placement", requirement_text="reactor-neutral")
+    for patch in (facts, universes, profiles, catalog, layout):
+        state.add_patch(PlanPatchEnvelope(patch_id=patch["patch_type"], patch_type=patch["patch_type"], content=patch, status="valid"))
+    return state
+
+
 def test_single_assembly_view_preflight_and_hash_are_deterministic() -> None:
     state = _state()
     assert placement_gate_applicable(state) and placement_gate_ready(state)
@@ -54,6 +174,25 @@ def test_single_assembly_view_preflight_and_hash_are_deterministic() -> None:
     pack = build_placement_evidence_pack(state=state, policy=PlanClosedLoopPolicy(mode="advisory"))
     assert pack.contract_matrix.rows[0].static_binding_status == "pass"
     assert all(item.canonical_hash for item in pack.evidence_items)
+
+
+def test_shared_profile_across_authorized_assembly_scopes_is_not_unexpected() -> None:
+    state = _shared_profile_multi_assembly_state()
+
+    result = run_placement_preflight(state=state)
+
+    assert result["ok"]
+    assert "localized_insert.unexpected_assembly_scope" not in {
+        item["code"] for item in result["issues"]
+    }
+    pack = build_placement_evidence_pack(
+        state=state,
+        policy=PlanClosedLoopPolicy(mode="advisory"),
+        deterministic_issues=result["issues"],
+    )
+    rows = {row.requirement_id: row for row in pack.contract_matrix.rows}
+    assert rows["plug_corner"].static_binding_status == "pass"
+    assert rows["plug_edge"].static_binding_status == "pass"
 
 
 def test_missing_intent_is_deterministic_placement_failure() -> None:

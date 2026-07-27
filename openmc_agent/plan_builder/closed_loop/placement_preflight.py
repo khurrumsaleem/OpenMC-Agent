@@ -30,6 +30,42 @@ def _roles_satisfy(expected: set[str], actual: set[str]) -> bool:
     return True
 
 
+def _intent_is_authorized_for_scope(intent: dict[str, Any], requirement: Any, assembly_type_id: str | None) -> bool:
+    """Return whether an intent is authorized by a specific requirement row.
+
+    Multiple accepted Facts rows can share an insert kind and axial profile
+    while applying to disjoint assembly types.  In that case an intent in its
+    own assembly scope is not "unexpected" for another row merely because the
+    insert kind/profile are identical.
+    """
+
+    if assembly_type_id and requirement.assembly_type_ids and assembly_type_id not in requirement.assembly_type_ids:
+        return False
+    if intent.get("insert_kind") != requirement.insert_kind:
+        return False
+    if requirement.required_profile_id and intent.get("axial_profile_id") != requirement.required_profile_id:
+        return False
+    if (
+        requirement.insert_kind == "control_rod"
+        and requirement.control_state_id is not None
+        and intent.get("control_state_id") != requirement.control_state_id
+    ):
+        return False
+    return True
+
+
+def _intent_authorized_by_any_requirement(
+    intent: dict[str, Any],
+    *,
+    assembly_type_id: str | None,
+    requirements: list[Any],
+) -> bool:
+    return any(
+        _intent_is_authorized_for_scope(intent, requirement, assembly_type_id)
+        for requirement in requirements
+    )
+
+
 def validate_placement_binding_view(view: Any) -> list[dict[str, Any]]:
     """Validate invariant binding facts for both plan scope representations."""
     issues: list[dict[str, Any]] = []
@@ -88,6 +124,31 @@ def validate_placement_binding_view(view: Any) -> list[dict[str, Any]]:
                     and intent.get("control_state_id") != requirement.control_state_id
                 ):
                     issues.append(_issue("localized_insert.control_state_mismatch", "intent control state differs from accepted Facts contract", requirement.requirement_id, expected=requirement.control_state_id, actual=intent.get("control_state_id")))
+        for scope in view.assembly_scopes:
+            if not requirement.assembly_type_ids or scope.assembly_type_id in requirement.assembly_type_ids:
+                continue
+            wrong_intents = [
+                intent for intent in scope.localized_insert_intents
+                if intent.get("insert_kind") == requirement.insert_kind
+                and requirement.required_profile_id is not None
+                and intent.get("axial_profile_id") == requirement.required_profile_id
+                and not _intent_authorized_by_any_requirement(
+                    intent,
+                    assembly_type_id=scope.assembly_type_id,
+                    requirements=list(view.requirements),
+                )
+            ]
+            if wrong_intents:
+                issues.append(_issue(
+                    "localized_insert.unexpected_assembly_scope",
+                    (
+                        f"Assembly type '{scope.assembly_type_id}' has intent "
+                        f"'{wrong_intents[0].get('insert_id')}' with insert_kind="
+                        f"'{requirement.insert_kind}' and profile '{requirement.required_profile_id}' "
+                        "but is not in requirement assembly_type_ids"
+                    ),
+                    requirement.requirement_id,
+                ))
     return issues
 
 
