@@ -24,6 +24,7 @@
 - **Phase 8C Step 3E offline downstream qualification**: versioned Placement/Axial/Assembled bundles use an explicitly synthetic `offline_deterministic` accepted-upstream chain. `scripts/qualify_downstream_gates_offline.py` runs target-only production preflight and recorded-review in order and reports fixture fingerprints, coverage, blockers, rejected findings, and terminal status. Mutation corpus covers placement binding/location, axial domain/overlay, and assembled reference/renderer paths; this qualification does not replace MU acceptance or real live-review.
 - **Phase 8C Step 3F campaign recovery qualification**: `CampaignRecoveryScenario` and `scripts/qualify_campaign_recovery_offline.py` exercise sanitized checkpoint/replay recovery with fake deterministic inputs only. The matrix covers clean five-gate reuse, input/policy/checkpoint/bundle/sensitive/upstream drift, timeout/schema/finding blockers, and dependency-graph downstream closure; results contain hashes, boundary reuse/invalidation, call counts, and stable issue codes only.
 - **Phase 8C Step 3G downstream gate recovery + live-review orchestration**: downstream gate blocking→recovery cycle tests cover Placement retry_controller loop (resolved/no-progress/budget/stale) and Axial/Assembled re-replay recovery (block→mutate→accepted). `scripts/extract_downstream_replay_bundles.py` extracts `production_accepted` bundles from real campaign checkpoints; `scripts/run_downstream_live_review.py` orchestrates Placement→Axial→Assembled sequential review (live/recorded/preflight modes, early-break or continue-on-fail).
+- **Phase 8C Step 3K Axial readiness diagnostics**: after a Placement milestone, `scripts/inspect_axial_gate_readiness.py` reads a sanitized `plan_build_state.json` or `campaign_checkpoint.json` and reports accepted upstream status, required Axial patch availability, deterministic preflight codes, owner routes, and the next action. This keeps Axial Gate debugging offline until a single target `--stop-after-gate axial_geometry` milestone run is justified.
 - **Phase 8C Placement retry targeting**: Placement preflight now treats control-state equality as required only for movable control inserts, preserves concrete missing universe IDs on deterministic issues, enriches dependency retries from accepted Facts `localized_insert_requirements`, recognizes shared insert profiles that are separately authorized by different assembly-scope rows, and renders retry/context contracts into first-attempt prompts so Universes regeneration has exact source-backed targets.
 - **Phase 8C Placement evidence coverage**: Placement evidence packs include every required upstream patch family, including the multi-assembly `core_layout` fragment, so reviewers can audit final assembly-scope binding without inferring required evidence from contract rows alone.
 - **Phase 8C MU deterministic material checks**: MaterialsPatch validation, materials fragment qualification, and MU preflight now reject `atom_frac`/`weight_frac` compositions whose sums indicate unnormalized values (for example water `H1=2, O16=1` or alloy wt% values summing to `100`). Fraction bases must use normalized values (`0 < sum <= 1`); source percentages are divided by 100 during fragment qualification when the vector is unambiguous, and chemical ratios must declare `stoichiometric_ratio`.
@@ -188,11 +189,12 @@ fallback 实际模式；不可解析输出会保留原始 source requirement，�
 缺失或无效 patch 继续增量恢复，不会把诊断拼进后续 patch prompt 或调用
 monolithic fallback。
 
-默认 CLI 使用 `controlled` plan-loop，并启用当前可执行的 Facts、
+默认 CLI 使用 `controlled` plan-loop，并启用当前主线已验收的 Facts、
 Material–Universe 与 Placement gates；`--patch-output-mode` 仍为 `auto`。
 因此普通 `inspect` 调用会自动进入增量建模路径。传入
 `--plan-loop-mode off` 可恢复 legacy planning。Axial 与 Assembled Plan gates
-尚未有可执行 controlled barrier，故不会被默认伪装为启用。
+已有 replay/real-canary barrier，但默认 `inspect` 不会在未完成里程碑验收前
+把它们伪装为普通默认启用；真实验收使用 real-canary 的 `--stop-after-gate`。
 
 对包含多组件、轴向层和局部插入件的真实模型，使用 `controlled` gates；不要把
 `advisory` 当作修复模式。受阻的 Facts Gate 不会被 Graph 的普通 patch retry
@@ -206,8 +208,8 @@ conda run --no-capture-output -n openmc-env python -u -m openmc_agent.inspect \
   --patch-reasoning-effort none --max-plan-additional-llm-calls 20
 ```
 
-这启用 Facts 与 Placement Gate；Material–Universe、Axial 与 Final Plan gates
-仍不属于该命令的 controlled 范围。
+这启用默认 controlled gates；Axial 与 Final Plan gates 的主线验收仍通过
+分层 replay 和 real-canary `--stop-after-gate` 执行。
 
 交互式专家反馈：
 

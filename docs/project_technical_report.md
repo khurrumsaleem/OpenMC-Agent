@@ -4,6 +4,10 @@
 
 ### 2026-07-27
 
+- **Phase 8C Step 3K Axial Gate offline readiness diagnostic**：新增 `scripts/inspect_axial_gate_readiness.py`，可从 sanitized `plan_build_state.json` 或 `campaign_checkpoint.json` 读取 Axial Gate 前置状态，输出 accepted upstream、required axial patch availability、preflight issue codes、owner routes 与下一步建议，不读取/输出 prompt、raw provider response 或 reasoning。
+- **验证结果**：新增 Axial readiness focused tests 与既有 Axial/preflight/stop-after tests 合计 `34 passed`；全量非 OpenMC/非 LLM pytest `3718 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、fixture baseline diff 均通过。对 v16 artifact 离线诊断显示 Facts/MU/Placement accepted，Axial stage 尚未初始化，`base_path_axial_profiles`、`axial_layers`、`axial_overlays` 均无 valid patch，推荐动作是新目录运行 `--stop-after-gate axial_geometry` 生成并验证 Axial patches。
+- **风险/边界**：本轮只补诊断和文档，不声明 Axial Gate accepted；不从 v16 resume，因为后续 commit 会改变 `git_sha` 并触发 strict resume mismatch。真实 Axial canary 若失败，应先导出脱敏 fixture 并离线闭合，不连续重跑。
+
 - **Phase 8C Step 3J Placement Gate milestone accepted**：真实 VERA4 `--stop-after-gate placement` v16 在 commit `dc84776b96a93008f74463f650a267a356f396bd` 上完成，enabled gates 为 Facts、Material-Universe、Placement，campaign 结果为 `CAMPAIGN_PASSED`，1/1 successful、0 failed。
 - **验证结果**：用户外部运行 artifact 目录为 `data/runs/phase8c_step3j_vera4_placement_gate_v16`，运行时间 `2026-07-27T07:40:47Z` 到 `2026-07-27T09:08:08Z`，模型 `zhipu:glm-5.2`。该 milestone 基于此前同一 HEAD 的全量非 OpenMC/非 LLM pytest `3715 passed, 2 skipped`、`compileall`、fake benchmark `21/21` 和 baseline diff 通过。
 - **风险/边界**：Placement Gate 已作为主线里程碑越过；下一主线目标转入下游 Axial Geometry Gate。除 Placement 相关代码再变更外，不再用完整 Placement canary 做日常定位。
