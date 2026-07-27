@@ -1,0 +1,3036 @@
+{
+  "assembled_plan": null,
+  "benchmark_id": "VERA_Problem_4",
+  "build_log": [],
+  "canonical_task_plan": null,
+  "component_tasks": [
+    {
+      "dependencies": [],
+      "description": "Extract and confirm modeling facts from requirement",
+      "issues": [
+        {
+          "code": "facts_revision.accepted",
+          "proposal_id": "facts_revision_001"
+        }
+      ],
+      "patch_type": "facts",
+      "status": "pending",
+      "task_id": "task_facts"
+    },
+    {
+      "dependencies": [
+        "task_facts"
+      ],
+      "description": "Define materials (fuel, coolant, cladding, structural)",
+      "issues": [
+        {
+          "code": "facts_revision.accepted",
+          "proposal_id": "facts_revision_001"
+        }
+      ],
+      "patch_type": "materials",
+      "status": "pending",
+      "task_id": "task_materials"
+    },
+    {
+      "dependencies": [
+        "task_materials"
+      ],
+      "description": "Define universes (pin cells, guide tubes, special pins)",
+      "issues": [
+        {
+          "code": "facts_revision.accepted",
+          "proposal_id": "facts_revision_001"
+        }
+      ],
+      "patch_type": "universes",
+      "status": "pending",
+      "task_id": "task_universes"
+    },
+    {
+      "dependencies": [
+        "task_universes"
+      ],
+      "description": "Define assembly type templates with per-type sparse pin maps",
+      "issues": [
+        {
+          "code": "facts_revision.accepted",
+          "proposal_id": "facts_revision_001"
+        }
+      ],
+      "patch_type": "assembly_catalog",
+      "status": "pending",
+      "task_id": "task_assembly_catalog"
+    },
+    {
+      "dependencies": [
+        "task_facts"
+      ],
+      "description": "Define core.axial_layers (z-segmentation)",
+      "issues": [
+        {
+          "code": "facts_revision.accepted",
+          "proposal_id": "facts_revision_001"
+        }
+      ],
+      "patch_type": "axial_layers",
+      "status": "pending",
+      "task_id": "task_axial_layers"
+    },
+    {
+      "dependencies": [
+        "task_axial_layers"
+      ],
+      "description": "Define core.axial_overlays (spacer grids, bands)",
+      "issues": [
+        {
+          "code": "facts_revision.accepted",
+          "proposal_id": "facts_revision_001"
+        }
+      ],
+      "patch_type": "axial_overlays",
+      "status": "pending",
+      "task_id": "task_axial_overlays"
+    },
+    {
+      "dependencies": [
+        "task_assembly_catalog"
+      ],
+      "description": "Define core-level assembly placement pattern",
+      "issues": [
+        {
+          "code": "facts_revision.accepted",
+          "proposal_id": "facts_revision_001"
+        }
+      ],
+      "patch_type": "core_layout",
+      "status": "pending",
+      "task_id": "task_core_layout"
+    },
+    {
+      "dependencies": [],
+      "description": "Define execution settings (batches, particles, source)",
+      "issues": [
+        {
+          "code": "facts_revision.accepted",
+          "proposal_id": "facts_revision_001"
+        }
+      ],
+      "patch_type": "settings",
+      "status": "pending",
+      "task_id": "task_settings"
+    }
+  ],
+  "confirmed_facts": {},
+  "extracted_facts": {},
+  "facts_review_history": [],
+  "facts_revision_history": [],
+  "material_composition_report": null,
+  "material_species_resolution_report": null,
+  "metadata": {
+    "accepted_plan_build_state_seed": true,
+    "fixture_kind": "four_gate_accepted_seed",
+    "fixture_source": "phase8c_step3k_vera4_axial_gate_seed_v7",
+    "stopped_after_gate": "axial_geometry",
+    "target_gate_seed_gate": "axial_geometry"
+  },
+  "patch_generation_attempts_by_context": {},
+  "patch_generation_candidate_hashes_by_context": {},
+  "patch_status": {
+    "materials_fragmented_3d4dee3080943cac": "valid",
+    "patch_assembly_catalog_0": "valid",
+    "patch_axial_layers_0": "valid",
+    "patch_core_layout_0": "valid",
+    "patch_facts_0_repair_2": "valid",
+    "patch_localized_insert_profiles_0": "valid",
+    "universes_fragmented_59e08c3586782239": "valid"
+  },
+  "patches": {
+    "materials_fragmented_3d4dee3080943cac": {
+      "content": {
+        "materials": [
+          {
+            "composition": {
+              "O16": 0.666667,
+              "U235": 0.007123,
+              "U238": 0.32621
+            },
+            "composition_basis": "atom_frac",
+            "composition_status": "confirmed",
+            "compound_components": [],
+            "density_g_cm3": 10.257,
+            "density_requires_human_confirmation": false,
+            "density_source": null,
+            "density_status": "source_provided",
+            "derivation_method": null,
+            "material_id": "mat_0bf8ee657a9f7078",
+            "mixture_components": [],
+            "name": "Region 1 / C,R — UO2 fuel (2.11 wt% U-235)",
+            "role": "fuel",
+            "source_note": null,
+            "source_variant_id": "region_1_2.11pct",
+            "temperature_K": null,
+            "variant_scope": null,
+            "warnings": []
+          },
+          {
+            "composition": {
+              "Cr": 0.001,
+              "Fe": 0.0021,
+              "O": 0.0001,
+              "Sn": 0.0145,
+              "Zr": 0.9823
+            },
+            "composition_basis": "weight_frac",
+            "composition_status": "confirmed",
+            "compound_components": [],
+            "density_g_cm3": 6.55,
+            "density_requires_human_confirmation": false,
+            "density_source": null,
+            "density_status": "confirmed",
+            "derivation_method": null,
+            "material_id": "mat_e452b8f661dc26d3",
+            "mixture_components": [],
+            "name": "Zircaloy-4 Cladding",
+            "role": "cladding",
+            "source_note": null,
+            "source_variant_id": null,
+            "temperature_K": null,
+            "variant_scope": null,
+            "warnings": []
+          },
+          {
+            "composition": {
+              "H1": 0.6667,
+              "O16": 0.3333
+            },
+            "composition_basis": "atom_frac",
+            "composition_status": "confirmed",
+            "compound_components": [],
+            "density_g_cm3": 0.7406,
+            "density_requires_human_confirmation": false,
+            "density_source": null,
+            "density_status": "approximate",
+            "derivation_method": null,
+            "material_id": "mat_075746f0313228a3",
+            "mixture_components": [],
+            "name": "Coolant - Light Water (H2O, HZP, 565 K isothermal)",
+            "role": "coolant",
+            "source_note": null,
+            "source_variant_id": null,
+            "temperature_K": null,
+            "variant_scope": null,
+            "warnings": []
+          },
+          {
+            "composition": {
+              "He4": 1.0
+            },
+            "composition_basis": "atom_frac",
+            "composition_status": "confirmed",
+            "compound_components": [],
+            "density_g_cm3": 0.001,
+            "density_requires_human_confirmation": false,
+            "density_source": null,
+            "density_status": "approximate",
+            "derivation_method": null,
+            "material_id": "mat_0ea0b72ac47092b4",
+            "mixture_components": [],
+            "name": "Helium Gap Gas (VERA HZP 565 K)",
+            "role": "gas",
+            "source_note": null,
+            "source_variant_id": null,
+            "temperature_K": null,
+            "variant_scope": null,
+            "warnings": []
+          },
+          {
+            "composition": {
+              "O16": 0.666667,
+              "U235": 0.008839,
+              "U238": 0.324494
+            },
+            "composition_basis": "atom_frac",
+            "composition_status": "confirmed",
+            "compound_components": [],
+            "density_g_cm3": 10.257,
+            "density_requires_human_confirmation": false,
+            "density_source": null,
+            "density_status": "confirmed",
+            "derivation_method": null,
+            "material_id": "mat_015f25cc7cc44fd1",
+            "mixture_components": [],
+            "name": "Region 2 / E — UO2 fuel 2.619 wt% U-235",
+            "role": "fuel",
+            "source_note": null,
+            "source_variant_id": "region_2_2.619pct",
+            "temperature_K": null,
+            "variant_scope": null,
+            "warnings": []
+          },
+          {
+            "composition": {
+              "Al": 0.0294,
+              "B": 0.04,
+              "K": 0.0026,
+              "Na": 0.0282,
+              "O": 0.5356,
+              "Si": 0.3642
+            },
+            "composition_basis": "weight_frac",
+            "composition_status": "confirmed",
+            "compound_components": [],
+            "density_g_cm3": 2.23,
+            "density_requires_human_confirmation": false,
+            "density_source": null,
+            "density_status": "confirmed",
+            "derivation_method": null,
+            "material_id": "mat_4ade43c12106b81c",
+            "mixture_components": [],
+            "name": "Pyrex Burnable Poison Glass",
+            "role": "poison",
+            "source_note": null,
+            "source_variant_id": null,
+            "temperature_K": null,
+            "variant_scope": null,
+            "warnings": []
+          },
+          {
+            "composition": {
+              "Cr": 0.0007,
+              "Fe": 0.002,
+              "Sn": 0.015,
+              "Zr": 0.9823
+            },
+            "composition_basis": "weight_frac",
+            "composition_status": "confirmed",
+            "compound_components": [],
+            "density_g_cm3": 6.56,
+            "density_requires_human_confirmation": false,
+            "density_source": null,
+            "density_status": "source_provided",
+            "derivation_method": null,
+            "material_id": "mat_33b6fd83b187171f",
+            "mixture_components": [],
+            "name": "Zircaloy-4 (Pyrex rod cladding, edge assembly)",
+            "role": "cladding",
+            "source_note": null,
+            "source_variant_id": null,
+            "temperature_K": null,
+            "variant_scope": null,
+            "warnings": []
+          },
+          {
+            "composition": {
+              "H1": 0.6667,
+              "O16": 0.3333
+            },
+            "composition_basis": "atom_frac",
+            "composition_status": "confirmed",
+            "compound_components": [],
+            "density_g_cm3": 0.991,
+            "density_requires_human_confirmation": false,
+            "density_source": null,
+            "density_status": "source_provided",
+            "derivation_method": null,
+            "material_id": "mat_ed37565dc90b7bac",
+            "mixture_components": [],
+            "name": "Coolant/moderator water in Pyrex-E guide tube annulus (HZP 565 K)",
+            "role": "coolant",
+            "source_note": null,
+            "source_variant_id": null,
+            "temperature_K": null,
+            "variant_scope": null,
+            "warnings": []
+          },
+          {
+            "composition": {
+              "C": 0.0004,
+              "Cr": 0.19,
+              "Fe": 0.695,
+              "Mn": 0.0186,
+              "Ni": 0.096
+            },
+            "composition_basis": "weight_frac",
+            "composition_status": "approximate",
+            "compound_components": [],
+            "density_g_cm3": 7.9,
+            "density_requires_human_confirmation": false,
+            "density_source": null,
+            "density_status": "approximate",
+            "derivation_method": null,
+            "material_id": "mat_a6f5f72aa3a35d3a",
+            "mixture_components": [],
+            "name": "Thimble Plug - Stainless Steel 304 (Corner Assembly, upper local height)",
+            "role": "structural",
+            "source_note": null,
+            "source_variant_id": null,
+            "temperature_K": null,
+            "variant_scope": null,
+            "warnings": []
+          },
+          {
+            "composition": {
+              "B10": 0.000143732,
+              "B11": 0.00057854,
+              "H1": 0.666172,
+              "O16": 0.333103
+            },
+            "composition_basis": "atom_frac",
+            "composition_status": "confirmed",
+            "compound_components": [],
+            "density_g_cm3": 0.7407,
+            "density_requires_human_confirmation": false,
+            "density_source": null,
+            "density_status": "confirmed",
+            "derivation_method": null,
+            "material_id": "mat_51db2c88b6fc46f9",
+            "mixture_components": [],
+            "name": "Borated Water Coolant HZP 565K 1300ppmB",
+            "role": "coolant",
+            "source_note": null,
+            "source_variant_id": null,
+            "temperature_K": null,
+            "variant_scope": null,
+            "warnings": []
+          },
+          {
+            "composition": {
+              "C": 0.0004,
+              "Cr": 0.1965,
+              "Fe": 0.6882,
+              "Mn": 0.015,
+              "Ni": 0.095,
+              "Si": 0.005
+            },
+            "composition_basis": "weight_frac",
+            "composition_status": "approximate",
+            "compound_components": [],
+            "density_g_cm3": 7.94,
+            "density_requires_human_confirmation": false,
+            "density_source": null,
+            "density_status": "source_provided",
+            "derivation_method": null,
+            "material_id": "mat_7a5c62311f5c7e28",
+            "mixture_components": [],
+            "name": "Stainless Steel 304 (Thimble Plug)",
+            "role": "structural",
+            "source_note": null,
+            "source_variant_id": null,
+            "temperature_K": null,
+            "variant_scope": null,
+            "warnings": []
+          },
+          {
+            "composition": {
+              "H1": 0.6667,
+              "O16": 0.3333
+            },
+            "composition_basis": "atom_frac",
+            "composition_status": "confirmed",
+            "compound_components": [],
+            "density_g_cm3": 0.7506,
+            "density_requires_human_confirmation": false,
+            "density_source": null,
+            "density_status": "approximate",
+            "derivation_method": null,
+            "material_id": "mat_70c78f18ac766371",
+            "mixture_components": [],
+            "name": "HZP Coolant / Moderator Water",
+            "role": "coolant",
+            "source_note": null,
+            "source_variant_id": null,
+            "temperature_K": null,
+            "variant_scope": null,
+            "warnings": []
+          },
+          {
+            "composition": {
+              "Ag": 0.8079999999999999,
+              "Cd": 0.05,
+              "In": 0.142
+            },
+            "composition_basis": "weight_frac",
+            "composition_status": "confirmed",
+            "compound_components": [],
+            "density_g_cm3": 10.17,
+            "density_requires_human_confirmation": false,
+            "density_source": null,
+            "density_status": "source_provided",
+            "derivation_method": null,
+            "material_id": "mat_3fadae211329d7a1",
+            "mixture_components": [],
+            "name": "RCCA Absorber Ag-In-Cd Alloy",
+            "role": "absorber",
+            "source_note": null,
+            "source_variant_id": null,
+            "temperature_K": null,
+            "variant_scope": null,
+            "warnings": [
+              "deterministically normalized percent-style composition values to fractions"
+            ]
+          },
+          {
+            "composition": {
+              "Cr": 0.001,
+              "Fe": 0.0021,
+              "Sn": 0.0145,
+              "Zr": 0.9823
+            },
+            "composition_basis": "weight_frac",
+            "composition_status": "confirmed",
+            "compound_components": [],
+            "density_g_cm3": 6.55,
+            "density_requires_human_confirmation": false,
+            "density_source": null,
+            "density_status": "source_provided",
+            "derivation_method": null,
+            "material_id": "mat_0db6664c1d13481f",
+            "mixture_components": [],
+            "name": "Zircaloy-4 Cladding (VERA WBN1)",
+            "role": "cladding",
+            "source_note": null,
+            "source_variant_id": null,
+            "temperature_K": null,
+            "variant_scope": null,
+            "warnings": []
+          },
+          {
+            "composition": {
+              "H1": 0.6667,
+              "O16": 0.3333
+            },
+            "composition_basis": "atom_frac",
+            "composition_status": "confirmed",
+            "compound_components": [],
+            "density_g_cm3": 0.737,
+            "density_requires_human_confirmation": false,
+            "density_source": null,
+            "density_status": "approximate",
+            "derivation_method": null,
+            "material_id": "mat_36b765fb228b8051",
+            "mixture_components": [],
+            "name": "Coolant - Light Water (HZP 565 K)",
+            "role": "coolant",
+            "source_note": null,
+            "source_variant_id": null,
+            "temperature_K": null,
+            "variant_scope": null,
+            "warnings": []
+          }
+        ],
+        "patch_type": "materials"
+      },
+      "issues": [],
+      "metadata": {},
+      "patch_id": "materials_fragmented_3d4dee3080943cac",
+      "patch_type": "materials",
+      "raw_text": null,
+      "schema_version": "v1",
+      "source": "llm",
+      "status": "valid"
+    },
+    "patch_assembly_catalog_0": {
+      "content": {
+        "assembly_types": [
+          {
+            "assembly_type_id": "C",
+            "assumptions": [],
+            "axial_profile_id": null,
+            "base_path_profile_id": null,
+            "fuel_variant_id": "region_1_2.11pct",
+            "multiplicity_hint": 4,
+            "name": "Corner assembly type C",
+            "overlay_set_id": null,
+            "pin_map": {
+              "assumptions": [],
+              "coordinate_convention": {
+                "col_origin": "left",
+                "index_base": 0,
+                "ordering": "row_col",
+                "row_origin": "top"
+              },
+              "default_universe_id": "u_fuel_region_1_2.11pct",
+              "guide_tube_coords": [
+                [
+                  2,
+                  5
+                ],
+                [
+                  2,
+                  8
+                ],
+                [
+                  2,
+                  11
+                ],
+                [
+                  3,
+                  3
+                ],
+                [
+                  3,
+                  13
+                ],
+                [
+                  5,
+                  2
+                ],
+                [
+                  5,
+                  5
+                ],
+                [
+                  5,
+                  8
+                ],
+                [
+                  5,
+                  11
+                ],
+                [
+                  5,
+                  14
+                ],
+                [
+                  8,
+                  2
+                ],
+                [
+                  8,
+                  5
+                ],
+                [
+                  8,
+                  11
+                ],
+                [
+                  8,
+                  14
+                ],
+                [
+                  11,
+                  2
+                ],
+                [
+                  11,
+                  5
+                ],
+                [
+                  11,
+                  8
+                ],
+                [
+                  11,
+                  11
+                ],
+                [
+                  11,
+                  14
+                ],
+                [
+                  13,
+                  3
+                ],
+                [
+                  13,
+                  13
+                ],
+                [
+                  14,
+                  5
+                ],
+                [
+                  14,
+                  8
+                ],
+                [
+                  14,
+                  11
+                ]
+              ],
+              "instrument_tube_coords": [
+                [
+                  8,
+                  8
+                ]
+              ],
+              "lattice_size": [
+                17,
+                17
+              ],
+              "localized_insert_intents": [
+                {
+                  "anchor_z_cm": 383.31,
+                  "application_mode": "coordinate_override",
+                  "assumptions": [],
+                  "axial_profile_id": "profile_thimble_plug",
+                  "component_path_id": null,
+                  "component_role": null,
+                  "control_state_id": null,
+                  "coordinates": [
+                    [
+                      2,
+                      5
+                    ],
+                    [
+                      2,
+                      8
+                    ],
+                    [
+                      2,
+                      11
+                    ],
+                    [
+                      3,
+                      3
+                    ],
+                    [
+                      3,
+                      13
+                    ],
+                    [
+                      5,
+                      2
+                    ],
+                    [
+                      5,
+                      5
+                    ],
+                    [
+                      5,
+                      8
+                    ],
+                    [
+                      5,
+                      11
+                    ],
+                    [
+                      5,
+                      14
+                    ],
+                    [
+                      8,
+                      2
+                    ],
+                    [
+                      8,
+                      5
+                    ],
+                    [
+                      8,
+                      11
+                    ],
+                    [
+                      8,
+                      14
+                    ],
+                    [
+                      11,
+                      2
+                    ],
+                    [
+                      11,
+                      5
+                    ],
+                    [
+                      11,
+                      8
+                    ],
+                    [
+                      11,
+                      11
+                    ],
+                    [
+                      11,
+                      14
+                    ],
+                    [
+                      13,
+                      3
+                    ],
+                    [
+                      13,
+                      13
+                    ],
+                    [
+                      14,
+                      5
+                    ],
+                    [
+                      14,
+                      8
+                    ],
+                    [
+                      14,
+                      11
+                    ]
+                  ],
+                  "host_kind": "guide_tube",
+                  "host_universe_id": null,
+                  "insert_id": "req_plug_C",
+                  "insert_kind": "thimble_plug",
+                  "insert_universe_id": "u_thimble_plug",
+                  "preserve_component_roles": [],
+                  "preserve_path_ids": [],
+                  "priority": 0,
+                  "requires_human_confirmation": false,
+                  "source_note": null,
+                  "z_max_cm": null,
+                  "z_min_cm": null
+                }
+              ],
+              "source_note": null,
+              "water_cell_coords": []
+            },
+            "requires_human_confirmation": false,
+            "role": "fuel",
+            "source_note": null
+          },
+          {
+            "assembly_type_id": "E",
+            "assumptions": [],
+            "axial_profile_id": null,
+            "base_path_profile_id": null,
+            "fuel_variant_id": "region_2_2.619pct",
+            "multiplicity_hint": 4,
+            "name": "Edge assembly type E",
+            "overlay_set_id": null,
+            "pin_map": {
+              "assumptions": [],
+              "coordinate_convention": {
+                "col_origin": "left",
+                "index_base": 0,
+                "ordering": "row_col",
+                "row_origin": "top"
+              },
+              "default_universe_id": "u_fuel_region_2_2.619pct",
+              "guide_tube_coords": [
+                [
+                  2,
+                  5
+                ],
+                [
+                  2,
+                  8
+                ],
+                [
+                  2,
+                  11
+                ],
+                [
+                  3,
+                  3
+                ],
+                [
+                  3,
+                  13
+                ],
+                [
+                  5,
+                  2
+                ],
+                [
+                  5,
+                  5
+                ],
+                [
+                  5,
+                  8
+                ],
+                [
+                  5,
+                  11
+                ],
+                [
+                  5,
+                  14
+                ],
+                [
+                  8,
+                  2
+                ],
+                [
+                  8,
+                  5
+                ],
+                [
+                  8,
+                  11
+                ],
+                [
+                  8,
+                  14
+                ],
+                [
+                  11,
+                  2
+                ],
+                [
+                  11,
+                  5
+                ],
+                [
+                  11,
+                  8
+                ],
+                [
+                  11,
+                  11
+                ],
+                [
+                  11,
+                  14
+                ],
+                [
+                  13,
+                  3
+                ],
+                [
+                  13,
+                  13
+                ],
+                [
+                  14,
+                  5
+                ],
+                [
+                  14,
+                  8
+                ],
+                [
+                  14,
+                  11
+                ]
+              ],
+              "instrument_tube_coords": [
+                [
+                  8,
+                  8
+                ]
+              ],
+              "lattice_size": [
+                17,
+                17
+              ],
+              "localized_insert_intents": [
+                {
+                  "anchor_z_cm": 15.761,
+                  "application_mode": "coordinate_override",
+                  "assumptions": [],
+                  "axial_profile_id": "profile_pyrex",
+                  "component_path_id": null,
+                  "component_role": null,
+                  "control_state_id": null,
+                  "coordinates": [
+                    [
+                      2,
+                      5
+                    ],
+                    [
+                      2,
+                      11
+                    ],
+                    [
+                      3,
+                      3
+                    ],
+                    [
+                      3,
+                      13
+                    ],
+                    [
+                      5,
+                      2
+                    ],
+                    [
+                      5,
+                      8
+                    ],
+                    [
+                      5,
+                      14
+                    ],
+                    [
+                      8,
+                      5
+                    ],
+                    [
+                      8,
+                      11
+                    ],
+                    [
+                      11,
+                      2
+                    ],
+                    [
+                      11,
+                      8
+                    ],
+                    [
+                      11,
+                      14
+                    ],
+                    [
+                      13,
+                      3
+                    ],
+                    [
+                      13,
+                      13
+                    ],
+                    [
+                      14,
+                      5
+                    ],
+                    [
+                      14,
+                      11
+                    ],
+                    [
+                      2,
+                      8
+                    ],
+                    [
+                      8,
+                      2
+                    ],
+                    [
+                      8,
+                      14
+                    ],
+                    [
+                      14,
+                      8
+                    ]
+                  ],
+                  "host_kind": "guide_tube",
+                  "host_universe_id": null,
+                  "insert_id": "req_pyrex_E",
+                  "insert_kind": "pyrex_rod",
+                  "insert_universe_id": "u_pyrex_poison",
+                  "preserve_component_roles": [],
+                  "preserve_path_ids": [],
+                  "priority": 0,
+                  "requires_human_confirmation": false,
+                  "source_note": null,
+                  "z_max_cm": null,
+                  "z_min_cm": null
+                },
+                {
+                  "anchor_z_cm": 383.31,
+                  "application_mode": "coordinate_override",
+                  "assumptions": [],
+                  "axial_profile_id": "profile_thimble_plug",
+                  "component_path_id": null,
+                  "component_role": null,
+                  "control_state_id": null,
+                  "coordinates": [
+                    [
+                      5,
+                      5
+                    ],
+                    [
+                      5,
+                      11
+                    ],
+                    [
+                      11,
+                      5
+                    ],
+                    [
+                      11,
+                      11
+                    ]
+                  ],
+                  "host_kind": "guide_tube",
+                  "host_universe_id": null,
+                  "insert_id": "req_plug_E",
+                  "insert_kind": "thimble_plug",
+                  "insert_universe_id": "u_thimble_plug",
+                  "preserve_component_roles": [],
+                  "preserve_path_ids": [],
+                  "priority": 0,
+                  "requires_human_confirmation": false,
+                  "source_note": null,
+                  "z_max_cm": null,
+                  "z_min_cm": null
+                }
+              ],
+              "source_note": null,
+              "water_cell_coords": []
+            },
+            "requires_human_confirmation": false,
+            "role": "fuel",
+            "source_note": null
+          },
+          {
+            "assembly_type_id": "R",
+            "assumptions": [],
+            "axial_profile_id": null,
+            "base_path_profile_id": null,
+            "fuel_variant_id": "region_1_2.11pct",
+            "multiplicity_hint": 1,
+            "name": "Center RCCA assembly type R",
+            "overlay_set_id": null,
+            "pin_map": {
+              "assumptions": [],
+              "coordinate_convention": {
+                "col_origin": "left",
+                "index_base": 0,
+                "ordering": "row_col",
+                "row_origin": "top"
+              },
+              "default_universe_id": "u_fuel_region_1_2.11pct",
+              "guide_tube_coords": [
+                [
+                  2,
+                  5
+                ],
+                [
+                  2,
+                  8
+                ],
+                [
+                  2,
+                  11
+                ],
+                [
+                  3,
+                  3
+                ],
+                [
+                  3,
+                  13
+                ],
+                [
+                  5,
+                  2
+                ],
+                [
+                  5,
+                  5
+                ],
+                [
+                  5,
+                  8
+                ],
+                [
+                  5,
+                  11
+                ],
+                [
+                  5,
+                  14
+                ],
+                [
+                  8,
+                  2
+                ],
+                [
+                  8,
+                  5
+                ],
+                [
+                  8,
+                  11
+                ],
+                [
+                  8,
+                  14
+                ],
+                [
+                  11,
+                  2
+                ],
+                [
+                  11,
+                  5
+                ],
+                [
+                  11,
+                  8
+                ],
+                [
+                  11,
+                  11
+                ],
+                [
+                  11,
+                  14
+                ],
+                [
+                  13,
+                  3
+                ],
+                [
+                  13,
+                  13
+                ],
+                [
+                  14,
+                  5
+                ],
+                [
+                  14,
+                  8
+                ],
+                [
+                  14,
+                  11
+                ]
+              ],
+              "instrument_tube_coords": [
+                [
+                  8,
+                  8
+                ]
+              ],
+              "lattice_size": [
+                17,
+                17
+              ],
+              "localized_insert_intents": [
+                {
+                  "anchor_z_cm": 257.9,
+                  "application_mode": "coordinate_override",
+                  "assumptions": [],
+                  "axial_profile_id": "profile_rcca_base",
+                  "component_path_id": null,
+                  "component_role": null,
+                  "control_state_id": "base",
+                  "coordinates": [
+                    [
+                      2,
+                      5
+                    ],
+                    [
+                      2,
+                      8
+                    ],
+                    [
+                      2,
+                      11
+                    ],
+                    [
+                      3,
+                      3
+                    ],
+                    [
+                      3,
+                      13
+                    ],
+                    [
+                      5,
+                      2
+                    ],
+                    [
+                      5,
+                      5
+                    ],
+                    [
+                      5,
+                      8
+                    ],
+                    [
+                      5,
+                      11
+                    ],
+                    [
+                      5,
+                      14
+                    ],
+                    [
+                      8,
+                      2
+                    ],
+                    [
+                      8,
+                      5
+                    ],
+                    [
+                      8,
+                      11
+                    ],
+                    [
+                      8,
+                      14
+                    ],
+                    [
+                      11,
+                      2
+                    ],
+                    [
+                      11,
+                      5
+                    ],
+                    [
+                      11,
+                      8
+                    ],
+                    [
+                      11,
+                      11
+                    ],
+                    [
+                      11,
+                      14
+                    ],
+                    [
+                      13,
+                      3
+                    ],
+                    [
+                      13,
+                      13
+                    ],
+                    [
+                      14,
+                      5
+                    ],
+                    [
+                      14,
+                      8
+                    ],
+                    [
+                      14,
+                      11
+                    ]
+                  ],
+                  "host_kind": "guide_tube",
+                  "host_universe_id": null,
+                  "insert_id": "req_rcca_R_base",
+                  "insert_kind": "control_rod",
+                  "insert_universe_id": "u_rcca_aic",
+                  "preserve_component_roles": [],
+                  "preserve_path_ids": [],
+                  "priority": 0,
+                  "requires_human_confirmation": false,
+                  "source_note": null,
+                  "z_max_cm": null,
+                  "z_min_cm": null
+                }
+              ],
+              "source_note": null,
+              "water_cell_coords": []
+            },
+            "requires_human_confirmation": false,
+            "role": "fuel",
+            "source_note": null
+          }
+        ],
+        "assumptions": [],
+        "patch_type": "assembly_catalog",
+        "source_note": "VERA Problem 4: 3x3 assembly control rod worth benchmark. Three assembly types C (corner, 2.11 wt%, 24 thimble plugs), E (edge, 2.619 wt%, 20 pyrex + 4 thimble plugs), R (center RCCA, 2.11 wt%, 24 control rods at base condition z_bottom=257.9 cm)."
+      },
+      "issues": [],
+      "metadata": {},
+      "patch_id": "patch_assembly_catalog_0",
+      "patch_type": "assembly_catalog",
+      "raw_text": null,
+      "schema_version": "v1",
+      "source": "llm",
+      "status": "valid"
+    },
+    "patch_axial_layers_0": {
+      "content": {
+        "axial_domain_cm": [
+          -55.0,
+          463.937
+        ],
+        "lattice_loadings": [],
+        "layers": [
+          {
+            "assumptions": [],
+            "fill_id": "mat_075746f0313228a3",
+            "fill_type": "material",
+            "layer_id": "lower_moderator_buffer",
+            "loading_id": null,
+            "loading_ids": [],
+            "requires_human_confirmation": false,
+            "role": "lower_moderator_buffer",
+            "source_note": "VERA Problem 4 Section 8.1: lower moderator buffer, entire 3x3 cross-section borated water at 1360 ppm",
+            "z_max_cm": -5.0,
+            "z_min_cm": -55.0
+          },
+          {
+            "assumptions": [
+              "Benchmark specifies 50 vol% SS304 + 50 vol% coolant homogenized slab; no exact mixture material exists in known_material_ids",
+              "Using structural material mat_a6f5f72aa3a35d3a (role=structural, density=7.9) per rules requiring structural fill for core_plate"
+            ],
+            "fill_id": "mat_a6f5f72aa3a35d3a",
+            "fill_type": "material",
+            "layer_id": "lower_core_plate",
+            "loading_id": null,
+            "loading_ids": [],
+            "requires_human_confirmation": true,
+            "role": "lower_core_plate",
+            "source_note": "VERA Problem 4 Section 8.1 and 12.1: lower core plate, 50 vol% SS304 + 50 vol% coolant",
+            "z_max_cm": 0.0,
+            "z_min_cm": -5.0
+          },
+          {
+            "assumptions": [
+              "Benchmark specifies 27.9217 vol% SS304 + 72.0783 vol% coolant homogenized slab; no exact mixture material exists",
+              "Using structural material mat_a6f5f72aa3a35d3a (role=structural) per rules requiring structural fill for nozzle",
+              "Detailed 17x17 lattice not retained in nozzle per Section 12.2"
+            ],
+            "fill_id": "mat_a6f5f72aa3a35d3a",
+            "fill_type": "material",
+            "layer_id": "lower_nozzle",
+            "loading_id": null,
+            "loading_ids": [],
+            "requires_human_confirmation": true,
+            "role": "lower_nozzle",
+            "source_note": "VERA Problem 4 Section 8.1 and 12.1: lower nozzle, homogenized SS304/coolant slab",
+            "z_max_cm": 6.053,
+            "z_min_cm": 0.0
+          },
+          {
+            "assumptions": [
+              "Fuel-pin positions should be water-only (fuel rods have not started); guide tubes and instrument tubes continue through",
+              "No moderator-only fuel-pin universe exists in known_universe_ids to define replace_universe_family transformation",
+              "Requires creation of a water-filled pin-cell universe for the fuel-pin family replacement loading"
+            ],
+            "fill_id": "assembly_lattice",
+            "fill_type": "lattice",
+            "layer_id": "lower_shoulder_gap",
+            "loading_id": null,
+            "loading_ids": [],
+            "requires_human_confirmation": true,
+            "role": "lower_shoulder_gap",
+            "source_note": "VERA Problem 4 Section 8.1 and 7: lower shoulder gap, fuel positions are water, guide/instrument tube paths continue",
+            "z_max_cm": 10.281,
+            "z_min_cm": 6.053
+          },
+          {
+            "assumptions": [
+              "Fuel-pin positions should be solid Zircaloy-4 end plug (r<0.475 cm); guide tubes and instrument tubes continue",
+              "No end-plug universe exists in known_universe_ids to define replace_universe_family transformation",
+              "Requires creation of a Zircaloy-4 solid end-plug universe for fuel-pin family replacement"
+            ],
+            "fill_id": "assembly_lattice",
+            "fill_type": "lattice",
+            "layer_id": "lower_end_plug",
+            "loading_id": null,
+            "loading_ids": [],
+            "requires_human_confirmation": true,
+            "role": "lower_end_plug",
+            "source_note": "VERA Problem 4 Section 8.1 and 9.3: lower fuel end plug, solid Zircaloy-4, height=1.670 cm",
+            "z_max_cm": 11.951,
+            "z_min_cm": 10.281
+          },
+          {
+            "assumptions": [],
+            "fill_id": "assembly_lattice",
+            "fill_type": "lattice",
+            "layer_id": "active_fuel",
+            "loading_id": null,
+            "loading_ids": [],
+            "requires_human_confirmation": false,
+            "role": "active_fuel",
+            "source_note": "VERA Problem 4 Section 8.1: active fuel stack 11.951-377.711 cm; 264 fuel pins with UO2+gap+clad; localized inserts (Pyrex, RCCA, thimble plugs) handled by assembler from localized_insert_intents; spacer grids handled as axial_overlays",
+            "z_max_cm": 377.711,
+            "z_min_cm": 11.951
+          },
+          {
+            "assumptions": [
+              "Fuel-pin positions should be solid Zircaloy-4 end plug; guide tubes and instrument tubes continue",
+              "No end-plug universe exists in known_universe_ids to define replace_universe_family transformation"
+            ],
+            "fill_id": "assembly_lattice",
+            "fill_type": "lattice",
+            "layer_id": "upper_end_plug",
+            "loading_id": null,
+            "loading_ids": [],
+            "requires_human_confirmation": true,
+            "role": "upper_end_plug",
+            "source_note": "VERA Problem 4 Section 8.1 and 9.3: upper fuel end plug, solid Zircaloy-4, height=1.670 cm",
+            "z_max_cm": 379.381,
+            "z_min_cm": 377.711
+          },
+          {
+            "assumptions": [
+              "Fuel-pin positions should have He gas plenum (0-0.418 cm He, 0.418-0.475 cm Zircaloy-4 cladding); guide tubes and instrument tubes continue",
+              "No plenum universe exists in known_universe_ids to define replace_universe_family transformation",
+              "Localized inserts at this height: thimble plugs (383.31-394.31 cm) and RCCA plenum handled by assembler from localized_insert_intents",
+              "Upper end grid (386.267-390.133 cm) handled as axial_overlay, not axial layer"
+            ],
+            "fill_id": "assembly_lattice",
+            "fill_type": "lattice",
+            "layer_id": "upper_plenum",
+            "loading_id": null,
+            "loading_ids": [],
+            "requires_human_confirmation": true,
+            "role": "upper_plenum",
+            "source_note": "VERA Problem 4 Section 8.1 and 9.3: fuel rod upper gas plenum, He gas inside cladding, height=16.0 cm",
+            "z_max_cm": 395.381,
+            "z_min_cm": 379.381
+          },
+          {
+            "assumptions": [
+              "Fuel-pin positions should be water-only (fuel rods have ended); guide tubes and instrument tubes continue",
+              "No moderator-only fuel-pin universe exists in known_universe_ids to define replace_universe_family transformation"
+            ],
+            "fill_id": "assembly_lattice",
+            "fill_type": "lattice",
+            "layer_id": "upper_shoulder_gap",
+            "loading_id": null,
+            "loading_ids": [],
+            "requires_human_confirmation": true,
+            "role": "upper_shoulder_gap",
+            "source_note": "VERA Problem 4 Section 8.1: upper shoulder gap, fuel positions are water, guide/instrument tube paths continue to upper nozzle",
+            "z_max_cm": 397.51,
+            "z_min_cm": 395.381
+          },
+          {
+            "assumptions": [
+              "Benchmark specifies 19.1470 vol% SS304 + 80.8530 vol% coolant homogenized slab; no exact mixture material exists",
+              "Using structural material mat_a6f5f72aa3a35d3a (role=structural) per rules requiring structural fill for nozzle",
+              "RCCA and Pyrex geometry truncated at z=397.510 cm per Section 12.2 and 15.5; no detailed lattice in nozzle region"
+            ],
+            "fill_id": "mat_a6f5f72aa3a35d3a",
+            "fill_type": "material",
+            "layer_id": "upper_nozzle",
+            "loading_id": null,
+            "loading_ids": [],
+            "requires_human_confirmation": true,
+            "role": "upper_nozzle",
+            "source_note": "VERA Problem 4 Section 8.1 and 12.1: upper nozzle, homogenized SS304/coolant slab",
+            "z_max_cm": 406.337,
+            "z_min_cm": 397.51
+          },
+          {
+            "assumptions": [
+              "Benchmark specifies 50 vol% SS304 + 50 vol% coolant homogenized slab; no exact mixture material exists",
+              "Using structural material mat_a6f5f72aa3a35d3a (role=structural) per rules requiring structural fill for core_plate"
+            ],
+            "fill_id": "mat_a6f5f72aa3a35d3a",
+            "fill_type": "material",
+            "layer_id": "upper_core_plate",
+            "loading_id": null,
+            "loading_ids": [],
+            "requires_human_confirmation": true,
+            "role": "upper_core_plate",
+            "source_note": "VERA Problem 4 Section 8.1 and 12.1: upper core plate, 50 vol% SS304 + 50 vol% coolant",
+            "z_max_cm": 413.937,
+            "z_min_cm": 406.337
+          },
+          {
+            "assumptions": [],
+            "fill_id": "mat_075746f0313228a3",
+            "fill_type": "material",
+            "layer_id": "upper_moderator_buffer",
+            "loading_id": null,
+            "loading_ids": [],
+            "requires_human_confirmation": false,
+            "role": "upper_moderator_buffer",
+            "source_note": "VERA Problem 4 Section 8.1: upper moderator buffer, entire 3x3 cross-section borated water at 1360 ppm",
+            "z_max_cm": 463.937,
+            "z_min_cm": 413.937
+          }
+        ],
+        "patch_type": "axial_layers"
+      },
+      "issues": [],
+      "metadata": {},
+      "patch_id": "patch_axial_layers_0",
+      "patch_type": "axial_layers",
+      "raw_text": null,
+      "schema_version": "v1",
+      "source": "llm",
+      "status": "valid"
+    },
+    "patch_core_layout_0": {
+      "content": {
+        "assembly_pattern": [
+          [
+            "C",
+            "E",
+            "C"
+          ],
+          [
+            "E",
+            "R",
+            "E"
+          ],
+          [
+            "C",
+            "E",
+            "C"
+          ]
+        ],
+        "assembly_pitch_cm": 21.5,
+        "assumptions": [
+          "{}"
+        ],
+        "boundary": "reflective",
+        "coordinate_convention": {
+          "col_origin": "left",
+          "index_base": 0,
+          "ordering": "row_col",
+          "row_origin": "top"
+        },
+        "core_lattice_id": "core_lattice",
+        "expected_assembly_type_counts": {
+          "C": 4,
+          "E": 4,
+          "R": 1
+        },
+        "outer_assembly_type_id": null,
+        "patch_type": "core_layout",
+        "requires_human_confirmation": false,
+        "shape": [
+          3,
+          3
+        ],
+        "source_note": "VERA Problem 4 3x3 multi-assembly layout (C E C / E R E / C E C).",
+        "symmetry_description": "Full 3x3 assembly core geometry with reflective radial boundary conditions on the outer surfaces."
+      },
+      "issues": [],
+      "metadata": {},
+      "patch_id": "patch_core_layout_0",
+      "patch_type": "core_layout",
+      "raw_text": null,
+      "schema_version": "v1",
+      "source": "llm",
+      "status": "valid"
+    },
+    "patch_facts_0_repair_2": {
+      "content": {
+        "active_fuel_region_cm": [
+          11.951,
+          377.711
+        ],
+        "assembly_count": 9,
+        "assembly_pitch_cm": 21.5,
+        "assembly_type_counts": {
+          "C": 4,
+          "E": 4,
+          "R": 1
+        },
+        "assumptions": [
+          "Fuel density 10.257 g/cc applies to both Region 1 and Region 2 UO2.",
+          "Recommended RCCA upper end plug approximation (1.9 cm) is explicitly modeled as requested."
+        ],
+        "axial_domain_cm": [
+          -55.0,
+          463.937
+        ],
+        "benchmark_id": "VERA_Problem_4",
+        "boundary_scope": "3x3 assembly radial reflective, axial vacuum",
+        "core_lattice_size": [
+          3,
+          3
+        ],
+        "expected_guide_tube_count": 216,
+        "expected_instrument_tube_count": 9,
+        "expected_pin_count": null,
+        "expected_pyrex_count": 80,
+        "expected_spacer_grid_count": 72,
+        "expected_thimble_plug_count": 112,
+        "fuel_variant_requirements": [
+          {
+            "assembly_type_ids": [
+              "C",
+              "R"
+            ],
+            "density_g_cm3": 10.257,
+            "enrichment_wt_percent": 2.11,
+            "expected_assembly_count": 5,
+            "source_label": "Region 1 / C,R",
+            "source_note": "2.11 wt% U-235 for corner and center assemblies",
+            "variant_id": "region_1_2.11pct"
+          },
+          {
+            "assembly_type_ids": [
+              "E"
+            ],
+            "density_g_cm3": 10.257,
+            "enrichment_wt_percent": 2.619,
+            "expected_assembly_count": 4,
+            "source_label": "Region 2 / E",
+            "source_note": "2.619 wt% U-235 for edge assemblies",
+            "variant_id": "region_2_2.619pct"
+          }
+        ],
+        "geometry_type": "3d_rectangular_multi_assembly",
+        "has_axial_geometry": true,
+        "has_spacer_grids": true,
+        "has_special_pin_map": true,
+        "lattice_size": [
+          17,
+          17
+        ],
+        "localized_insert_requirements": [
+          {
+            "anchor_z_cm": 15.761,
+            "assembly_type_ids": [
+              "E"
+            ],
+            "control_state_id": null,
+            "expected_assembly_instance_count": 4,
+            "expected_coordinate_count_per_assembly": 20,
+            "expected_insert_universe_ids": [
+              "u_pyrex_poison",
+              "u_pyrex_plenum"
+            ],
+            "host_kind": "guide_tube",
+            "insert_kind": "pyrex_rod",
+            "required_in_detailed_domain": true,
+            "required_profile_id": "profile_pyrex",
+            "required_segment_roles": [
+              "pyrex_poison",
+              "pyrex_plenum"
+            ],
+            "requirement_id": "req_pyrex_E",
+            "requires_human_confirmation": false,
+            "source_note": "Pyrex in 20 guide tubes of E assemblies"
+          },
+          {
+            "anchor_z_cm": 383.31,
+            "assembly_type_ids": [
+              "C"
+            ],
+            "control_state_id": null,
+            "expected_assembly_instance_count": 4,
+            "expected_coordinate_count_per_assembly": 24,
+            "expected_insert_universe_ids": [
+              "u_thimble_plug"
+            ],
+            "host_kind": "guide_tube",
+            "insert_kind": "thimble_plug",
+            "required_in_detailed_domain": true,
+            "required_profile_id": "profile_thimble_plug",
+            "required_segment_roles": [
+              "ss304_plug"
+            ],
+            "requirement_id": "req_plug_C",
+            "requires_human_confirmation": false,
+            "source_note": "Thimble plugs in 24 guide tubes of C assemblies"
+          },
+          {
+            "anchor_z_cm": 383.31,
+            "assembly_type_ids": [
+              "E"
+            ],
+            "control_state_id": null,
+            "expected_assembly_instance_count": 4,
+            "expected_coordinate_count_per_assembly": 4,
+            "expected_insert_universe_ids": [
+              "u_thimble_plug"
+            ],
+            "host_kind": "guide_tube",
+            "insert_kind": "thimble_plug",
+            "required_in_detailed_domain": true,
+            "required_profile_id": "profile_thimble_plug",
+            "required_segment_roles": [
+              "ss304_plug"
+            ],
+            "requirement_id": "req_plug_E",
+            "requires_human_confirmation": false,
+            "source_note": "Thimble plugs in 4 guide tubes of E assemblies"
+          },
+          {
+            "anchor_z_cm": 257.9,
+            "assembly_type_ids": [
+              "R"
+            ],
+            "control_state_id": "base",
+            "expected_assembly_instance_count": 1,
+            "expected_coordinate_count_per_assembly": 24,
+            "expected_insert_universe_ids": [
+              "u_rcca_aic",
+              "u_rcca_b4c",
+              "u_rcca_plenum"
+            ],
+            "host_kind": "guide_tube",
+            "insert_kind": "control_rod",
+            "required_in_detailed_domain": true,
+            "required_profile_id": "profile_rcca_base",
+            "required_segment_roles": [
+              "absorber_aic",
+              "absorber_b4c",
+              "plenum",
+              "endplug"
+            ],
+            "requirement_id": "req_rcca_R_base",
+            "requires_human_confirmation": false,
+            "source_note": "RCCA in 24 guide tubes of R assembly at base condition (z_bottom=257.9 cm)"
+          }
+        ],
+        "material_roles": [
+          "fuel",
+          "coolant",
+          "cladding",
+          "guide_tube",
+          "instrument_tube",
+          "grid_inconel",
+          "grid_zircaloy",
+          "ss304",
+          "helium",
+          "pyrex",
+          "absorber_aic",
+          "absorber_b4c"
+        ],
+        "missing_facts": [],
+        "model_scope": "multi_assembly_core",
+        "patch_type": "facts",
+        "pin_pitch_cm": 1.26,
+        "scoped_expected_counts": [
+          {
+            "assembly_instance_id": null,
+            "assembly_type_id": null,
+            "derivation": null,
+            "derived": false,
+            "provenance_refs": [],
+            "requires_human_confirmation": false,
+            "role": "fuel_pin",
+            "scope": "core_total",
+            "source_note": null,
+            "value": 2376
+          },
+          {
+            "assembly_instance_id": null,
+            "assembly_type_id": null,
+            "derivation": null,
+            "derived": false,
+            "provenance_refs": [],
+            "requires_human_confirmation": false,
+            "role": "guide_tube",
+            "scope": "core_total",
+            "source_note": null,
+            "value": 216
+          },
+          {
+            "assembly_instance_id": null,
+            "assembly_type_id": null,
+            "derivation": null,
+            "derived": false,
+            "provenance_refs": [],
+            "requires_human_confirmation": false,
+            "role": "instrument_tube",
+            "scope": "core_total",
+            "source_note": null,
+            "value": 9
+          },
+          {
+            "assembly_instance_id": null,
+            "assembly_type_id": null,
+            "derivation": null,
+            "derived": false,
+            "provenance_refs": [],
+            "requires_human_confirmation": false,
+            "role": "spacer_grid",
+            "scope": "core_total",
+            "source_note": null,
+            "value": 72
+          },
+          {
+            "assembly_instance_id": null,
+            "assembly_type_id": null,
+            "derivation": null,
+            "derived": false,
+            "provenance_refs": [],
+            "requires_human_confirmation": false,
+            "role": "pyrex_rod",
+            "scope": "core_total",
+            "source_note": null,
+            "value": 80
+          },
+          {
+            "assembly_instance_id": null,
+            "assembly_type_id": null,
+            "derivation": null,
+            "derived": false,
+            "provenance_refs": [],
+            "requires_human_confirmation": false,
+            "role": "thimble_plug",
+            "scope": "core_total",
+            "source_note": null,
+            "value": 112
+          },
+          {
+            "assembly_instance_id": null,
+            "assembly_type_id": "C",
+            "derivation": null,
+            "derived": false,
+            "provenance_refs": [],
+            "requires_human_confirmation": false,
+            "role": "fuel_pin",
+            "scope": "assembly_type",
+            "source_note": null,
+            "value": 264
+          },
+          {
+            "assembly_instance_id": null,
+            "assembly_type_id": "C",
+            "derivation": null,
+            "derived": false,
+            "provenance_refs": [],
+            "requires_human_confirmation": false,
+            "role": "guide_tube",
+            "scope": "assembly_type",
+            "source_note": null,
+            "value": 24
+          },
+          {
+            "assembly_instance_id": null,
+            "assembly_type_id": "C",
+            "derivation": null,
+            "derived": false,
+            "provenance_refs": [],
+            "requires_human_confirmation": false,
+            "role": "instrument_tube",
+            "scope": "assembly_type",
+            "source_note": null,
+            "value": 1
+          },
+          {
+            "assembly_instance_id": null,
+            "assembly_type_id": "E",
+            "derivation": null,
+            "derived": false,
+            "provenance_refs": [],
+            "requires_human_confirmation": false,
+            "role": "fuel_pin",
+            "scope": "assembly_type",
+            "source_note": null,
+            "value": 264
+          },
+          {
+            "assembly_instance_id": null,
+            "assembly_type_id": "E",
+            "derivation": null,
+            "derived": false,
+            "provenance_refs": [],
+            "requires_human_confirmation": false,
+            "role": "guide_tube",
+            "scope": "assembly_type",
+            "source_note": null,
+            "value": 24
+          },
+          {
+            "assembly_instance_id": null,
+            "assembly_type_id": "E",
+            "derivation": null,
+            "derived": false,
+            "provenance_refs": [],
+            "requires_human_confirmation": false,
+            "role": "instrument_tube",
+            "scope": "assembly_type",
+            "source_note": null,
+            "value": 1
+          },
+          {
+            "assembly_instance_id": null,
+            "assembly_type_id": "R",
+            "derivation": null,
+            "derived": false,
+            "provenance_refs": [],
+            "requires_human_confirmation": false,
+            "role": "fuel_pin",
+            "scope": "assembly_type",
+            "source_note": null,
+            "value": 264
+          },
+          {
+            "assembly_instance_id": null,
+            "assembly_type_id": "R",
+            "derivation": null,
+            "derived": false,
+            "provenance_refs": [],
+            "requires_human_confirmation": false,
+            "role": "guide_tube",
+            "scope": "assembly_type",
+            "source_note": null,
+            "value": 24
+          },
+          {
+            "assembly_instance_id": null,
+            "assembly_type_id": "R",
+            "derivation": null,
+            "derived": false,
+            "provenance_refs": [],
+            "requires_human_confirmation": false,
+            "role": "instrument_tube",
+            "scope": "assembly_type",
+            "source_note": null,
+            "value": 1
+          }
+        ],
+        "selected_variant": null,
+        "source_notes": [
+          "[reference]"
+        ],
+        "symmetry_description": "C E C / E R E / C E C layout. Full 3x3 model is the canonical implementation."
+      },
+      "issues": [],
+      "metadata": {},
+      "patch_id": "patch_facts_0_repair_2",
+      "patch_type": "facts",
+      "raw_text": null,
+      "schema_version": "v1",
+      "source": "repair",
+      "status": "valid"
+    },
+    "patch_localized_insert_profiles_0": {
+      "content": {
+        "assumptions": [
+          "All profile anchor_z_cm set to null; actual anchor positions come from localized_insert_requirements.anchor_z_cm",
+          "RCCA endplug universe reuse of u_rcca_plenum is a downstream-universe-patch limitation; if a dedicated u_rcca_endplug universe becomes available it should replace this mapping",
+          "No mechanical gaps between adjacent segments within a profile; transitions are material-boundary coincident",
+          "Pyrex and thimble plug profiles are fixed-position inserts; RCCA profile is movable and its actual position is set by intent per control state"
+        ],
+        "patch_type": "localized_insert_profiles",
+        "profiles": [
+          {
+            "anchor_kind": "bottom",
+            "anchor_z_cm": null,
+            "assumptions": [
+              "No mechanical gap between poison and plenum segments; Pyrex poison top at 376.441 coincides with plenum bottom",
+              "Nominal plenum top 398.641 cm clips to detailed lattice upper bound 397.510 cm"
+            ],
+            "profile_id": "profile_pyrex",
+            "requires_human_confirmation": false,
+            "segments": [
+              {
+                "material_role": null,
+                "relative_z_max_cm": 360.68,
+                "relative_z_min_cm": 0.0,
+                "role": "pyrex_poison",
+                "segment_id": "pyrex_poison",
+                "source_note": "Poison segment 15.761-376.441 cm global; annular Pyrex 0.241-0.427 cm radius",
+                "universe_id": "u_pyrex_poison"
+              },
+              {
+                "material_role": null,
+                "relative_z_max_cm": 381.749,
+                "relative_z_min_cm": 360.68,
+                "role": "pyrex_plenum",
+                "segment_id": "pyrex_plenum",
+                "source_note": "Upper He plenum 376.441-397.510 cm global; detailed lattice clips at 397.510",
+                "universe_id": "u_pyrex_plenum"
+              }
+            ],
+            "source_note": "Pyrex insert for 20 guide tubes per E assembly; poison bottom at 15.761 cm"
+          },
+          {
+            "anchor_kind": "bottom",
+            "anchor_z_cm": null,
+            "assumptions": [
+              "End cap ignored per benchmark specification",
+              "No gap modeled above or below plug; guide tube reverts to water-filled outside 383.31-394.31 cm range"
+            ],
+            "profile_id": "profile_thimble_plug",
+            "requires_human_confirmation": false,
+            "segments": [
+              {
+                "material_role": null,
+                "relative_z_max_cm": 11.0,
+                "relative_z_min_cm": 0.0,
+                "role": "ss304_plug",
+                "segment_id": "ss304_plug",
+                "source_note": "Solid SS304 plug 383.310-394.310 cm global; outer radius 0.538 cm",
+                "universe_id": "u_thimble_plug"
+              }
+            ],
+            "source_note": "Thimble plug in 24 guide tubes of C assemblies and 4 guide tubes of E assemblies"
+          },
+          {
+            "anchor_kind": "bottom",
+            "anchor_z_cm": null,
+            "assumptions": [
+              "Endplug segment reuses u_rcca_plenum universe since upstream universes patch does not define a separate solid-SS304 endplug universe",
+              "Endplug is an explicit modeling approximation per benchmark convention; no spring chamfer or lower endplug added",
+              "Profile defines relative structure only; clipping to detailed lattice 6.053-397.510 cm is handled downstream",
+              "For base condition z_bottom=257.9 cm: AIC 257.9-359.5, B4C 359.5-618.58 (clips at 397.510), plenum and endplug fully outside detailed lattice"
+            ],
+            "profile_id": "profile_rcca_base",
+            "requires_human_confirmation": false,
+            "segments": [
+              {
+                "material_role": null,
+                "relative_z_max_cm": 101.6,
+                "relative_z_min_cm": 0.0,
+                "role": "absorber_aic",
+                "segment_id": "absorber_aic",
+                "source_note": "AIC lower absorber 80/15/5 wt% Ag/In/Cd; radius 0-0.382 cm",
+                "universe_id": "u_rcca_aic"
+              },
+              {
+                "material_role": null,
+                "relative_z_max_cm": 360.68,
+                "relative_z_min_cm": 101.6,
+                "role": "absorber_b4c",
+                "segment_id": "absorber_b4c",
+                "source_note": "B4C upper absorber density 1.76 g/cc; radius 0-0.373 cm",
+                "universe_id": "u_rcca_b4c"
+              },
+              {
+                "material_role": null,
+                "relative_z_max_cm": 371.38,
+                "relative_z_min_cm": 360.68,
+                "role": "plenum",
+                "segment_id": "plenum",
+                "source_note": "Upper He plenum 10.70 cm; SS304 cladding 0.386-0.484 cm",
+                "universe_id": "u_rcca_plenum"
+              },
+              {
+                "material_role": null,
+                "relative_z_max_cm": 373.28,
+                "relative_z_min_cm": 371.38,
+                "role": "endplug",
+                "segment_id": "endplug",
+                "source_note": "Approximate upper endplug ~1.90 cm solid SS304; reuses u_rcca_plenum universe because no dedicated endplug universe exists upstream",
+                "universe_id": "u_rcca_plenum"
+              }
+            ],
+            "source_note": "RCCA rodlet for 24 guide tubes of R assembly; AIC/B4C/plenum/endplug rigidly translated as a unit; actual z_bottom provided by intent"
+          }
+        ],
+        "source_note": "VERA Problem 4: three reusable axial profiles for localized inserts (Pyrex, thimble plug, RCCA) derived from benchmark axial geometry specification"
+      },
+      "issues": [],
+      "metadata": {},
+      "patch_id": "patch_localized_insert_profiles_0",
+      "patch_type": "localized_insert_profiles",
+      "raw_text": null,
+      "schema_version": "v1",
+      "source": "llm",
+      "status": "valid"
+    },
+    "universes_fragmented_59e08c3586782239": {
+      "content": {
+        "patch_type": "universes",
+        "universes": [
+          {
+            "cells": [
+              {
+                "id": "fuel_inner",
+                "material_id": "mat_0bf8ee657a9f7078",
+                "r_max_cm": 0.2,
+                "r_min_cm": 0.0,
+                "region_kind": "cylinder",
+                "role": "fuel"
+              },
+              {
+                "id": "fuel_outer",
+                "material_id": "mat_0bf8ee657a9f7078",
+                "r_max_cm": 0.4,
+                "r_min_cm": 0.2,
+                "region_kind": "cylinder",
+                "role": "fuel"
+              },
+              {
+                "id": "gas_gap",
+                "material_id": "mat_0ea0b72ac47092b4",
+                "r_max_cm": 0.41,
+                "r_min_cm": 0.4,
+                "region_kind": "cylinder",
+                "role": "gas"
+              },
+              {
+                "id": "cladding",
+                "material_id": "mat_0db6664c1d13481f",
+                "r_max_cm": 0.475,
+                "r_min_cm": 0.41,
+                "region_kind": "cylinder",
+                "role": "cladding"
+              },
+              {
+                "id": "coolant",
+                "material_id": "mat_075746f0313228a3",
+                "r_max_cm": 0.7,
+                "r_min_cm": 0.475,
+                "region_kind": "cylinder",
+                "role": "coolant"
+              }
+            ],
+            "kind": "fuel_pin",
+            "metadata": {
+              "fuel_variant_id": "region_1_2.11pct",
+              "geometry_profile_id": "profile_86ba2423f9393075",
+              "source_requirement_ids": [
+                "ureq_a6f93b1802f296fe"
+              ]
+            },
+            "universe_id": "u_fuel_region_1_2.11pct"
+          },
+          {
+            "cells": [
+              {
+                "id": "u_fuel_region_2_2.619pct_fuel_inner",
+                "material_id": "mat_015f25cc7cc44fd1",
+                "r_max_cm": 0.2048,
+                "r_min_cm": 0.0,
+                "region_kind": "cylinder",
+                "role": "fuel"
+              },
+              {
+                "id": "u_fuel_region_2_2.619pct_fuel_outer",
+                "material_id": "mat_015f25cc7cc44fd1",
+                "r_max_cm": 0.4096,
+                "r_min_cm": 0.2048,
+                "region_kind": "cylinder",
+                "role": "fuel"
+              },
+              {
+                "id": "u_fuel_region_2_2.619pct_gas",
+                "material_id": "mat_0ea0b72ac47092b4",
+                "r_max_cm": 0.418,
+                "r_min_cm": 0.4096,
+                "region_kind": "cylinder",
+                "role": "gas"
+              },
+              {
+                "id": "u_fuel_region_2_2.619pct_cladding",
+                "material_id": "mat_0db6664c1d13481f",
+                "r_max_cm": 0.475,
+                "r_min_cm": 0.418,
+                "region_kind": "cylinder",
+                "role": "cladding"
+              },
+              {
+                "id": "u_fuel_region_2_2.619pct_coolant",
+                "material_id": "mat_075746f0313228a3",
+                "r_max_cm": 0.7106,
+                "r_min_cm": 0.475,
+                "region_kind": "cylinder",
+                "role": "coolant"
+              }
+            ],
+            "kind": "fuel_pin",
+            "metadata": {
+              "fuel_variant_id": "region_2_2.619pct",
+              "geometry_profile_id": "profile_09b4cae742366492",
+              "source_requirement_ids": [
+                "ureq_c20f0d9eb78c7bfb"
+              ]
+            },
+            "universe_id": "u_fuel_region_2_2.619pct"
+          },
+          {
+            "cells": [
+              {
+                "id": "poison_inner",
+                "material_id": "mat_4ade43c12106b81c",
+                "r_max_cm": 0.2048,
+                "r_min_cm": 0.0,
+                "region_kind": "cylinder",
+                "role": "poison"
+              },
+              {
+                "id": "poison_outer",
+                "material_id": "mat_4ade43c12106b81c",
+                "r_max_cm": 0.4096,
+                "r_min_cm": 0.2048,
+                "region_kind": "cylinder",
+                "role": "poison"
+              },
+              {
+                "id": "cladding",
+                "material_id": "mat_e452b8f661dc26d3",
+                "r_max_cm": 0.475,
+                "r_min_cm": 0.4096,
+                "region_kind": "cylinder",
+                "role": "cladding"
+              },
+              {
+                "id": "coolant",
+                "material_id": "mat_075746f0313228a3",
+                "r_max_cm": 0.711,
+                "r_min_cm": 0.475,
+                "region_kind": "cylinder",
+                "role": "coolant"
+              }
+            ],
+            "kind": "pyrex_rod",
+            "metadata": {
+              "geometry_profile_id": "profile_5499a0c93ad9135c",
+              "localized_insert_requirement_id": "req_pyrex_E",
+              "localized_insert_requirement_ids": [
+                "req_pyrex_E"
+              ],
+              "source_requirement_ids": [
+                "ureq_32ec3df965b80609"
+              ]
+            },
+            "universe_id": "profile_5499a0c93ad9135c"
+          },
+          {
+            "cells": [
+              {
+                "id": "tp_inner_structural",
+                "material_id": "mat_7a5c62311f5c7e28",
+                "r_max_cm": 0.3,
+                "r_min_cm": 0.0,
+                "region_kind": "cylinder",
+                "role": "structural"
+              },
+              {
+                "id": "tp_outer_structural",
+                "material_id": "mat_a6f5f72aa3a35d3a",
+                "r_max_cm": 0.45,
+                "r_min_cm": 0.3,
+                "region_kind": "cylinder",
+                "role": "structural"
+              },
+              {
+                "id": "tp_coolant_annulus",
+                "material_id": "mat_51db2c88b6fc46f9",
+                "r_max_cm": 0.6,
+                "r_min_cm": 0.45,
+                "region_kind": "cylinder",
+                "role": "coolant"
+              }
+            ],
+            "kind": "thimble_plug",
+            "metadata": {
+              "geometry_profile_id": "profile_8752ef9000a62364",
+              "localized_insert_requirement_id": "req_plug_C",
+              "localized_insert_requirement_ids": [
+                "req_plug_C",
+                "req_plug_E"
+              ],
+              "source_requirement_ids": [
+                "ureq_3aa9d86e8f25c37f"
+              ]
+            },
+            "universe_id": "profile_8752ef9000a62364"
+          },
+          {
+            "cells": [
+              {
+                "id": "absorber_inner",
+                "material_id": "mat_3fadae211329d7a1",
+                "r_max_cm": 0.35,
+                "r_min_cm": 0.0,
+                "region_kind": "cylinder",
+                "role": "absorber"
+              },
+              {
+                "id": "absorber_outer",
+                "material_id": "mat_3fadae211329d7a1",
+                "r_max_cm": 0.45,
+                "r_min_cm": 0.35,
+                "region_kind": "cylinder",
+                "role": "absorber"
+              },
+              {
+                "id": "cladding",
+                "material_id": "mat_0db6664c1d13481f",
+                "r_max_cm": 0.5,
+                "r_min_cm": 0.45,
+                "region_kind": "cylinder",
+                "role": "cladding"
+              },
+              {
+                "id": "coolant",
+                "material_id": "mat_075746f0313228a3",
+                "r_max_cm": 0.65,
+                "r_min_cm": 0.5,
+                "region_kind": "cylinder",
+                "role": "coolant"
+              }
+            ],
+            "kind": "control_rod",
+            "metadata": {
+              "geometry_profile_id": "profile_8fbbe21ad8cc2cfb",
+              "localized_insert_requirement_id": "req_rcca_R_base",
+              "localized_insert_requirement_ids": [
+                "req_rcca_R_base"
+              ],
+              "source_requirement_ids": [
+                "ureq_f38ee411a32cb394"
+              ]
+            },
+            "universe_id": "profile_8fbbe21ad8cc2cfb"
+          },
+          {
+            "cells": [
+              {
+                "id": "poison_inner",
+                "material_id": "mat_4ade43c12106b81c",
+                "r_max_cm": 0.2048,
+                "r_min_cm": 0.0,
+                "region_kind": "cylinder",
+                "role": "poison"
+              },
+              {
+                "id": "poison_outer",
+                "material_id": "mat_4ade43c12106b81c",
+                "r_max_cm": 0.4096,
+                "r_min_cm": 0.2048,
+                "region_kind": "cylinder",
+                "role": "poison"
+              },
+              {
+                "id": "cladding",
+                "material_id": "mat_e452b8f661dc26d3",
+                "r_max_cm": 0.475,
+                "r_min_cm": 0.4096,
+                "region_kind": "cylinder",
+                "role": "cladding"
+              },
+              {
+                "id": "coolant",
+                "material_id": "mat_075746f0313228a3",
+                "r_max_cm": 0.711,
+                "r_min_cm": 0.475,
+                "region_kind": "cylinder",
+                "role": "coolant"
+              }
+            ],
+            "kind": "pyrex_rod",
+            "metadata": {
+              "alias_of_universe_id": "profile_5499a0c93ad9135c",
+              "geometry_profile_id": "profile_5499a0c93ad9135c",
+              "localized_insert_expected_universe_id": "u_pyrex_poison",
+              "localized_insert_requirement_id": "req_pyrex_E",
+              "localized_insert_requirement_ids": [
+                "req_pyrex_E"
+              ],
+              "source_requirement_ids": [
+                "ureq_32ec3df965b80609"
+              ]
+            },
+            "universe_id": "u_pyrex_poison"
+          },
+          {
+            "cells": [
+              {
+                "id": "poison_inner",
+                "material_id": "mat_4ade43c12106b81c",
+                "r_max_cm": 0.2048,
+                "r_min_cm": 0.0,
+                "region_kind": "cylinder",
+                "role": "poison"
+              },
+              {
+                "id": "poison_outer",
+                "material_id": "mat_4ade43c12106b81c",
+                "r_max_cm": 0.4096,
+                "r_min_cm": 0.2048,
+                "region_kind": "cylinder",
+                "role": "poison"
+              },
+              {
+                "id": "cladding",
+                "material_id": "mat_e452b8f661dc26d3",
+                "r_max_cm": 0.475,
+                "r_min_cm": 0.4096,
+                "region_kind": "cylinder",
+                "role": "cladding"
+              },
+              {
+                "id": "coolant",
+                "material_id": "mat_075746f0313228a3",
+                "r_max_cm": 0.711,
+                "r_min_cm": 0.475,
+                "region_kind": "cylinder",
+                "role": "coolant"
+              }
+            ],
+            "kind": "pyrex_rod",
+            "metadata": {
+              "alias_of_universe_id": "profile_5499a0c93ad9135c",
+              "geometry_profile_id": "profile_5499a0c93ad9135c",
+              "localized_insert_expected_universe_id": "u_pyrex_plenum",
+              "localized_insert_requirement_id": "req_pyrex_E",
+              "localized_insert_requirement_ids": [
+                "req_pyrex_E"
+              ],
+              "source_requirement_ids": [
+                "ureq_32ec3df965b80609"
+              ]
+            },
+            "universe_id": "u_pyrex_plenum"
+          },
+          {
+            "cells": [
+              {
+                "id": "tp_inner_structural",
+                "material_id": "mat_7a5c62311f5c7e28",
+                "r_max_cm": 0.3,
+                "r_min_cm": 0.0,
+                "region_kind": "cylinder",
+                "role": "structural"
+              },
+              {
+                "id": "tp_outer_structural",
+                "material_id": "mat_a6f5f72aa3a35d3a",
+                "r_max_cm": 0.45,
+                "r_min_cm": 0.3,
+                "region_kind": "cylinder",
+                "role": "structural"
+              },
+              {
+                "id": "tp_coolant_annulus",
+                "material_id": "mat_51db2c88b6fc46f9",
+                "r_max_cm": 0.6,
+                "r_min_cm": 0.45,
+                "region_kind": "cylinder",
+                "role": "coolant"
+              }
+            ],
+            "kind": "thimble_plug",
+            "metadata": {
+              "alias_of_universe_id": "profile_8752ef9000a62364",
+              "geometry_profile_id": "profile_8752ef9000a62364",
+              "localized_insert_expected_universe_id": "u_thimble_plug",
+              "localized_insert_requirement_id": "req_plug_C",
+              "localized_insert_requirement_ids": [
+                "req_plug_C",
+                "req_plug_E"
+              ],
+              "source_requirement_ids": [
+                "ureq_3aa9d86e8f25c37f"
+              ]
+            },
+            "universe_id": "u_thimble_plug"
+          },
+          {
+            "cells": [
+              {
+                "id": "absorber_inner",
+                "material_id": "mat_3fadae211329d7a1",
+                "r_max_cm": 0.35,
+                "r_min_cm": 0.0,
+                "region_kind": "cylinder",
+                "role": "absorber"
+              },
+              {
+                "id": "absorber_outer",
+                "material_id": "mat_3fadae211329d7a1",
+                "r_max_cm": 0.45,
+                "r_min_cm": 0.35,
+                "region_kind": "cylinder",
+                "role": "absorber"
+              },
+              {
+                "id": "cladding",
+                "material_id": "mat_0db6664c1d13481f",
+                "r_max_cm": 0.5,
+                "r_min_cm": 0.45,
+                "region_kind": "cylinder",
+                "role": "cladding"
+              },
+              {
+                "id": "coolant",
+                "material_id": "mat_075746f0313228a3",
+                "r_max_cm": 0.65,
+                "r_min_cm": 0.5,
+                "region_kind": "cylinder",
+                "role": "coolant"
+              }
+            ],
+            "kind": "control_rod",
+            "metadata": {
+              "alias_of_universe_id": "profile_8fbbe21ad8cc2cfb",
+              "geometry_profile_id": "profile_8fbbe21ad8cc2cfb",
+              "localized_insert_expected_universe_id": "u_rcca_aic",
+              "localized_insert_requirement_id": "req_rcca_R_base",
+              "localized_insert_requirement_ids": [
+                "req_rcca_R_base"
+              ],
+              "source_requirement_ids": [
+                "ureq_f38ee411a32cb394"
+              ]
+            },
+            "universe_id": "u_rcca_aic"
+          },
+          {
+            "cells": [
+              {
+                "id": "absorber_inner",
+                "material_id": "mat_3fadae211329d7a1",
+                "r_max_cm": 0.35,
+                "r_min_cm": 0.0,
+                "region_kind": "cylinder",
+                "role": "absorber"
+              },
+              {
+                "id": "absorber_outer",
+                "material_id": "mat_3fadae211329d7a1",
+                "r_max_cm": 0.45,
+                "r_min_cm": 0.35,
+                "region_kind": "cylinder",
+                "role": "absorber"
+              },
+              {
+                "id": "cladding",
+                "material_id": "mat_0db6664c1d13481f",
+                "r_max_cm": 0.5,
+                "r_min_cm": 0.45,
+                "region_kind": "cylinder",
+                "role": "cladding"
+              },
+              {
+                "id": "coolant",
+                "material_id": "mat_075746f0313228a3",
+                "r_max_cm": 0.65,
+                "r_min_cm": 0.5,
+                "region_kind": "cylinder",
+                "role": "coolant"
+              }
+            ],
+            "kind": "control_rod",
+            "metadata": {
+              "alias_of_universe_id": "profile_8fbbe21ad8cc2cfb",
+              "geometry_profile_id": "profile_8fbbe21ad8cc2cfb",
+              "localized_insert_expected_universe_id": "u_rcca_b4c",
+              "localized_insert_requirement_id": "req_rcca_R_base",
+              "localized_insert_requirement_ids": [
+                "req_rcca_R_base"
+              ],
+              "source_requirement_ids": [
+                "ureq_f38ee411a32cb394"
+              ]
+            },
+            "universe_id": "u_rcca_b4c"
+          },
+          {
+            "cells": [
+              {
+                "id": "absorber_inner",
+                "material_id": "mat_3fadae211329d7a1",
+                "r_max_cm": 0.35,
+                "r_min_cm": 0.0,
+                "region_kind": "cylinder",
+                "role": "absorber"
+              },
+              {
+                "id": "absorber_outer",
+                "material_id": "mat_3fadae211329d7a1",
+                "r_max_cm": 0.45,
+                "r_min_cm": 0.35,
+                "region_kind": "cylinder",
+                "role": "absorber"
+              },
+              {
+                "id": "cladding",
+                "material_id": "mat_0db6664c1d13481f",
+                "r_max_cm": 0.5,
+                "r_min_cm": 0.45,
+                "region_kind": "cylinder",
+                "role": "cladding"
+              },
+              {
+                "id": "coolant",
+                "material_id": "mat_075746f0313228a3",
+                "r_max_cm": 0.65,
+                "r_min_cm": 0.5,
+                "region_kind": "cylinder",
+                "role": "coolant"
+              }
+            ],
+            "kind": "control_rod",
+            "metadata": {
+              "alias_of_universe_id": "profile_8fbbe21ad8cc2cfb",
+              "geometry_profile_id": "profile_8fbbe21ad8cc2cfb",
+              "localized_insert_expected_universe_id": "u_rcca_plenum",
+              "localized_insert_requirement_id": "req_rcca_R_base",
+              "localized_insert_requirement_ids": [
+                "req_rcca_R_base"
+              ],
+              "source_requirement_ids": [
+                "ureq_f38ee411a32cb394"
+              ]
+            },
+            "universe_id": "u_rcca_plenum"
+          }
+        ]
+      },
+      "issues": [],
+      "metadata": {},
+      "patch_id": "universes_fragmented_59e08c3586782239",
+      "patch_type": "universes",
+      "raw_text": null,
+      "schema_version": "v1",
+      "source": "llm",
+      "status": "valid"
+    }
+  },
+  "placement_dependency_requests": [],
+  "placement_review_history": [],
+  "placement_revision_history": [],
+  "plan_confirmed_fact_records": {},
+  "plan_confirmed_plan_fact_records": {},
+  "plan_human_answers": {},
+  "plan_human_questions": {},
+  "plan_investigation_schema_version": null,
+  "plan_loop_additional_llm_calls": 26,
+  "plan_loop_artifacts": [],
+  "plan_loop_candidate_hashes_by_fingerprint": {
+    "01f4d79fe41da0c3a7bbaaaa221c5d12b0f143dec76148154ff593cf1f770675": [
+      "a6a562523576bdaf0b170266505919f5f2ae20212a7bc28846e61b14d6fe7b2c"
+    ],
+    "b5ff37e642020a8b655ce265832e79a324bffd2c05e71a7354d2ef0f830159ac": [
+      "452de1ac3050793e272d42884a1737ce0b8c09bc61a46460d872dc7ee2203ced"
+    ]
+  },
+  "plan_loop_contract_version": "0.9",
+  "plan_loop_issue_attempts_by_fingerprint": {
+    "01f4d79fe41da0c3a7bbaaaa221c5d12b0f143dec76148154ff593cf1f770675": 1,
+    "b5ff37e642020a8b655ce265832e79a324bffd2c05e71a7354d2ef0f830159ac": 1
+  },
+  "plan_loop_mode": "controlled",
+  "plan_loop_no_progress_events": [],
+  "plan_loop_policy": {
+    "artifact_subdir": "plan_closed_loop",
+    "assembled_plan_review_mode": "controlled",
+    "axial_geometry_review_mode": "controlled",
+    "contract_version": "0.9",
+    "enable_facts_review_synthesis": true,
+    "enable_human_gate": false,
+    "facts_review_chunk_chars": 12000,
+    "facts_review_stage_split": true,
+    "fail_closed_on_budget_exhaustion": true,
+    "gate_enabled": {
+      "assembled_plan": false,
+      "axial_geometry": true,
+      "facts": true,
+      "material_universe": true,
+      "placement": true
+    },
+    "material_universe_review_mode": "controlled",
+    "material_universe_review_split": true,
+    "max_attempts_per_issue_fingerprint": 2,
+    "max_attempts_per_retry_request": 2,
+    "max_facts_review_chunks": 8,
+    "max_facts_review_source_chars": 96000,
+    "max_gate_replays_per_gate": 3,
+    "max_human_rounds_per_gate": 2,
+    "max_no_progress_rounds": 1,
+    "max_owner_regenerations_per_patch": 2,
+    "max_repair_rounds_per_gate": 4,
+    "max_retry_rounds": 6,
+    "max_review_rounds_per_gate": 4,
+    "max_same_candidate_attempts": 1,
+    "max_total_additional_llm_calls": 60,
+    "max_total_retry_llm_calls": 12,
+    "metadata": {},
+    "mode": "controlled",
+    "placement_review_mode": "controlled",
+    "plan_gates": [
+      "facts",
+      "material_universe",
+      "placement",
+      "axial_geometry"
+    ],
+    "plan_human_mode": "off",
+    "stop_after_gate": "axial_geometry"
+  },
+  "plan_loop_stages": {
+    "plan_gate_assembled_plan": {
+      "attempt_count": 0,
+      "completed_at": null,
+      "decision_ids": [],
+      "finding_ids": [],
+      "gate_id": "assembled_plan",
+      "human_round_count": 0,
+      "issue_fingerprint": null,
+      "last_patch_hashes": {},
+      "latest_candidate_hash": null,
+      "metadata": {},
+      "no_progress_count": 0,
+      "patch_types": [],
+      "repair_count": 0,
+      "review_count": 0,
+      "stage_id": "plan_gate_assembled_plan",
+      "started_at": null,
+      "status": "pending",
+      "updated_at": null,
+      "validation_count": 0
+    },
+    "plan_gate_axial_geometry": {
+      "attempt_count": 0,
+      "completed_at": "2026-07-27T16:39:35.597629+00:00",
+      "decision_ids": [],
+      "finding_ids": [
+        "d14bfca22b3e19d9f5c945f60ac3af388205a29c5ab6443428a8460edbbbccac",
+        "6c1ac32ba3801013d9edecd8f9cf753487b27b6cb4fb2f6fb3858d6327748903"
+      ],
+      "gate_id": "axial_geometry",
+      "human_round_count": 0,
+      "issue_fingerprint": null,
+      "last_patch_hashes": {},
+      "latest_candidate_hash": null,
+      "metadata": {
+        "accepted_input_hash": "cc05d573735975b0ab0dee5744874b37c910ccd25f3a1e8497ba1e3b913e4a7b"
+      },
+      "no_progress_count": 0,
+      "patch_types": [
+        "axial_layers",
+        "axial_overlays"
+      ],
+      "repair_count": 0,
+      "review_count": 1,
+      "stage_id": "plan_gate_axial_geometry",
+      "started_at": "2026-07-27T16:38:39.588456+00:00",
+      "status": "accepted",
+      "updated_at": "2026-07-27T16:39:35.597629+00:00",
+      "validation_count": 1
+    },
+    "plan_gate_facts": {
+      "attempt_count": 1,
+      "completed_at": "2026-07-27T08:05:28.476546+00:00",
+      "decision_ids": [
+        "facts_decision_000"
+      ],
+      "finding_ids": [
+        "fe1de6aea0018957027d644e33d92ca51fae3806087e9be4124a98105761b065",
+        "d98b84d8a0186882151f6c16e13509685837d7b943031a3ee416b3f8b428c6b2",
+        "770dce92586b7402a03521ca75b6c7f639385ab2040004021ae5b66c8ee2735a",
+        "1be2b8f1ab30ed16895e07301109aaa7d998a2cebff33e73f92afdd3c60fe4c0",
+        "08d3344f71949b81ed3896932f10e95f4041624581476f00f127cd5ba9253847",
+        "c44ff61ecfae0f39560fdaa2fb40237736591d979bf7d9ae92e1700a631f6308",
+        "41cb795a3c15628e09bb89606ce550317f423b7308452b6c02d100e1062c9f85",
+        "39a8e55e8c86c5faa219990f9189c327d592c5c0c3b64092ea9b1479e4f2e6fa",
+        "ce401eca4eadc7461d9a523b38dc16cbf5ddab49a76c2a2b1b472b206ec06ddd",
+        "5f2fb9ce952e2e91ce51f4498553186f7a709358f7423a46b2b4f6d0788de500",
+        "20da9084981a2643859dee301514d3568a5890f70a6778aee2fb2b04b8d6abb0",
+        "2650e743e87969c159fbc6858a42f5fc14770ba42501a7632189599a96434b0c",
+        "9db610ab50cfff82ea404f714d40583f2a613306826651d261f3998413b11129",
+        "81d5c83cf538bd332d933502c265c34863f93f97621f170ef93da20fe954197f",
+        "1fc302842dbccf13c389955cef0a69ba0e3d292ab2101be0b1cde4e4055dc30d",
+        "cb40faa44839ce6b74269eb5a3493701592fa579bd42bcce6977d916887324f0",
+        "1d97085d67dfff1d4556212b054c4e4535f044bbd944860d4c4480f814d736e8",
+        "bf87475502c0238a7c91e195cec920a3fc5a480eec958ec394023d6033fd6e00",
+        "2c4feb45bfa7463596e34e9db9ade4312ec675e1fe3790588429405a03cdf331"
+      ],
+      "gate_id": "facts",
+      "human_round_count": 0,
+      "issue_fingerprint": "b5ff37e642020a8b655ce265832e79a324bffd2c05e71a7354d2ef0f830159ac",
+      "last_patch_hashes": {},
+      "latest_candidate_hash": "452de1ac3050793e272d42884a1737ce0b8c09bc61a46460d872dc7ee2203ced",
+      "metadata": {
+        "accepted_input_hash": "4c9788ebae141c6cebd58f8e98f74d011b455c3126ce49aa396a229f0aa39c64",
+        "facts_revision_closure": {
+          "final_candidate_hash": "452de1ac3050793e272d42884a1737ce0b8c09bc61a46460d872dc7ee2203ced",
+          "input_payload_hash": "ee1e5e8a50a627829002845f7c35ee4929e0899051a2d8aae80fcca58d812d98",
+          "rounds": 2
+        }
+      },
+      "no_progress_count": 0,
+      "patch_types": [
+        "facts"
+      ],
+      "repair_count": 2,
+      "review_count": 3,
+      "stage_id": "plan_gate_facts",
+      "started_at": "2026-07-27T07:40:47.583071+00:00",
+      "status": "accepted",
+      "updated_at": "2026-07-27T08:05:28.476546+00:00",
+      "validation_count": 3
+    },
+    "plan_gate_material_universe": {
+      "attempt_count": 0,
+      "completed_at": "2026-07-27T09:01:50.099148+00:00",
+      "decision_ids": [],
+      "finding_ids": [
+        "b9fd7c4a38f870c0c13f6ccd174ff3a5b3807ddfd7eb8130b1a4a4412ade7f38",
+        "95ef4e838224ce82a5523521b5715a5317edebc52d7560d0534d81633d41b092",
+        "de40c803fb0b014c7ba52135a91abb97afe70fc7403ae0e8a5fc36dafbb5bfcc"
+      ],
+      "gate_id": "material_universe",
+      "human_round_count": 0,
+      "issue_fingerprint": null,
+      "last_patch_hashes": {},
+      "latest_candidate_hash": null,
+      "metadata": {
+        "accepted_input_hash": "88b6d3a44ae943c6ebdb0a3be3e15bbe7f917ff5af4292675e091239f840f88b"
+      },
+      "no_progress_count": 0,
+      "patch_types": [
+        "materials",
+        "universes"
+      ],
+      "repair_count": 0,
+      "review_count": 1,
+      "stage_id": "plan_gate_material_universe",
+      "started_at": "2026-07-27T08:57:28.235061+00:00",
+      "status": "accepted",
+      "updated_at": "2026-07-27T09:01:50.099148+00:00",
+      "validation_count": 1
+    },
+    "plan_gate_placement": {
+      "attempt_count": 0,
+      "completed_at": "2026-07-27T09:08:07.886972+00:00",
+      "decision_ids": [
+        "placement_decision_001"
+      ],
+      "finding_ids": [],
+      "gate_id": "placement",
+      "human_round_count": 0,
+      "issue_fingerprint": null,
+      "last_patch_hashes": {},
+      "latest_candidate_hash": null,
+      "metadata": {
+        "accepted_input_hash": "0c6edcd569d8f5bee4e896aa06635ec304e94f2a70d187164a5032c7e016cbc7",
+        "review_model": null,
+        "reviewed_input_hash": "0c6edcd569d8f5bee4e896aa06635ec304e94f2a70d187164a5032c7e016cbc7"
+      },
+      "no_progress_count": 0,
+      "patch_types": [
+        "assembly_catalog",
+        "core_layout"
+      ],
+      "repair_count": 0,
+      "review_count": 1,
+      "stage_id": "plan_gate_placement",
+      "started_at": "2026-07-27T09:04:51.833135+00:00",
+      "status": "accepted",
+      "updated_at": "2026-07-27T09:08:07.886972+00:00",
+      "validation_count": 1
+    }
+  },
+  "plan_retry_attempts_by_fingerprint": {},
+  "plan_retry_budget": {},
+  "plan_retry_candidate_hashes_by_fingerprint": {},
+  "plan_retry_cycle_trace": [],
+  "plan_retry_execution_plans": {},
+  "plan_retry_gate_invalidation_counts": {},
+  "plan_retry_gate_replay_attempt_counts": {},
+  "plan_retry_gate_replay_counts": {},
+  "plan_retry_gate_replay_success_counts": {},
+  "plan_retry_human_questions": {},
+  "plan_retry_issue_fingerprints_by_request": {},
+  "plan_retry_outcome": null,
+  "plan_retry_owner_regenerations": {},
+  "plan_retry_pending_request_ids": [],
+  "plan_retry_requests": {},
+  "plan_retry_rounds": [],
+  "plan_retry_task_plan_hash_history": [],
+  "plan_review_decisions": {},
+  "plan_review_findings": {},
+  "planning_evidence_ledger": null,
+  "planning_feature_contract": {
+    "confidence_by_feature": {
+      "has_axial_components": "high",
+      "has_axial_geometry": "high",
+      "has_benchmark_variant": "high",
+      "has_control_state": "high",
+      "has_explicit_z_ranges": "high",
+      "has_localized_insert": "high",
+      "has_multi_segment_localized_insert": "high",
+      "has_spacer_grid": "high",
+      "has_special_pin_map": "high",
+      "multi_assembly_core": "high"
+    },
+    "contract_hash": "ff512572e33f210086c423c54a1ce2e7f01684b9659a4e9e24456b1fcf793122",
+    "core_lattice": false,
+    "evidence": {
+      "feature_summary": {
+        "axial_matched_terms": [
+          "3d assembly",
+          "三维",
+          "轴向分段",
+          "定位格架",
+          "格架",
+          "plenum",
+          "气腔",
+          "z=2"
+        ],
+        "benchmark_variant_terms": [
+          "vera",
+          "基准"
+        ],
+        "has_axial_components": true,
+        "has_axial_geometry": true,
+        "has_benchmark_variant": true,
+        "has_control_state": true,
+        "has_explicit_z_ranges": true,
+        "has_localized_insert": true,
+        "has_multi_segment_localized_insert": true,
+        "has_multiple_universes": false,
+        "has_spacer_grid": true,
+        "has_special_pin_map": true,
+        "large_lattice_dimension": null,
+        "localized_insert_terms": [
+          "control rod",
+          "rcca",
+          "局部插入",
+          "控制棒",
+          "吸收体"
+        ],
+        "multi_assembly_core": true,
+        "special_pin_terms": [
+          "pyrex",
+          "可燃毒物",
+          "导向管"
+        ]
+      }
+    },
+    "has_axial_geometry": true,
+    "has_control_state": true,
+    "has_localized_insert": true,
+    "has_multi_segment_localized_insert": true,
+    "has_multiple_fuel_variants": true,
+    "has_spacer_grid": true,
+    "has_special_pin_map": true,
+    "metadata": {},
+    "multi_assembly_core": true
+  },
+  "planning_mode": "incremental",
+  "planning_source_manifest": null,
+  "requirement_text": "=== Operating-state selection ===\nThis problem description defines multiple operating states (e.g., 1A/1B/1C/...). Model ONLY operating state \"\" in this run. Extract its parameters from the state table / description below and ignore all other states; do not merge or average parameters across states.\n\n=== Original problem description ===\n# VERA Benchmark Problem 4：三维 HZP 3×3 组件控制棒价值（3D HZP 3×3 Assembly Control Rod Worth）— 明确化输入描述\n\n> **来源**：CASL-U-2012-0131-004《VERA Core Physics Benchmark Problems》Problem #4  \n> **反应堆**：WBN1 Cycle 1 初始堆芯中心 3×3 区域  \n> **状态**：寿期初（BOL）/ 热态零功率（HZP）/ 565 K 等温条件  \n> **组件内坐标**：17×17 栅格使用 **1-based `(row, col)`**，左上角为 `(1,1)`，中心仪表管为 `(9,9)`。  \n> **组件阵列坐标**：3×3 组件阵列同样使用 **1-based `(assembly_row, assembly_col)`**，左上组件为 `(1,1)`，中心组件为 `(2,2)`。\n\n> **本版建模约定**：本题不是把 9 个二维 pin map 沿轴向简单拉伸。下文将模型拆分为：①九个组件中连续存在的燃料棒、导向管和仪表管路径；②只在有限高度存在的 Pyrex、套管塞和移动 RCCA；③不切断棒/管路径的定位格架外框覆盖层；④取代整个详细棒栅格横截面的均匀化 nozzle、堆芯板和上下慢化剂缓冲层。原始表格未唯一规定的端塞细节必须标注为建模约定，不得伪装成精确基准事实。\n\n> **给 Agent 的重要指令**：首先建立 **基础工况**（RCCA 毒物底面 `z=257.9 cm`）并完成几何校验；随后才批量生成 0–230 步的 11 个棒位工况。不同棒位只应平移中心组件的 RCCA 轴向剖面，不得重新生成或改变其余 8 个组件、材料、格架、Pyrex 或套管塞布置。\n\n---\n\n## 1. 目的（Purpose）\n\n本基准题在 Problem 3 单组件三维模型基础上增加：\n\n1. 九个燃料组件组成的 3×3 多组件区域；\n2. 两种燃料富集度和三种组件类型；\n3. 四个边组件中的 Pyrex 可燃毒物；\n4. 角组件和边组件上部的套管塞；\n5. 中心组件中可沿轴向移动的 24 束混合 AIC/B₄C RCCA；\n6. 不同棒位下的 `k-effective`、微分棒价值（DRW）、积分棒价值（IRW）和功率分布。\n\n本题不进行燃耗或热工水力反馈计算。所有组件处于统一 HZP 工况。径向外边界采用反射边界，轴向上下外边界采用真空边界。\n\n---\n\n## 2. 问题构成与组件类型\n\n### 2.1 3×3 组件阵列\n\n使用以下 canonical 组件类型图：\n\n```text\nC E C\nE R E\nC E C\n```\n\n图例：\n\n| 符号 | 组件类型 | 数量 | 燃料 | 导向管内部配置 |\n|---|---|---:|---|---|\n| `C` | 角组件（corner） | 4 | 2.11 wt% U-235 | 无 Pyrex、无 RCCA；24 个导向管在上部局部高度放置套管塞 |\n| `E` | 边组件（edge） | 4 | 2.619 wt% U-235 | 20 条 Pyrex 路径 + 4 条套管塞路径 |\n| `R` | 中心 RCCA 组件 | 1 | 2.11 wt% U-235 | 24 个导向管均为移动 RCCA 路径；无 Pyrex、无套管塞 |\n\n组件阵列坐标与类型：\n\n| 组件坐标 | 类型 |\n|---|---|\n| `(1,1)`, `(1,3)`, `(3,1)`, `(3,3)` | `C` |\n| `(1,2)`, `(2,1)`, `(2,3)`, `(3,2)` | `E` |\n| `(2,2)` | `R` |\n\n### 2.2 组件中心坐标约定\n\n若 3×3 区域几何中心设为 `(x,y)=(0,0)`，组件栅距为 `21.50 cm`，则可采用：\n\n```text\nx_center = (assembly_col - 2) × 21.50 cm\ny_center = (2 - assembly_row) × 21.50 cm\n```\n\n因此：\n\n- 左上组件 `(1,1)` 中心为 `(-21.50, +21.50) cm`；\n- 中心组件 `(2,2)` 中心为 `(0,0) cm`；\n- 右下组件 `(3,3)` 中心为 `(+21.50, -21.50) cm`。\n\n完整 3×3 区域宽度为 `64.50 cm`，若以中心为原点，径向外边界位于 `x/y=±32.25 cm`。\n\n> **关键边界语义**：反射边界只设置在整个 3×3 区域的最外侧。九个组件之间的内部界面必须是普通传输界面，不得给每个组件单独设置反射边界，否则组件间中子耦合会被错误切断。\n\n### 2.3 组件间隙\n\n单组件 pin lattice 的宽度为：\n\n```text\n17 × 1.26 = 21.42 cm\n```\n\n组件栅距为 `21.50 cm`，因此每个组件在每个径向外侧保留 `0.04 cm` 半间隙；两个相邻详细 lattice 边缘之间的总水隙为 `0.08 cm`。该间隙填本工况含硼水。\n\n---\n\n## 3. 计算工况与 RCCA 位置\n\n### 3.1 基础工况\n\n基础工况的 RCCA 毒物底面为：\n\n```text\nz_bottom = 257.900 cm\n```\n\n该工况不是整数步位置，应作为独立的直接轴向位置输入，不要先四舍五入成某个驱动步数。\n\n### 3.2 0–100% 抽出工况\n\n控制棒步长为：\n\n```text\nstep_size = 1.5875 cm/step\n```\n\n完全插入时毒物底面：\n\n```text\nz_bottom(0) = 17.031 cm\n```\n\n对整数退出步数 `N`：\n\n```text\nz_bottom(N) = 17.031 + 1.5875 × N  cm\n```\n\n| 工况 | 步数 `N` | 名义抽出比例 | 毒物底面 `z_bottom` (cm) |\n|---|---:|---:|---:|\n| 基础 | — | — | 257.9000 |\n| CR-00 | 0 | 0% | 17.0310 |\n| CR-10 | 23 | 10% | 53.5435 |\n| CR-20 | 46 | 20% | 90.0560 |\n| CR-30 | 69 | 30% | 126.5685 |\n| CR-40 | 92 | 40% | 163.0810 |\n| CR-50 | 115 | 50% | 199.5935 |\n| CR-60 | 138 | 60% | 236.1060 |\n| CR-70 | 161 | 70% | 272.6185 |\n| CR-80 | 184 | 80% | 309.1310 |\n| CR-90 | 207 | 90% | 345.6435 |\n| CR-100 | 230 | 100% | 382.1560 |\n\n“100% 抽出”表示吸收毒物已退出活性燃料区；控制棒下端仍可位于燃料棒上气腔/上肩部附近，并不意味着整个机械棒件从计算域中消失。\n\n---\n\n## 4. 输入规格（Table P4-1）\n\n| 参数 | 值 |\n|---|---:|\n| 燃料密度 | 10.257 g/cc |\n| Region 1 / `C`,`R` 燃料富集度 | 2.11 wt% U-235 |\n| Region 2 / `E` 燃料富集度 | 2.619 wt% U-235 |\n| 功率 | 0% FP |\n| 燃料、包壳、冷却剂温度 | 565 K |\n| 冷却剂密度 | 0.743 g/cc |\n| 反应堆压力 | 2250 psia |\n| 可溶硼浓度 | 1360 ppm（硼质量份额 0.001360，水质量份额 0.998640） |\n| 天然硼 B-10 同位素份额 | 约 19.9 at% |\n\n---\n\n## 5. 燃料同位素（Table P4-2）\n\n| 同位素 | Region 1：2.11% (wt%) | Region 2：2.619% (wt%) |\n|---|---:|---:|\n| U-234 | 0.0174% | 0.0219% |\n| U-235 | 2.1100% | 2.6190% |\n| U-236 | 0.0097% | 0.0120% |\n| U-238 | 97.8629% | 97.3471% |\n\n显式加入 O-16，并按 UO₂ 化学计量关系设置氧原子数。不得只给出 U-235/U-238 两项而无声删除 U-234、U-236。\n\n---\n\n## 6. 17×17 基础栅格与坐标\n\n### 6.1 24 个导向管位置\n\n所有组件共用以下 24 个导向管坐标：\n\n```text\n(3,6),  (3,9),  (3,12),\n(4,4),  (4,14),\n(6,3),  (6,6),  (6,9),  (6,12), (6,15),\n(9,3),  (9,6),  (9,12), (9,15),\n(12,3), (12,6), (12,9), (12,12), (12,15),\n(14,4), (14,14),\n(15,6), (15,9), (15,12)\n```\n\n### 6.2 中心仪表管\n\n```text\n(9,9)\n```\n\n中心仪表管不放置 Pyrex、套管塞或 RCCA。Problem 4 使用 §1.1–§1.7 几何，不应加入未指定的 §1.8 SS304 仪表套管。\n\n### 6.3 基础计数\n\n每个组件均满足：\n\n```text\n17 × 17 = 289 positions\n264 fuel paths\n24 guide-tube paths\n1 instrument-tube path\n```\n\n整个 3×3 区域满足：\n\n```text\nfuel paths       = 9 × 264 = 2376\nguide-tube paths = 9 × 24  = 216\ninstrument paths = 9 × 1   = 9\n```\n\n### 6.4 Region 2 边组件的 20 根 Pyrex\n\n四个 `E` 组件各自使用以下 20 个 Pyrex 坐标：\n\n```text\n(3,6),  (3,12),\n(4,4),  (4,14),\n(6,3),  (6,9),  (6,15),\n(9,6),  (9,12),\n(12,3), (12,9), (12,15),\n(14,4), (14,14),\n(15,6), (15,12),\n(3,9), (9,3), (9,15), (15,9)\n```\n\n其余 4 个导向管坐标为套管塞路径：\n\n```text\n(6,6),  (6,12), (12,6), (12,12)\n```\n\n### 6.5 三类组件的坐标集合\n\n| 类型 | Pyrex 路径 | 套管塞路径 | RCCA 路径 |\n|---|---:|---:|---:|\n| `C` | 0 | 24 | 0 |\n| `E` | 20 | 4 | 0 |\n| `R` | 0 | 0 | 24 |\n\n整个 3×3 区域的局部插入件计数为：\n\n```text\nPyrex paths       = 4 × 20 = 80\nthimble-plug paths= 4 × 24 + 4 × 4 = 112\nRCCA rodlet paths = 1 × 24 = 24\n```\n\n这些数字表示“被选中的轴向路径”，不是全高都被固体吸收体占据。Pyrex、套管塞和 RCCA 只在各自的有限 `z` 区间改变导向管内部截面。\n\n### 6.6 1-based 到 IR 坐标\n\n写入内部 IR 时使用：\n\n```text\n(row_ir, col_ir) = (row_source - 1, col_source - 1)\n```\n\n例如中心仪表管 `(9,9)` 转换为 `(8,8)`。组件阵列坐标与组件内部 pin 坐标不得混用。\n\n---\n\n## 7. 三维路径语义\n\n二维 pin map 只决定每个 `(assembly, row, col)` 位置属于哪一类轴向路径，不决定该路径在全高使用同一个 universe。\n\n- **燃料棒路径 `F`**：依次经过下肩水区、下端塞、活性燃料、上端塞、氦气腔和上肩水区。\n- **普通导向管路径 `G`**：在详细组件区内始终保留 Zircaloy-4 导向管壁，内部通常为含硼水。\n- **Pyrex 路径 `P`**：只在 Pyrex 毒物段使用环形 Pyrex 截面；毒物上方使用 Pyrex 上部氦气腔截面；其余高度恢复普通水导向管。\n- **套管塞路径 `T`**：只在 `383.31–394.31 cm` 内含 SS304 实心塞；其余高度是普通水导向管。\n- **RCCA 路径 `RCCA`**：控制棒的 AIC、B₄C、上部氦气腔和端塞剖面随棒位整体平移；棒件不在该高度时恢复普通水导向管。\n- **仪表管路径 `I`**：保持水填充的 Zircaloy-4 仪表管，不含 Pyrex、套管塞、RCCA 或 SS304 仪表套管。\n\n插入件只替换导向管的内部流道，不能删除 `0.561–0.602 cm` 的 Zircaloy-4 导向管壁，也不能替换导向管外慢化剂。\n\n---\n\n## 8. 全局轴向几何\n\n轴向坐标 `z=0` 定义为下堆芯板顶面/燃料组件支承面，单位为 cm。\n\n### 8.1 基础轴向区域\n\n| 轴向区域 | z 范围 (cm) | 高度 (cm) | 横截面语义 |\n|---|---:|---:|---|\n| 下方慢化剂缓冲区 | -55.000–-5.000 | 50.000 | 整个 3×3 横截面为 1360 ppm 含硼水 |\n| 下堆芯板 | -5.000–0.000 | 5.000 | 整平面 50 vol% SS304 + 50 vol% 冷却剂 |\n| 下 nozzle | 0.000–6.053 | 6.053 | 整平面均匀化 SS304/冷却剂；不保留详细 17×17 lattice |\n| 下肩间隙 | 6.053–10.281 | 4.228 | 燃料棒位置为水；导向管和仪表管路径继续存在 |\n| 燃料棒下端塞 | 10.281–11.951 | 1.670 | 燃料棒位置为实心 Zircaloy-4 端塞 |\n| 活性燃料栈 | 11.951–377.711 | 365.760 | 264 根燃料棒；局部叠加 Pyrex、RCCA 和格架 |\n| 燃料棒上端塞 | 377.711–379.381 | 1.670 | 燃料棒位置为实心 Zircaloy-4 端塞 |\n| 燃料棒上气腔 | 379.381–395.381 | 16.000 | 燃料棒内部为氦气气腔和连续包壳；含套管塞、RCCA、上端格架重叠 |\n| 上肩间隙 | 395.381–397.510 | 2.129 | 燃料棒结束并变成水；导向管/仪表管路径延续到上 nozzle |\n| 上 nozzle | 397.510–406.337 | 8.827 | 整平面均匀化 SS304/冷却剂，不叠加详细棒、管或插入件 |\n| 上堆芯板 | 406.337–413.937 | 7.600 | 整平面 50 vol% SS304 + 50 vol% 冷却剂 |\n| 上方慢化剂缓冲区 | 413.937–463.937 | 50.000 | 整个 3×3 横截面为含硼水 |\n\n### 8.2 详细路径的轴向范围\n\n1. 燃料棒路径：`10.281–395.381 cm`。\n2. 24 根导向管路径：在每个组件的详细区 `6.053–397.510 cm` 连续存在。\n3. 中心仪表管路径：采用与详细 lattice 相同的 `6.053–397.510 cm` 范围。\n4. Pyrex、套管塞和 RCCA 只改变导向管内部，并被裁剪到详细 lattice 的轴向范围。\n5. 进入 nozzle/堆芯板后，不再显式保留燃料棒、导向管、仪表管、Pyrex、套管塞、RCCA 或格架。\n\n### 8.3 固定局部边界\n\n| 对象 | 下边界 (cm) | 上边界 (cm) |\n|---|---:|---:|\n| 下端部格架 | 11.951 | 15.817 |\n| 中间格架 1 | 73.295 | 77.105 |\n| 中间格架 2 | 125.495 | 129.305 |\n| 中间格架 3 | 177.695 | 181.505 |\n| 中间格架 4 | 229.895 | 233.705 |\n| 中间格架 5 | 282.095 | 285.905 |\n| 中间格架 6 | 334.295 | 338.105 |\n| 上端部格架 | 386.267 | 390.133 |\n| Pyrex 毒物段 | 15.761 | 376.441 |\n| Pyrex 上部气腔（详细区） | 376.441 | 397.510 |\n| 套管塞 | 383.310 | 394.310 |\n\n### 8.4 每个 RCCA 工况的动态边界\n\n对给定的 `z_bottom`，必须额外加入：\n\n```text\nz_AIC_bottom = z_bottom\nz_AIC_top    = z_bottom + 101.60\nz_B4C_top    = z_bottom + 360.68\nz_plenum_top = z_bottom + 371.38\n```\n\n若采用推荐的上端塞近似，还加入：\n\n```text\nz_endplug_top = z_bottom + 373.28\n```\n\n所有动态边界与基础区域、格架、Pyrex、套管塞边界取并集，并裁剪到 `6.053–397.510 cm` 的详细 lattice 区间。不得要求 RCCA 的材料分界恰好对齐固定轴向网格；任意位置的薄层必须被保留。\n\n---\n\n## 9. 燃料棒几何\n\n### 9.1 基本尺寸\n\n| 参数 | 值 |\n|---|---:|\n| 芯块半径 | 0.4096 cm |\n| 包壳内半径 | 0.418 cm |\n| 包壳外半径 | 0.475 cm |\n| pin pitch | 1.26 cm |\n| 燃料柱高度 | 365.76 cm |\n| 上气腔高度 | 16.0 cm |\n| 下/上端塞高度 | 各 1.67 cm |\n\n### 9.2 活性燃料段径向结构\n\n适用于 `11.951 ≤ z < 377.711 cm`：\n\n| 半径范围 | 材料 |\n|---|---|\n| `0 ≤ r < 0.4096 cm` | 对应组件类型的 UO₂ |\n| `0.4096 ≤ r < 0.418 cm` | 氦气芯块—包壳间隙 |\n| `0.418 ≤ r < 0.475 cm` | Zircaloy-4 包壳 |\n| `r ≥ 0.475 cm` 至 pin cell 边界 | 1360 ppm 含硼水；格架区最外方框除外 |\n\n不得让燃料芯块直接接触包壳，也不得用 `0.4096 cm` 作为上气腔与包壳的分界。\n\n### 9.3 轴向截面切换\n\n| z 范围 (cm) | 燃料棒位置截面 |\n|---|---|\n| 6.053–10.281 | 全水 pin cell，无燃料棒 |\n| 10.281–11.951 | 实心 Zircaloy-4 下端塞，外部为水 |\n| 11.951–377.711 | UO₂ + He gap + Zircaloy-4 包壳 |\n| 377.711–379.381 | 实心 Zircaloy-4 上端塞 |\n| 379.381–395.381 | `0–0.418 cm` 氦气；`0.418–0.475 cm` Zircaloy-4 包壳 |\n| 395.381–397.510 | 全水 pin cell，燃料棒已结束 |\n\n格架只占 pin cell 最外侧慢化剂区域，不能替换上述内部截面。\n\n---\n\n## 10. 导向管与仪表管\n\n### 10.1 普通导向管\n\n| 半径范围 | 材料 |\n|---|---|\n| `0 ≤ r < 0.561 cm` | 含硼水，或在局部高度被 Pyrex/套管塞/RCCA 内部剖面替换 |\n| `0.561 ≤ r < 0.602 cm` | Zircaloy-4 导向管壁 |\n| `r ≥ 0.602 cm` 至 pin cell 边界 | 含硼水；格架外框除外 |\n\n### 10.2 中心仪表管\n\n| 半径范围 | 材料 |\n|---|---|\n| `0 ≤ r < 0.559 cm` | 含硼水 |\n| `0.559 ≤ r < 0.605 cm` | Zircaloy-4 仪表管壁 |\n| `r ≥ 0.605 cm` | 含硼水；格架外框除外 |\n\n本题不得把中心仪表管填成真空或加入 SS304 仪表套管。\n\n---\n\n## 11. 定位格架\n\n每个组件有 8 个格架，因此整个 3×3 区域有：\n\n```text\n9 × 8 = 72 grids\n18 end grids\n54 middle grids\n```\n\n| 参数 | 端部格架 | 中间格架 |\n|---|---:|---:|\n| 每组件数量 | 2 | 6 |\n| 材料 | Inconel-718 | Zircaloy-4 |\n| 单个格架质量 | 1017 g | 875 g |\n| 高度 | 3.866 cm | 3.810 cm |\n| 中心 z (cm) | 13.884, 388.2 | 75.2, 127.4, 179.6, 231.8, 284.0, 336.2 |\n\n### 11.1 质量守恒外框\n\n每个格架的质量在该组件的 289 个 pin cells 间平均分配：\n\n```text\nA_cell = grid_mass / (material_density × 289 × grid_height)\n```\n\n采用对称方形外框时：\n\n```text\ninner_side = sqrt(pin_pitch² - A_cell)\nframe_thickness = (pin_pitch - inner_side) / 2\n```\n\n由给定密度得到的检查值约为：\n\n| 格架 | `A_cell` | 外框厚度 |\n|---|---:|---:|\n| 端部 Inconel | 0.111142 cm² | 0.02245 cm |\n| 中间 Zircaloy | 0.121138 cm² | 0.02451 cm |\n\n这些派生值必须由质量、密度、高度和 pin 数确定性计算，不应作为通用 renderer 中的硬编码常数。\n\n### 11.2 叠加规则\n\n- 格架材料只占每个 pin cell 最外侧原本为慢化剂的区域。\n- 燃料、氦隙、包壳、导向管壁、仪表管壁、Pyrex、套管塞和 RCCA 均继续贯穿格架高度。\n- 格架应在所有 lattice loading 或局部插入件物化之后叠加。\n- 不得把整个格架层填成 Inconel/Zircaloy，也不得在 24 个导向管周围另加未给出的 spacer sleeve。\n- 相邻组件的格架分别属于各自组件；组件间 `0.08 cm` 总水隙不得被格架外框越界占据。\n\n---\n\n## 12. Nozzle 与堆芯板\n\n### 12.1 轴向范围与混合比例\n\n| 构件 | z 范围 (cm) | 均匀化材料 |\n|---|---:|---|\n| 下 nozzle | 0.000–6.053 | 27.9217 vol% SS304 + 72.0783 vol% 本工况冷却剂 |\n| 上 nozzle | 397.510–406.337 | 19.1470 vol% SS304 + 80.8530 vol% 本工况冷却剂 |\n| 下堆芯板 | -5.000–0.000 | 50 vol% SS304 + 50 vol% 冷却剂 |\n| 上堆芯板 | 406.337–413.937 | 50 vol% SS304 + 50 vol% 冷却剂 |\n\nnozzle 体积分数由：\n\n```text\nf_SS = 6250 g / (8.00 g/cc × 21.50² cm² × nozzle_height)\n```\n\n确定。\n\n### 12.2 横截面语义\n\n- 这些区域是覆盖整个 3×3 计算横截面的均匀化 slab；也可按九个相邻组件 footprint 分区，但材料必须一致且不能留缝。\n- slab 内不再保留 17×17 pin lattice、导向管、仪表管、Pyrex、套管塞、RCCA 或格架。\n- RCCA 或 Pyrex 的名义机械长度若延伸到 `z≥397.510 cm`，在本基准详细 lattice 中必须于该边界裁剪，不得与均匀化上 nozzle 双重占据。\n\n---\n\n## 13. Pyrex（仅四个 `E` 组件）\n\n### 13.1 基本参数\n\n| 参数 | 值 |\n|---|---:|\n| B₂O₃ 质量份额 | 12.5 wt% |\n| B-10 线性装载量 | 6.24 mg/cm |\n| Pyrex 密度 | 2.25 g/cc |\n| 有效毒物高度 | 360.68 cm |\n| 毒物底/顶 | 15.761 / 376.441 cm |\n| 名义上部氦气腔高度 | 22.2 cm |\n| 内管/外包壳材料 | SS304 |\n\n### 13.2 有效毒物段径向结构\n\n适用于每个 `E` 组件的 20 个 Pyrex 坐标，且仅适用于 `15.761 ≤ z < 376.441 cm`：\n\n| 半径范围 | 材料 |\n|---|---|\n| `0–0.214 cm` | 氦气中心腔 |\n| `0.214–0.231 cm` | SS304 内管 |\n| `0.231–0.241 cm` | 氦气内间隙 |\n| `0.241–0.427 cm` | 环形 Pyrex 毒物 |\n| `0.427–0.437 cm` | 氦气外间隙 |\n| `0.437–0.484 cm` | SS304 外包壳 |\n| `0.484–0.561 cm` | 含硼水隙 |\n| `0.561–0.602 cm` | 原 Zircaloy-4 导向管壁 |\n| `r≥0.602 cm` | 含硼水；格架外框除外 |\n\nPyrex 不能建成实心圆柱。\n\n### 13.3 上部气腔\n\n在详细 lattice 中，`376.441 ≤ z < 397.510 cm` 使用：\n\n| 半径范围 | 材料 |\n|---|---|\n| `0–0.214 cm` | 氦气 |\n| `0.214–0.231 cm` | SS304 内管 |\n| `0.231–0.437 cm` | 氦气 |\n| `0.437–0.484 cm` | SS304 外包壳 |\n| `0.484–0.561 cm` | 含硼水隙 |\n| `0.561–0.602 cm` | 导向管壁 |\n\n名义气腔顶面为 `398.641 cm`，但详细 lattice 在 `397.510 cm` 结束，因此剩余长度由均匀化上 nozzle 取代。\n\n### 13.4 轴向恢复规则\n\n- `z<15.761 cm`：Pyrex 坐标为普通水导向管。\n- `15.761–376.441 cm`：使用毒物截面。\n- `376.441–397.510 cm`：使用上部氦气腔截面。\n- `z≥397.510 cm`：进入均匀化上 nozzle，不再显式放置 Pyrex。\n\n---\n\n## 14. 套管塞（`C` 和 `E` 组件）\n\n| 参数 | 值 |\n|---|---:|\n| 材料 | SS304 |\n| 外半径 | 0.538 cm |\n| 高度 | 11.0 cm |\n| 底/顶 | 383.310 / 394.310 cm |\n| 端帽 | 忽略 |\n\n有效高度内的径向结构：\n\n| 半径范围 | 材料 |\n|---|---|\n| `0–0.538 cm` | 实心 SS304 套管塞 |\n| `0.538–0.561 cm` | 含硼水隙 |\n| `0.561–0.602 cm` | Zircaloy-4 导向管壁 |\n| `r≥0.602 cm` | 含硼水；格架外框除外 |\n\n`z<383.310 cm` 或 `z≥394.310 cm` 时，套管塞路径恢复为普通水填充导向管。套管塞不得延伸进活性燃料区。\n\n---\n\n## 15. RCCA（仅中心 `R` 组件）\n\n中心组件的 24 个导向管均接收同一棒簇的 24 根 rodlet。所有 rodlet 使用相同轴向位置和材料剖面。\n\n### 15.1 AIC 截面\n\n| 半径范围 | 材料 |\n|---|---|\n| `0–0.382 cm` | AIC：80/15/5 wt% Ag/In/Cd，密度 10.2 g/cc |\n| `0.382–0.386 cm` | 氦气间隙 |\n| `0.386–0.484 cm` | SS304 控制棒包壳 |\n| `0.484–0.561 cm` | 含硼水隙 |\n| `0.561–0.602 cm` | Zircaloy-4 导向管壁 |\n| `r≥0.602 cm` | 含硼水；格架外框除外 |\n\n### 15.2 B₄C 截面\n\n| 半径范围 | 材料 |\n|---|---|\n| `0–0.373 cm` | B₄C，密度 1.76 g/cc |\n| `0.373–0.386 cm` | 氦气间隙 |\n| `0.386–0.484 cm` | SS304 控制棒包壳 |\n| `0.484–0.561 cm` | 含硼水隙 |\n| `0.561–0.602 cm` | Zircaloy-4 导向管壁 |\n| `r≥0.602 cm` | 含硼水；格架外框除外 |\n\nAIC 与 B₄C 是同一根棒内沿轴向首尾相接的材料段，不是径向套层，也不是两组不同坐标的控制棒。\n\n### 15.3 RCCA 轴向剖面\n\n对于任意棒位 `z_bottom`：\n\n| 轴向段 | 高度 | 范围 |\n|---|---:|---:|\n| AIC 下端吸收段 | 101.60 cm | `z_bottom` 到 `z_bottom+101.60` |\n| B₄C 上部吸收段 | 259.08 cm | `z_bottom+101.60` 到 `z_bottom+360.68` |\n| 上部氦气腔 | 10.70 cm | `z_bottom+360.68` 到 `z_bottom+371.38` |\n| 推荐上端塞近似 | 约 1.90 cm | `z_bottom+371.38` 到 `z_bottom+373.28` |\n\n上部气腔截面：\n\n| 半径范围 | 材料 |\n|---|---|\n| `0–0.386 cm` | 氦气 |\n| `0.386–0.484 cm` | SS304 包壳 |\n| `0.484–0.561 cm` | 含硼水隙 |\n| `0.561–0.602 cm` | 导向管壁 |\n\n推荐上端塞可建为 `0–0.484 cm` 实心 SS304，外侧仍保留水隙和导向管壁。原始规格未唯一描述所有端部表面，因此：\n\n- AIC 和 B₄C 两段的位置、长度与刚性平移是强制事实；\n- 10.7 cm 上部气腔应保留；\n- 约 1.9 cm 端塞是显式近似，必须写入 assumptions/provenance；\n- 不得自行添加弹簧、倒角、下端塞或其它未给出的机械细节。\n\n### 15.4 刚性移动规则\n\n棒位改变时，AIC、B₄C、氦气腔、包壳和端塞作为一个整体同时上移：\n\n```text\nnew_z = reference_z + withdrawal_steps × 1.5875 cm\n```\n\n不得只移动 B₄C、只移动毒物而保持包壳不动，或根据固定轴向层把控制棒“吸附”到最近网格边界。\n\n### 15.5 与详细组件区的裁剪\n\nRCCA 只在中心组件的导向管详细区内显式渲染：\n\n```text\n6.053 ≤ z < 397.510 cm\n```\n\n- 低于 rodlet 下端的导向管内部为含硼水。\n- 高于已建模 rodlet 顶部且仍在详细区内的部分恢复为含硼水。\n- 超过 `397.510 cm` 的 RCCA 几何不与均匀化上 nozzle/堆芯板重复叠加。\n- 若某一材料段只与详细区相交很薄的一段，也必须保留该交集，不得因小于常规轴向网格厚度而删除。\n\n### 15.6 典型状态检查\n\n- **全插（0 步）**：AIC `17.031–118.631 cm`，B₄C `118.631–377.711 cm`；B₄C 顶面恰到燃料栈顶。\n- **基础工况**：AIC `257.900–359.500 cm`；B₄C 从 `359.500 cm` 开始，并在 `397.510 cm` 处被详细 lattice 上边界裁剪。\n- **全抽（230 步）**：AIC 从 `382.156 cm` 开始，只有其位于上气腔/上肩范围的下端部分仍在详细区；活性燃料区内不应再有 RCCA 吸收体。\n\n---\n\n## 16. 材料属性与空间角色\n\n### 16.1 密度\n\n| 材料 | 密度 |\n|---|---:|\n| UO₂ | 10.257 g/cc |\n| Zircaloy-4 | 6.56 g/cc |\n| SS304 | 8.00 g/cc |\n| Inconel-718 | 8.19 g/cc |\n| HZP 冷却剂 | 0.743 g/cc |\n| Pyrex | 2.25 g/cc |\n| AIC | 10.2 g/cc |\n| B₄C | 1.76 g/cc |\n| 氦气 | 使用输入/截面库支持的名义密度，并记录来源 |\n\n### 16.2 材料—几何映射\n\n| 材料 | 允许出现的位置 |\n|---|---|\n| Region 1 UO₂ | 四个 `C` 组件和中心 `R` 组件的活性燃料芯块 |\n| Region 2 UO₂ | 四个 `E` 组件的活性燃料芯块 |\n| Zircaloy-4 | 燃料包壳/端塞、导向管、仪表管、54 个中间格架 |\n| SS304 | Pyrex 内外管、套管塞、RCCA 包壳/推荐端塞、均匀化 nozzle/堆芯板 |\n| Inconel-718 | 18 个端部格架 |\n| Pyrex | 四个 `E` 组件的 80 条指定路径，且仅在毒物有效高度的环形区域 |\n| AIC/B₄C | 中心组件 24 条 RCCA 路径随棒位移动的对应轴向段 |\n| 氦气 | 燃料棒间隙/气腔、Pyrex 内部气腔/间隙、RCCA 间隙/上部气腔 |\n| 含硼水 | 所有未被固体或氦占据的内部空间、组件间隙、缓冲层和结构混合物中的冷却剂份额 |\n\n结构材料的密度不能代替真实核素组成。若使用纯 Zr、纯 Fe 或纯 Ni 近似 Zircaloy-4、SS304、Inconel，必须明确标记为低保真近似；不得把这种近似标记为 benchmark-confirmed。\n\n---\n\n## 17. 边界条件、源与对称性\n\n### 17.1 边界条件\n\n| 位置 | 边界类型 |\n|---|---|\n| 整个 3×3 区域四个径向外表面 | reflective |\n| 下方水缓冲区底面 `z=-55.000 cm` | vacuum |\n| 上方水缓冲区顶面 `z=463.937 cm` | vacuum |\n| 九个组件之间的内部界面 | transmission；不得设置 reflective |\n\n### 17.2 初始源\n\n特征值计算的初始源应覆盖九个组件的活性燃料区：\n\n```text\n-32.25 < x < 32.25 cm\n-32.25 < y < 32.25 cm\n11.951 < z < 377.711 cm\n```\n\n并使用 fissionable 约束或等价的燃料区域采样。源不得主要落入组件间隙、Pyrex、RCCA、nozzle、堆芯板或水缓冲层。\n\n### 17.3 对称性\n\n完整 3×3 模型是规范实现。若使用四分之一或八分之一对称，必须证明：\n\n- 组件类型图在所选对称面上保持一致；\n- Pyrex、套管塞和 RCCA 坐标对称；\n- tally 归一化正确；\n- 反射面只放在真实对称面，不放在普通组件界面。\n\n---\n\n## 18. 推荐装配顺序\n\n1. 建立统一 HZP 材料和两种 UO₂ 富集度。\n2. 建立燃料段、端塞、气腔、全水 pin cell、普通导向管和仪表管等基础 universe。\n3. 建立 Pyrex 毒物段、Pyrex 上部气腔和套管塞内部剖面。\n4. 建立 RCCA 的 AIC、B₄C、上部气腔和可选端塞内部剖面。\n5. 建立 `C`、`E`、`R` 三类基础 17×17 assembly lattice，不把有限高度插入件沿全高固化进 pin map。\n6. 根据固定结构边界和当前 RCCA 动态边界构造轴向分段。\n7. 在各段中先应用 fuel profile、Pyrex/套管塞/RCCA 等 lattice loading。\n8. 在最终 materialized universe 外侧叠加格架质量守恒方框。\n9. 将三个 3D reusable assembly universe 按 `C/E/R` 组成 3×3 core lattice。\n10. 在 nozzle、堆芯板和上下缓冲层切换为整平面 slab。\n11. 最后设置 3×3 外边界、轴向真空边界、初始源和 tallies。\n\n推荐的局部组合顺序：\n\n```text\nbase pin/guide paths\n→ assembly-specific finite inserts\n→ current RCCA axial loading\n→ mass-conserving spacer-grid overlay\n→ 3D assembly universe\n→ 3×3 core lattice\n→ homogenized slabs / outer boundaries\n```\n\n---\n\n## 19. 必须满足的几何不变量\n\n1. 每个组件始终有 264 条燃料路径、24 条导向管路径、1 条仪表管路径。\n2. `C=4`、`E=4`、`R=1`，组件总数为 9。\n3. 每个 `E` 组件的 20 个 Pyrex 坐标与 4 个套管塞坐标互斥，且并集为 24 个导向管坐标。\n4. 每个 `C` 组件的 24 个导向管仅在 `383.31–394.31 cm` 含套管塞，其余高度为普通导向管。\n5. 中心 `R` 组件的 24 根 RCCA 同步移动，任何一个棒位下位置完全一致。\n6. Pyrex、套管塞和 RCCA 均不能删除 `0.561–0.602 cm` 的导向管壁。\n7. Pyrex 毒物是环形 `0.241–0.427 cm`，不是实心棒。\n8. AIC 和 B₄C 是同一 rodlet 的轴向材料段，不是两个不同 rodlet 集合。\n9. RCCA 的所有材料边界按相同位移刚性移动，不得对齐到最近固定网格。\n10. 格架区中所有棒/管/插入件仍存在，只有 pin cell 外缘部分慢化剂被格架材料替换。\n11. 72 个格架的质量应分别按各自组件的 289 个 pin cells 守恒分配。\n12. nozzle 和堆芯板区域不得继续引用详细 17×17 lattice。\n13. 组件之间不得存在 reflective surface、未指定 void 或几何缝隙。\n14. 中心仪表管不得填真空或加入 SS304 仪表套管。\n15. 上下水缓冲层外表面是真空；缓冲层本身是含硼水。\n\n---\n\n## 20. 常见错误与阻断条件\n\n| 错误 | 后果 |\n|---|---|\n| 给每个组件设置径向反射边界 | 九个组件彼此中子学隔离，失去 3×3 耦合 |\n| 把 `C/E/R` 的局部插入件沿全高拉伸 | 在活性区或 nozzle 中错误加入套管塞/Pyrex/RCCA |\n| 只移动 B₄C 而不移动 AIC/包壳 | RCCA 机械剖面断裂，棒价值错误 |\n| 将 RCCA 位置取整到最近轴向网格 | 丢失不对齐边界和薄层效应 |\n| 把 AIC 与 B₄C 做成径向同心层 | 完全错误理解混合 RCCA |\n| 插入吸收体后删除导向管壁 | 低估 Zircaloy、扩大毒物/水体积 |\n| 把格架建成整层固体材料 | 截断 2376 根燃料棒和所有管路径 |\n| 在 nozzle/plate 中保留详细 lattice | 结构材料与冷却剂双重计数 |\n| 3×3 组件中心间距使用 21.42 cm | 丢失组件间隙并改变区域宽度 |\n| 把 100% 抽出解释为 rodlet 完全离开计算域 | 错误删除仍位于上部详细区的 AIC 端头 |\n| 结构合金简化为纯元素且未标记 | 材料吸收/散射明显偏离参考模型 |\n\n出现上述问题时应阻止进入输运计算，而不是静默降级为更简单模型。\n\n---\n\n## 21. 面向 IR/Agent 的对象分类\n\n| 对象类别 | 内容 |\n|---|---|\n| `assembly_types` | `C`、`E`、`R` 三类 17×17 组件 |\n| `core_map` | 3×3 `C/E/R` 布局及 21.50 cm 组件栅距 |\n| `through_paths` | 2376 条燃料棒、216 条导向管、9 条仪表管路径 |\n| `localized_inserts` | 80 条 Pyrex、112 条套管塞、24 条移动 RCCA 路径 |\n| `moving_profiles` | RCCA 的 AIC/B₄C/气腔/端塞刚性轴向剖面 |\n| `axial_overlays` | 72 个质量守恒定位格架外框 |\n| `homogenized_slabs` | 上下 nozzle、上下堆芯板 |\n| `moderator_slabs` | 上下水缓冲层和燃料棒肩部水区 |\n\n不得把本题表达成一个由 LLM 手工枚举的巨大逐层 3×3×17×17 lattice。应复用 assembly type、坐标集合、轴向 profile 和 loading 组合。\n\n---\n\n## 22. Tally 与功率网格\n\n### 22.1 几何层与 tally 层分离\n\n轴向 tally 网格不等于几何轴向层。几何必须包含所有真实材料/构件边界；裂变率 tally 可使用约 49 个轴向区段，并在格架区使用 3.810/3.866 cm 的薄层分辨。\n\n### 22.2 基础工况输出\n\n基础工况至少输出：\n\n1. `k-effective`；\n2. 九个组件的归一化组件功率；\n3. 2376 根燃料棒的径向 pin-power 分布或其对称展开结果；\n4. 平均轴向功率分布；\n5. 轴向偏移（若求解流程支持）。\n\n功率只在 UO₂ 燃料区域计分。Pyrex、RCCA、套管塞和结构材料中的吸收或沉积不得计作燃料功率。\n\n### 22.3 棒位扫描输出\n\n对基础工况以及 0、23、46、69、92、115、138、161、184、207、230 步分别计算 `k-effective`。\n\n定义从较插入状态 `i` 到下一较抽出状态 `i+1` 的微分棒价值：\n\n```text\nDRW_i = (1/k_{i+1} - 1/k_i) × 10^5 pcm\n```\n\n以 230 步全抽工况为未插棒基准，积分棒价值：\n\n```text\nIRW_i = (1/k_230 - 1/k_i) × 10^5 pcm\n```\n\n上述符号约定下，插入控制棒的价值通常为负；如另行报告正的吸收价值绝对值，必须明确写为 `-DRW` 或 `-IRW`，不能混用符号。\n\n基础工况 `z_bottom=257.9 cm` 的积分棒价值也相对 230 步工况计算。\n\n---\n\n## 23. 最小自动校验清单\n\n### 23.1 Plan/IR 级\n\n- 3×3 core map 恰有 9 个 assembly instances；\n- 组件类型计数 `C=4, E=4, R=1`；\n- 每组件 pin counts 为 `264/24/1`；\n- 四个 `E` 组件各为 `20 Pyrex + 4 plugs`；\n- 四个 `C` 组件各为 `24 plugs`；\n- 中心 `R` 组件为 `24 RCCA`；\n- RCCA 24 个坐标与标准导向管坐标完全一致；\n- 所有轴向层连续、无 gap/overlap；\n- 当前棒位的 AIC/B₄C 边界按公式生成；\n- 72 个格架的 z 范围和质量正确；\n- outer boundary 只位于整个 3×3 区域外侧。\n\n### 23.2 Rendered geometry 级\n\n至少对以下位置和高度执行 point probes：\n\n1. `C` 组件普通燃料、套管塞和仪表管；\n2. `E` 组件燃料、Pyrex、套管塞和仪表管；\n3. `R` 组件燃料、RCCA 和仪表管；\n4. 相邻组件界面两侧及组件间水隙；\n5. 中间格架、上端格架重叠区；\n6. RCCA AIC/B₄C 分界两侧；\n7. RCCA 下端、毒物顶端和 397.510 cm 裁剪边界两侧；\n8. nozzle/core-plate 边界；\n9. 3×3 外部反射边界和轴向真空边界。\n\n必须通过：\n\n- XML export；\n- geometry debug；\n- overlap=0；\n- lost particles=0；\n- undefined universe/cell=0；\n- 内部组件界面无 reflective boundary；\n- 初始源可在九个组件燃料区正常采样。\n\n### 23.3 棒位批量生成级\n\n- 12 个状态使用同一个静态 3×3 几何合同；\n- 只有 RCCA 轴向位置随状态变化；\n- 相同状态重复生成的 plan/XML semantic hash 一致；\n- 棒位上移量与 `steps×1.5875 cm` 一致；\n- 230 步状态的 RCCA 不进入活性燃料区；\n- 0 步状态的 B₄C 顶面为 `377.711 cm`。\n\n---\n\n## 24. 待求解量\n\n对 12 个状态（基础 + 11 个整数步状态）计算：\n\n1. `k-effective`；\n2. 相邻棒位间 DRW；\n3. 相对 230 步全抽状态的 IRW。\n\n对基础工况另外输出：\n\n1. 九组件径向功率分布；\n2. pin-power 分布；\n3. 平均轴向功率分布；\n4. 轴向偏移。\n\n---\n\n## 25. 截面库路径\n\n截面库路径属于运行环境，不属于 benchmark 物理输入。OpenMC 可通过环境变量指定：\n\n```bash\nexport OPENMC_CROSS_SECTIONS=/path/to/cross_sections.xml\n```\n\n模型或自然语言输入中不得硬编码某台机器的 `cross_sections.xml` 绝对路径。若本地核数据缺少 AIC、B₄C、结构合金或热散射所需核素，应作为环境/核数据 blocker 报告，而不是静默删除对应材料成分。",
+  "resolved_planning_scope": {
+    "canonical_hash": "2a222f823ab6293ae573c3dd10832557f3575c0773774a133268bdddf2677549",
+    "conflicting_values": [],
+    "evidence": [
+      {
+        "confidence": "high",
+        "evidence_id": "feature_core",
+        "metadata": {},
+        "reason": "planning feature contract requires a core-level assembly family",
+        "source": "feature_detector",
+        "source_refs": [],
+        "value": "multi_assembly_core"
+      },
+      {
+        "confidence": "high",
+        "evidence_id": "facts_scope",
+        "metadata": {},
+        "reason": "FactsPatch model_scope",
+        "source": "facts_patch",
+        "source_refs": [],
+        "value": "multi_assembly_core"
+      },
+      {
+        "confidence": "high",
+        "evidence_id": "facts_count",
+        "metadata": {},
+        "reason": "assembly_count > 1",
+        "source": "facts_patch",
+        "source_refs": [],
+        "value": "multi_assembly_core"
+      },
+      {
+        "confidence": "high",
+        "evidence_id": "facts_types",
+        "metadata": {},
+        "reason": "assembly_type_counts total > 1",
+        "source": "facts_patch",
+        "source_refs": [],
+        "value": "multi_assembly_core"
+      }
+    ],
+    "metadata": {},
+    "requires_human_confirmation": false,
+    "resolution_source": "high_confidence_evidence",
+    "status": "resolved",
+    "value": "multi_assembly_core"
+  },
+  "root_cause_attempts_by_fingerprint": {},
+  "root_cause_candidate_hashes": {},
+  "root_cause_retry_history": [],
+  "selected_variant": null,
+  "state_id": "pbs_bc99f286883f4a81",
+  "validation_full_patch_regenerations_by_fingerprint": {},
+  "validation_issues": [],
+  "validation_repair_attempts_by_fingerprint": {},
+  "validation_repair_candidate_hashes": {},
+  "validation_repair_history": []
+}

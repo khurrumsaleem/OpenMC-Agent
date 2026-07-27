@@ -60,3 +60,32 @@ def test_assembled_target_seed_rejects_axial_owner_retry() -> None:
         assert "planning.retry_owner_frozen_by_target_seed" in str(exc)
     else:
         raise AssertionError("expected axial owner retry to be frozen")
+
+
+def test_assembled_target_seed_rejects_all_upstream_owner_retries() -> None:
+    state = _seed_state()
+    cases = [
+        ("assembled.unresolved_reference", ["materials"]),
+        ("assembled.required_universe_unreachable", ["universes"]),
+        ("assembled.localized_insert_unreachable", ["localized_insert_profiles"]),
+        ("assembled.required_overlay_unreachable", ["axial_overlays"]),
+    ]
+    for code, expected_owner in cases:
+        request = normalize_retry_request(
+            {"code": code},
+            state=state,
+            origin=RetryTriggerOrigin.ASSEMBLED_PLAN_GATE,
+        )
+        assert request is not None
+        assert request.owner_patch_types == expected_owner
+
+        try:
+            compile_retry_execution_plan(
+                request,
+                state,
+                PlanClosedLoopPolicy(mode="controlled", assembled_plan_review_mode="controlled"),
+            )
+        except ValueError as exc:
+            assert "planning.retry_owner_frozen_by_target_seed" in str(exc)
+        else:
+            raise AssertionError(f"expected owner retry to be frozen for {code}")
