@@ -4,6 +4,10 @@
 
 ### 2026-07-26
 
+- **Phase 8C Step 3J fragmented Universes localized-insert alias closure**：Placement v13 不是网络失败；Facts/MU accepted，但 run 在 Placement 前的 `localized_insert_profiles` patch generation 阶段失败。根因是 fragmented Universes 只生成 `profile_*` universe 并用 metadata 表示覆盖 localized insert requirement，而 accepted Facts/Profile 合同引用的是 exact `expected_insert_universe_ids`。
+- **验证结果**：v13 artifact 离线应用新 alias materialization 后新增 `pyrex_poison/pyrex_plenum/thimble_plug/rcca_aic/rcca_b4c/rcca_plenum/rcca_endplug`，`missing_after=[]`；focused universe/MU/profile tests `58 passed`。全量非 OpenMC/非 LLM pytest `3713 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、fixture baseline diff 均通过。
+- **风险/边界**：本修复只保证 Universes patch 暴露下游可引用的 exact IDs；不声明 Placement Gate accepted。下一次应新目录重跑 `--stop-after-gate placement`。
+
 - **Phase 8C Step 3J Placement dependency retry prompt closure**：Placement v12 不是网络失败；Facts/MU accepted，Placement reviewer complete 且无 finding，但 deterministic preflight 缺 localized insert universes，legacy dependency retry 未把 exact required IDs/accepted Facts insert contract 注入 Universes first-attempt prompt，且失败 artifact 吞掉 generation issue 详情。
 - **验证结果**：v12 artifact 离线复核中 required IDs 从 `pyrex_plenum/pyrex_poison/thimble_plug/rcca_aic` 补全为包含 `rcca_b4c/rcca_plenum` 的 6 个合同 ID；focused Placement/retry tests `42 passed`。全量非 OpenMC/非 LLM pytest `3712 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、fixture baseline diff 均通过。
 - **风险/边界**：本修复使 Universes retry 有完整 source-backed 靶子并保留失败 diagnostics；尚未声明 Placement Gate accepted，需要下一次 `--stop-after-gate placement` milestone 验证。

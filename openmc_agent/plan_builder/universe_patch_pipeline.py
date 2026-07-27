@@ -19,6 +19,7 @@ patch is large enough to risk truncation.
 
 from __future__ import annotations
 
+from copy import deepcopy
 import json
 from typing import Any
 
@@ -49,6 +50,119 @@ from .universe_fragment_qualification import (
     qualify_universe_fragment,
     verify_accepted_fragment_record,
 )
+
+
+def _expected_localized_insert_universe_ids(facts_obj: Any | None) -> dict[str, list[str]]:
+    """Return accepted Facts localized-insert expected universe IDs by row ID."""
+
+    expected: dict[str, list[str]] = {}
+    if facts_obj is None:
+        return expected
+    for req in getattr(facts_obj, "localized_insert_requirements", []) or []:
+        req_id = getattr(req, "requirement_id", "")
+        if not req_id:
+            continue
+        values = getattr(req, "expected_insert_universe_ids", []) or []
+        ids = [str(item) for item in values if isinstance(item, str) and item]
+        if ids:
+            expected[str(req_id)] = list(dict.fromkeys(ids))
+    return expected
+
+
+def _localized_insert_ids_for_universe(universe: dict[str, Any]) -> set[str]:
+    """Extract source-backed localized insert requirement IDs from universe metadata."""
+
+    meta = universe.get("metadata") or {}
+    if not isinstance(meta, dict):
+        meta = {}
+    ids: set[str] = set()
+    singular = meta.get("localized_insert_requirement_id")
+    if isinstance(singular, str) and singular:
+        ids.add(singular)
+    values = meta.get("localized_insert_requirement_ids") or []
+    values = values if isinstance(values, list) else [values]
+    for value in values:
+        if isinstance(value, str) and value:
+            ids.add(value)
+    source_values = meta.get("source_requirement_ids") or []
+    source_values = source_values if isinstance(source_values, list) else [source_values]
+    for value in source_values:
+        if isinstance(value, str) and value.startswith("localized_insert:"):
+            req_id = value.split(":", 1)[1]
+            if req_id:
+                ids.add(req_id)
+    return ids
+
+
+def materialize_localized_insert_universe_aliases(
+    patch: dict[str, Any],
+    *,
+    facts_obj: Any | None,
+) -> list[dict[str, Any]]:
+    """Add exact-ID localized-insert universe aliases required by accepted Facts.
+
+    Fragmented generation may create one radial/profile universe whose metadata
+    says it covers a localized insert requirement, while downstream placement
+    profiles reference the source-backed ``expected_insert_universe_ids`` from
+    Facts.  The Universes patch must therefore expose those exact IDs as real
+    universe IDs; metadata-only coverage is insufficient for Placement/Axial
+    consumers.
+    """
+
+    expected_by_req = _expected_localized_insert_universe_ids(facts_obj)
+    universes = patch.get("universes", [])
+    if not expected_by_req or not isinstance(universes, list):
+        return []
+
+    existing_ids = {
+        str(item.get("universe_id"))
+        for item in universes
+        if isinstance(item, dict) and item.get("universe_id")
+    }
+    sources_by_req: dict[str, dict[str, Any]] = {}
+    for universe in universes:
+        if not isinstance(universe, dict):
+            continue
+        for req_id in _localized_insert_ids_for_universe(universe):
+            sources_by_req.setdefault(req_id, universe)
+
+    issues: list[dict[str, Any]] = []
+    aliases: list[dict[str, Any]] = []
+    for req_id, expected_ids in expected_by_req.items():
+        source = sources_by_req.get(req_id)
+        for expected_id in expected_ids:
+            if expected_id in existing_ids:
+                continue
+            if source is None:
+                issues.append({
+                    "code": "localized_insert.expected_universe_source_missing",
+                    "severity": "error",
+                    "message": (
+                        f"no generated universe carries localized_insert_requirement_id "
+                        f"'{req_id}' for expected universe '{expected_id}'"
+                    ),
+                    "requirement_id": req_id,
+                    "universe_id": expected_id,
+                })
+                continue
+            alias = deepcopy(source)
+            source_id = str(source.get("universe_id") or "")
+            alias["universe_id"] = expected_id
+            meta = dict(alias.get("metadata") or {})
+            meta["alias_of_universe_id"] = source_id
+            meta["localized_insert_expected_universe_id"] = expected_id
+            meta["localized_insert_requirement_id"] = req_id
+            ids = list(meta.get("localized_insert_requirement_ids") or [])
+            if req_id not in ids:
+                ids.append(req_id)
+            meta["localized_insert_requirement_ids"] = sorted(set(str(item) for item in ids if item))
+            alias["metadata"] = meta
+            aliases.append(alias)
+            existing_ids.add(expected_id)
+
+    if aliases:
+        universes.extend(aliases)
+    return issues
 
 
 def _get_session(state: PlanBuildState, input_hash: str) -> LargePatchGenerationSession | None:
@@ -1070,6 +1184,47 @@ def generate_universes_patch(
             )
         if u_meta:
             universe["metadata"] = u_meta
+
+    alias_issues = materialize_localized_insert_universe_aliases(
+        merge_result.merged_patch,
+        facts_obj=facts_obj,
+    )
+    if alias_issues:
+        _save_session(state, session)
+        return PatchGenerationResult(
+            ok=False, patch_type=patch_type,
+            issues=[{
+                "code": "patch_generation.localized_insert_universe_alias_failed",
+                "severity": "error",
+                "message": "merged UniversesPatch could not materialize accepted Facts insert universe IDs",
+                "metadata": {
+                    "validation_issues": alias_issues,
+                    "merged_patch_hash": merge_result.merged_patch_hash,
+                    "manifest_id": merge_result.manifest_id,
+                    "manifest_input_hash": merge_result.manifest_input_hash,
+                },
+            }],
+        )
+
+    ok_after_alias, alias_val_issues = validate_merged_patch(
+        merge_result.merged_patch or {}, known_material_ids=known_material_ids,
+    )
+    if not ok_after_alias:
+        _save_session(state, session)
+        return PatchGenerationResult(
+            ok=False, patch_type=patch_type,
+            issues=[{
+                "code": "patch_generation.localized_insert_universe_alias_invalid",
+                "severity": "error",
+                "message": "UniversesPatch failed validation after localized insert alias materialization",
+                "metadata": {
+                    "validation_issues": alias_val_issues,
+                    "merged_patch_hash": merge_result.merged_patch_hash,
+                    "manifest_id": merge_result.manifest_id,
+                    "manifest_input_hash": merge_result.manifest_input_hash,
+                },
+            }],
+        )
 
     # Create the authoritative PlanPatchEnvelope.
     import hashlib

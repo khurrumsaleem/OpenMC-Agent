@@ -283,3 +283,96 @@ class TestFragmentPipelineMetadataStamping:
         meta = universes[0].get("metadata", {})
         assert meta.get("geometry_profile_id") == "profile_fuel_v1"
         assert "source_requirement_ids" in meta
+
+    def test_fragmented_universes_materialize_localized_insert_expected_ids(self):
+        """Metadata-only localized insert coverage is expanded into exact universe IDs."""
+        from openmc_agent.plan_builder.state import PlanBuildState, PlanPatchEnvelope
+        from openmc_agent.plan_builder.universe_patch_pipeline import generate_universes_patch
+        from openmc_agent.plan_investigation.inventory_universe_requirements import (
+            InventoryUniverseRequirement,
+            InventoryUniverseRequirementSet,
+        )
+
+        state = PlanBuildState(state_id="test_insert_aliases", requirement_text="test")
+        state.add_patch(PlanPatchEnvelope(
+            patch_id="facts", patch_type="facts",
+            content=FactsPatch(
+                patch_type="facts", benchmark_id=None,
+                geometry_type="single_assembly", lattice_size=(17, 17),
+                pin_pitch_cm=1.26, has_axial_geometry=True,
+                active_fuel_region_cm=(0.0, 100.0),
+                localized_insert_requirements=[
+                    LocalizedInsertPlacementRequirementPatchItem(
+                        requirement_id="insert_a",
+                        insert_kind="pyrex_rod",
+                        assembly_type_ids=["A"],
+                        expected_coordinate_count_per_assembly=1,
+                        host_kind="guide_tube",
+                        required_profile_id="insert_profile",
+                        required_segment_roles=["poison", "plenum"],
+                        expected_insert_universe_ids=["insert_poison", "insert_plenum"],
+                        control_state_id="base",
+                    )
+                ],
+            ).model_dump(mode="json"),
+            source="fixture", status="valid",
+        ))
+        state.add_patch(PlanPatchEnvelope(
+            patch_id="materials", patch_type="materials",
+            content=MaterialsPatch(
+                patch_type="materials",
+                materials=[
+                    MaterialSpecPatch(
+                        material_id="m_poison", name="poison", role="poison",
+                        density_g_cm3=2.0, composition={"B10": 0.2, "O16": 0.8},
+                        composition_basis="atom_frac", composition_status="approximate",
+                    ),
+                ],
+            ).model_dump(mode="json"),
+            source="fixture", status="valid",
+        ))
+
+        inv_set = InventoryUniverseRequirementSet(
+            requirements=(
+                InventoryUniverseRequirement(
+                    requirement_id="ureq_insert",
+                    geometry_profile_id="profile_insert",
+                    profile_kind="pyrex_rod",
+                    component_kind="pyrex_rod",
+                    required_cell_roles=("poison",),
+                    required_material_roles=("poison",),
+                    localized_insert_requirement_ids=("insert_a",),
+                    source_claim_ids=("c_insert",),
+                ),
+            ),
+            inventory_hash="ihash_insert",
+            material_requirement_set_hash="mhash_insert",
+        )
+
+        class _FakeLLM:
+            def __call__(self, prompt: str) -> str:
+                return json.dumps({
+                    "patch_type": "universes",
+                    "universes": [{
+                        "universe_id": "profile_insert",
+                        "kind": "pyrex_rod",
+                        "cells": [{"id": "poison", "role": "poison", "material_id": "m_poison",
+                                   "region_kind": "cylinder", "r_min_cm": 0.0, "r_max_cm": 0.4}],
+                    }],
+                })
+
+        result = generate_universes_patch(
+            requirement="test", state=state, llm_client=_FakeLLM(),
+            mode="fragmented",
+            inventory_universe_requirement_set=inv_set,
+        )
+
+        assert result.ok
+        assert result.envelope is not None
+        by_id = {
+            universe["universe_id"]: universe
+            for universe in result.envelope.content.get("universes", [])
+        }
+        assert {"profile_insert", "insert_poison", "insert_plenum"} <= set(by_id)
+        assert by_id["insert_poison"]["metadata"]["alias_of_universe_id"] == "profile_insert"
+        assert by_id["insert_plenum"]["metadata"]["localized_insert_requirement_id"] == "insert_a"
