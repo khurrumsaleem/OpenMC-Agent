@@ -1612,7 +1612,11 @@ def _run_incremental_plan_generation(
             build_state.metadata["target_gate_seed_gate"] = (
                 stop_after_gate.value if hasattr(stop_after_gate, "value") else str(stop_after_gate)
             )
-    if accepted_seed and build_state.assembled_plan is not None:
+    # A target-gate seed run must still enter the incremental executor so the
+    # requested downstream gate preflight/reviewer executes.  The assembled-plan
+    # fast-path is only for runtime evaluation of an already accepted source
+    # state without a stop-after target.
+    if accepted_seed and build_state.assembled_plan is not None and not getattr(plan_loop_policy, "stop_after_gate", None):
         plan = SimulationPlan.model_validate(build_state.assembled_plan)
         artifact_paths = _write_final_simulation_plan(state, plan)
         return {

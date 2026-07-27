@@ -4,6 +4,10 @@
 
 ### 2026-07-27
 
+- **Phase 8C Step 3K Assembled target-seed routing hardening**：提前审查 Axial seed 系列暴露的 graph/campaign/retry 接线问题在 Assembled Gate 的复现风险。修复 `accepted_plan_build_state + assembled_plan` fast-path：当存在 `stop_after_gate` 时不再直接返回 assembled plan，而是进入 incremental executor，让 Assembled Gate preflight/reviewer 实际执行。Assembled target seed 下所有 patch-owner retry 均被冻结；上游 Facts/MU/Placement/Axial finding 作为 target blocker 输出，不在 Assembled run 内重开上游。run-level `campaign_config.json` 现在记录脱敏 seed 标志与路径，便于排障。
+- **验证结果**：新增 Assembled target seed graph routing 与 retry 冻结回归；相关 focused tests `30 passed`。全量非 OpenMC/非 LLM pytest `3730 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、fixture baseline diff 均通过。
+- **风险/边界**：本修复只保证 Assembled target canary 的路由和冻结边界正确，不声明 Assembled Gate accepted；真实 Assembled finding 仍需按 replay 分类闭合。
+
 - **Phase 8C Step 3K Axial target-seed upstream freeze closure**：Axial seed v3 已真正使用 Placement accepted seed（`state_id` 与 v16 一致、Facts/MU accepted 复用、LLM calls 降到 3），但 Axial retry 将 upstream Placement-owned patches（`assembly_catalog/core_layout/localized_insert_profiles`）连同 `axial_layers` 一起 invalidated，导致 Placement Gate 从 accepted 退回 pending，并以 `incremental.patch_generation_failed` 收尾。现为 accepted-state target run 写入 seed metadata，并在 retry execution plan 编译阶段冻结 upstream owners：`axial_geometry` target 只允许 `base_path_axial_profiles/axial_layers/axial_overlays` owner 与 Axial Gate replay。
 - **验证结果**：新增 target-seed retry 冻结回归，覆盖 upstream owner、canonical task-plan owner fail-closed 与 Axial owner invalidation 限界；相关 focused tests `27 passed`。全量非 OpenMC/非 LLM pytest `3727 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、fixture baseline diff 均通过。
 - **风险/边界**：本修复不伪造 Axial 通过；如果下一次 Axial reviewer 仍要求修改 upstream Placement/Facts/MU owner，该 finding 应作为 target run blocker 输出并离线分类，而不是在 Axial run 内重开已 accepted 上游。

@@ -53,12 +53,7 @@ def _state_hash(state: PlanBuildState) -> str:
 
 _TARGET_GATE_SEED_ALLOWED_OWNER_PATCH_TYPES: dict[str, set[str]] = {
     "axial_geometry": {"base_path_axial_profiles", "axial_layers", "axial_overlays"},
-    "assembled_plan": {
-        "base_path_axial_profiles",
-        "axial_layers",
-        "axial_overlays",
-        "settings",
-    },
+    "assembled_plan": set(),
 }
 
 _TARGET_GATE_SEED_ALLOWED_GATE_REPLAYS: dict[str, set[PlanGateId]] = {
@@ -91,9 +86,9 @@ def _constrain_target_gate_seed_retry_plan(
     target_gate = _target_gate_seed_gate(state)
     if target_gate is None:
         return invalidated, gates
-    allowed_owners = _TARGET_GATE_SEED_ALLOWED_OWNER_PATCH_TYPES.get(target_gate)
-    if not allowed_owners:
+    if target_gate not in _TARGET_GATE_SEED_ALLOWED_OWNER_PATCH_TYPES:
         return invalidated, gates
+    allowed_owners = _TARGET_GATE_SEED_ALLOWED_OWNER_PATCH_TYPES[target_gate]
     disallowed_owners = sorted({owner for owner in owner_types if owner not in allowed_owners})
     if disallowed_owners:
         raise ValueError(

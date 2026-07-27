@@ -1611,6 +1611,11 @@ def _write_run_artifacts(
         "runtime_mode": config.runtime_supervisor_mode,
         "max_runtime_iterations": config.max_runtime_iterations,
         "wall_time_limit_s": config.wall_time_limit_s,
+        "metadata": {
+            "accepted_plan_build_state_seed": bool(config.metadata.get("accepted_plan_build_state")),
+            "accepted_plan_build_state_path": str(config.metadata.get("accepted_plan_build_state_path", "")),
+            "resume_accepted_state_seed": bool(config.metadata.get("resume_accepted_state")),
+        },
          "max_llm_calls": config.max_llm_calls,
          "plan_loop_max_review_rounds": config.policy.max_review_rounds_per_gate,
          "plan_loop_max_repair_rounds": config.policy.max_repair_rounds_per_gate,
