@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+from types import SimpleNamespace
 from pathlib import Path
 
 from openmc_agent.plan_builder.closed_loop.campaign_checkpoint import (
@@ -72,6 +73,7 @@ def test_missing_axial_patches_recommends_stop_after_generation(tmp_path: Path) 
         _write_state(tmp_path, remove_axial_patches=True)
     )
     assert payload["gate_required_by_tasks"] is True
+    assert payload["gate_applicable_by_evidence"] is True
     assert payload["gate_ready"] is False
     assert payload["missing_required_valid_patch_types"] == [
         "base_path_axial_profiles",
@@ -108,3 +110,82 @@ def test_checkpoint_input_uses_latest_snapshot(tmp_path: Path) -> None:
     assert payload["source"]["kind"] == "campaign_checkpoint"
     assert payload["source"]["boundary"] == BOUNDARY_GATE_PLACEMENT
     assert payload["preflight"]["ok"] is True
+
+
+def test_real_canary_cli_accepts_sanitized_placement_seed(tmp_path: Path) -> None:
+    script = _load_real_canary_script()
+    state = state_with_axial_patches(include_profiles=True)
+    requirement_path = tmp_path / "input.md"
+    requirement_path.write_text(state.requirement_text, encoding="utf-8")
+    from openmc_agent.inspect import compose_operating_state_requirement
+    state.requirement_text = compose_operating_state_requirement(
+        requirement_path.read_text(encoding="utf-8"), ""
+    )
+    seed_path = tmp_path / "seed_state.json"
+    seed_path.write_text(json.dumps(state.model_dump(mode="json")), encoding="utf-8")
+    payload = script._load_accepted_plan_build_state_seed(
+        seed_path,
+        case=SimpleNamespace(input_path=str(requirement_path), operating_state=""),
+        stop_after_gate="axial_geometry",
+    )
+    assert payload["accepted_plan_build_state_path"] == str(seed_path)
+    assert payload["accepted_plan_build_state"]["state_id"] == state.state_id
+
+
+def test_real_canary_cli_sanitizes_seed_audit_raw_outputs(tmp_path: Path) -> None:
+    script = _load_real_canary_script()
+    state = state_with_axial_patches(include_profiles=True)
+    requirement_path = tmp_path / "input.md"
+    requirement_path.write_text(state.requirement_text, encoding="utf-8")
+    from openmc_agent.inspect import compose_operating_state_requirement
+    state.requirement_text = compose_operating_state_requirement(
+        requirement_path.read_text(encoding="utf-8"), ""
+    )
+    raw = state.model_dump(mode="json")
+    raw["facts_review_history"] = [{"raw_outputs": ["raw provider output"], "prompt_text": "prompt"}]
+    next(iter(raw["patches"].values()))["raw_text"] = "raw patch output"
+    seed_path = tmp_path / "seed_state.json"
+    seed_path.write_text(json.dumps(raw), encoding="utf-8")
+    payload = script._load_accepted_plan_build_state_seed(
+        seed_path,
+        case=SimpleNamespace(input_path=str(requirement_path), operating_state=""),
+        stop_after_gate="axial_geometry",
+    )
+    assert payload["accepted_plan_build_state"]["facts_review_history"] == []
+    assert next(iter(payload["accepted_plan_build_state"]["patches"].values()))["raw_text"] is None
+
+
+def test_real_canary_cli_rejects_seed_with_secret_like_field(tmp_path: Path) -> None:
+    script = _load_real_canary_script()
+    state = state_with_axial_patches(include_profiles=True)
+    requirement_path = tmp_path / "input.md"
+    requirement_path.write_text(state.requirement_text, encoding="utf-8")
+    from openmc_agent.inspect import compose_operating_state_requirement
+    state.requirement_text = compose_operating_state_requirement(
+        requirement_path.read_text(encoding="utf-8"), ""
+    )
+    raw = state.model_dump(mode="json")
+    raw["metadata"]["api_key"] = "sk-test"
+    seed_path = tmp_path / "seed_state.json"
+    seed_path.write_text(json.dumps(raw), encoding="utf-8")
+    try:
+        script._load_accepted_plan_build_state_seed(
+            seed_path,
+            case=SimpleNamespace(input_path=str(requirement_path), operating_state=""),
+            stop_after_gate="axial_geometry",
+        )
+    except ValueError as exc:
+        assert "secret-like" in str(exc)
+    else:
+        raise AssertionError("expected secret-like seed rejection")
+
+
+def _load_real_canary_script():
+    spec = importlib.util.spec_from_file_location(
+        "evaluate_plan_closed_loop_real_canary",
+        str(ROOT / "scripts" / "evaluate_plan_closed_loop_real_canary.py"),
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module

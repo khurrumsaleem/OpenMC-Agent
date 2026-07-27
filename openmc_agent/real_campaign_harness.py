@@ -1286,6 +1286,8 @@ def run_real_canary_once(
     }
     if config.metadata.get("resume_accepted_state") is not None:
         initial_state["accepted_plan_build_state"] = config.metadata["resume_accepted_state"]
+    elif config.metadata.get("accepted_plan_build_state") is not None:
+        initial_state["accepted_plan_build_state"] = config.metadata["accepted_plan_build_state"]
 
     ws: dict[str, Any] = {}
     try:
@@ -1835,6 +1837,8 @@ def run_real_canary_campaign(
             "plan_loop_max_repair_rounds": campaign.plan_loop_max_repair_rounds,
             "plan_loop_max_additional_llm_calls": campaign.plan_loop_max_additional_llm_calls,
             "llm_budget": llm_budget.to_dict(),
+            "accepted_plan_build_state_seed": bool(campaign.metadata.get("accepted_plan_build_state")),
+            "accepted_plan_build_state_path": str(campaign.metadata.get("accepted_plan_build_state_path", "")),
         },
         "aggregate_status": status,
         "promotion_reasons": [],

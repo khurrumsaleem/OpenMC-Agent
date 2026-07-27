@@ -35,6 +35,9 @@ def axial_geometry_gate_applicable(state: Any) -> bool:
         if ordered & {"base_path_axial_profiles", "axial_layers", "axial_overlays"}:
             return True
     else:
+        for task in getattr(state, "component_tasks", []) or []:
+            if getattr(task, "patch_type", "") in {"base_path_axial_profiles", "axial_layers", "axial_overlays"}:
+                return True
         for ptype in ("base_path_axial_profiles", "axial_layers", "axial_overlays"):
             if _valid(state, ptype) is not None:
                 return True

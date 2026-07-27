@@ -8,6 +8,7 @@ from openmc_agent.plan_builder.closed_loop.axial_geometry_evidence import (
     build_axial_geometry_evidence_pack,
 )
 from openmc_agent.plan_builder.closed_loop.models import PlanClosedLoopPolicy
+from openmc_agent.plan_builder.state import PlanComponentTask
 
 
 def _policy():
@@ -17,6 +18,33 @@ def _policy():
 def test_applicable_with_axial_domain():
     state = state_with_axial_patches()
     assert axial_geometry_gate_applicable(state) is True
+
+
+def test_applicable_when_placement_accepted_state_has_pending_axial_tasks():
+    """Placement milestone checkpoints can require Axial before patches exist."""
+    state = state_with_axial_patches()
+    for patch_id, envelope in list(state.patches.items()):
+        if envelope.patch_type in {"base_path_axial_profiles", "axial_layers", "axial_overlays"}:
+            del state.patches[patch_id]
+    state.component_tasks.clear()
+    state.add_task(
+        PlanComponentTask(
+            task_id="task_axial_layers",
+            patch_type="axial_layers",
+            description="Define core.axial_layers",
+        )
+    )
+    state.add_task(
+        PlanComponentTask(
+            task_id="task_axial_overlays",
+            patch_type="axial_overlays",
+            description="Define core.axial_overlays",
+            dependencies=["task_axial_layers"],
+        )
+    )
+    state.canonical_task_plan = None
+    assert axial_geometry_gate_applicable(state) is True
+    assert axial_geometry_gate_ready(state) is False
 
 
 def test_ready_with_valid_axial_patches():

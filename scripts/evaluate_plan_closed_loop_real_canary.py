@@ -42,9 +42,129 @@ VERA4 planning canary with fragmented universes::
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import sys
 from pathlib import Path
+
+
+def _load_seed_state_json(path: Path) -> dict:
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(raw, dict) and "state_snapshots" in raw:
+        from openmc_agent.plan_builder.closed_loop.campaign_checkpoint import CampaignCheckpointStore
+
+        snapshot = CampaignCheckpointStore(path).latest_state_snapshot()
+        if snapshot is None:
+            raise ValueError(f"accepted state checkpoint has no state snapshots: {path}")
+        raw = snapshot.plan_build_state
+    if not isinstance(raw, dict):
+        raise ValueError(f"accepted state seed must be a JSON object: {path}")
+    return raw
+
+
+def _sanitize_accepted_seed_state(raw: dict) -> dict:
+    """Drop audit-only raw LLM fields before using an accepted-state seed."""
+    data = copy.deepcopy(raw)
+    for key in (
+        "facts_review_history",
+        "facts_revision_history",
+        "placement_review_history",
+        "placement_revision_history",
+    ):
+        if key in data:
+            data[key] = []
+    metadata = data.get("metadata")
+    if isinstance(metadata, dict):
+        metadata.pop("patch_attempt_artifacts", None)
+    patches = data.get("patches")
+    if isinstance(patches, dict):
+        for envelope in patches.values():
+            if isinstance(envelope, dict):
+                envelope["raw_text"] = None
+    return data
+
+
+def _has_forbidden_secret_seed_field(value: object) -> bool:
+    fragments = (
+        "api_key",
+        "token",
+        "secret",
+        "password",
+        "credential",
+        "authorization",
+    )
+    if isinstance(value, dict):
+        for key, item in value.items():
+            key_text = str(key).lower()
+            if any(fragment in key_text for fragment in fragments) and item not in (None, "", [], {}):
+                return True
+            if _has_forbidden_secret_seed_field(item):
+                return True
+    elif isinstance(value, list):
+        return any(_has_forbidden_secret_seed_field(item) for item in value)
+    return False
+
+
+def _has_raw_seed_field(value: object) -> bool:
+    fragments = ("raw_text", "raw_output", "raw_response", "prompt", "reasoning")
+    if isinstance(value, dict):
+        for key, item in value.items():
+            key_text = str(key).lower()
+            if key_text == "prompt_hash":
+                continue
+            if any(fragment in key_text for fragment in fragments) and item not in (None, "", [], {}):
+                return True
+            if _has_raw_seed_field(item):
+                return True
+    elif isinstance(value, list):
+        return any(_has_raw_seed_field(item) for item in value)
+    return False
+
+
+def _load_accepted_plan_build_state_seed(path: Path, *, case: object, stop_after_gate: str | None) -> dict[str, object]:
+    """Validate an explicit accepted PlanBuildState seed for target-gate canaries."""
+    if stop_after_gate not in {"axial_geometry", "assembled_plan"}:
+        raise ValueError(
+            "--accepted-plan-build-state is only supported for "
+            "--stop-after-gate axial_geometry or assembled_plan"
+        )
+    raw = _load_seed_state_json(path)
+    if _has_forbidden_secret_seed_field(raw):
+        raise ValueError("accepted PlanBuildState seed contains secret-like fields")
+    raw = _sanitize_accepted_seed_state(raw)
+    if _has_raw_seed_field(raw):
+        raise ValueError("accepted PlanBuildState seed contains raw provider fields")
+
+    from openmc_agent.inspect import compose_operating_state_requirement
+    from openmc_agent.plan_builder.closed_loop.models import PlanStageStatus
+    from openmc_agent.plan_builder.state import PlanBuildState
+
+    state = PlanBuildState.model_validate(raw)
+    input_path = Path(getattr(case, "input_path"))
+    raw_requirement = input_path.read_text(encoding="utf-8")
+    expected_requirement = compose_operating_state_requirement(
+        raw_requirement,
+        str(getattr(case, "operating_state", "") or ""),
+    )
+    if state.requirement_text.rstrip() != expected_requirement.rstrip():
+        raise ValueError("accepted PlanBuildState seed requirement_text does not match this case/input")
+
+    required_upstream = ["facts", "material_universe", "placement"]
+    if stop_after_gate == "assembled_plan":
+        required_upstream.append("axial_geometry")
+    for gate_id in required_upstream:
+        stage = state.plan_loop_stages.get(f"plan_gate_{gate_id}")
+        if stage is None or stage.status is not PlanStageStatus.ACCEPTED:
+            status = stage.status.value if stage is not None else "missing"
+            raise ValueError(
+                f"accepted PlanBuildState seed requires accepted {gate_id} gate "
+                f"(current status={status})"
+            )
+
+    return {
+        "accepted_plan_build_state": state.model_dump(mode="json"),
+        "accepted_plan_build_state_path": str(path),
+    }
 
 
 def main() -> int:
@@ -75,6 +195,15 @@ def main() -> int:
     parser.add_argument("--runs", type=int, default=1)
     parser.add_argument("--confirm-real-campaign", action="store_true")
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument(
+        "--accepted-plan-build-state",
+        type=Path,
+        help=(
+            "Sanitized PlanBuildState JSON seed for target-gate runs. "
+            "Requires matching requirement text and accepted upstream gates; "
+            "does not relax --resume fingerprint checks."
+        ),
+    )
     parser.add_argument("--human-answer-file", type=Path)
     parser.add_argument(
         "--universes-generation-mode",
@@ -243,6 +372,20 @@ def main() -> int:
         acceptance_profile=args.acceptance_profile,
     )
 
+    metadata: dict[str, object] = {}
+    if args.accepted_plan_build_state:
+        try:
+            metadata.update(
+                _load_accepted_plan_build_state_seed(
+                    args.accepted_plan_build_state,
+                    case=case,
+                    stop_after_gate=args.stop_after_gate,
+                )
+            )
+        except (FileNotFoundError, ValueError) as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 2
+
     campaign = CanaryCampaignConfig(
         case=case,
         runs=args.runs,
@@ -281,6 +424,7 @@ def main() -> int:
         plan_loop_max_review_rounds=args.plan_loop_max_review_rounds,
         plan_loop_max_repair_rounds=args.plan_loop_max_repair_rounds,
         plan_loop_max_additional_llm_calls=args.plan_loop_max_additional_llm_calls,
+        metadata=metadata,
     )
 
     manifest = run_real_canary_campaign(args.output_dir, campaign)
