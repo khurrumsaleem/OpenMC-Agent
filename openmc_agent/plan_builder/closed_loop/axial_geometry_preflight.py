@@ -52,6 +52,7 @@ def _collect_local_validation_issues(state: Any, patch_types: tuple[str, ...]) -
     issues: list[dict[str, Any]] = []
     known_material_ids: set[str] = set()
     known_universe_ids: set[str] = set()
+    known_lattice_ids = _collect_known_lattice_ids(state)
     for ptype in ("materials", "universes"):
         env = _valid(state, ptype)
         if env is None:
@@ -67,7 +68,11 @@ def _collect_local_validation_issues(state: Any, patch_types: tuple[str, ...]) -
         env = _valid(state, ptype)
         if env is None:
             continue
-        ctx = PatchValidationContext(known_material_ids=known_material_ids, known_universe_ids=known_universe_ids)
+        ctx = PatchValidationContext(
+            known_material_ids=known_material_ids,
+            known_universe_ids=known_universe_ids,
+            known_lattice_ids=sorted(known_lattice_ids),
+        )
         result = validate_patch(env.content, context=ctx)
         for item in result.issues:
             code = str(item.code)
@@ -173,7 +178,7 @@ def _collect_fill_reference_issues(view: AxialGeometryBindingView, state: Any) -
     issues: list[dict[str, Any]] = []
     material_ids: set[str] = set()
     universe_ids: set[str] = set()
-    lattice_ids: set[str] = set()
+    lattice_ids = _collect_known_lattice_ids(state)
     for ptype, attr in (("materials", "materials"), ("universes", "universes")):
         env = _valid(state, ptype)
         if env is None:
@@ -225,7 +230,7 @@ def _collect_fill_reference_issues(view: AxialGeometryBindingView, state: Any) -
 def _collect_overlay_issues(view: AxialGeometryBindingView, state: Any) -> list[dict[str, Any]]:
     issues: list[dict[str, Any]] = []
     domain = view.axial_domain_cm
-    lattice_ids: set[str] = set()
+    lattice_ids = _collect_known_lattice_ids(state)
     layers_env = _valid(state, "axial_layers")
     layers_content = layers_env.content if layers_env is not None else None
     if isinstance(layers_content, dict):
@@ -254,7 +259,7 @@ def _collect_overlay_issues(view: AxialGeometryBindingView, state: Any) -> list[
         if overlay.material_id and overlay.material_id not in material_ids:
             issues.append(_issue("axial.overlay_material_missing", f"overlay {overlay.overlay_id} references material {overlay.material_id} not in materials patch", row_kind="overlay_binding", row_key=overlay.overlay_id, owner_patch_type="materials"))
         if overlay.density_status == "fail":
-            issues.append(_issue("axial.overlay_density_required", f"overlay {overlay.overlay_id} requires density but none provided", row_kind="overlay_binding", row_key=overlay.overlay_id, owner_patch_type="materials"))
+            issues.append(_issue("axial.overlay_density_required", f"overlay {overlay.overlay_id} requires mass-conserving basis but none provided", row_kind="overlay_binding", row_key=overlay.overlay_id, owner_patch_type="axial_overlays"))
     # Overlay z-overlaps.
     overlays_with_z = [(o.overlay_id, o.z_min_cm, o.z_max_cm) for o in view.axial_overlay_records if o.z_min_cm is not None and o.z_max_cm is not None]
     for i in range(len(overlays_with_z)):
@@ -274,6 +279,62 @@ def _collect_overlay_issues(view: AxialGeometryBindingView, state: Any) -> list[
         if actual_grids != expected_grids:
             issues.append(_issue("axial.overlay_source_count_mismatch", f"expected {expected_grids} spacer grids, found {actual_grids}", row_kind="spacer_grid_structural_count", row_key="spacer_grids", owner_patch_type="axial_overlays", severity="warning", expected=expected_grids, actual=actual_grids))
     return issues
+
+
+def _collect_known_lattice_ids(state: Any) -> set[str]:
+    """Collect concrete and abstract lattice IDs available to axial patches.
+
+    In full-core planning, Placement may define an assembly family through
+    ``assembly_catalog``/``core_layout`` rather than a single concrete
+    ``assembly_lattice`` object.  Axial patches are allowed to bind to that
+    assembly-family alias; the assembled/rendering path later expands it to
+    concrete per-assembly-type lattices.
+    """
+    lattice_ids: set[str] = set()
+
+    layers_env = _valid(state, "axial_layers")
+    layers_content = layers_env.content if layers_env is not None else None
+    if isinstance(layers_content, dict):
+        layers_content = parse_patch_content("axial_layers", layers_content)
+    if layers_content is not None:
+        for loading in getattr(layers_content, "lattice_loadings", []):
+            if loading.base_lattice_id:
+                lattice_ids.add(loading.base_lattice_id)
+            if loading.derived_lattice_id:
+                lattice_ids.add(loading.derived_lattice_id)
+
+    assembly_env = _valid(state, "assembly_catalog")
+    assembly_content = assembly_env.content if assembly_env is not None else None
+    if isinstance(assembly_content, dict):
+        assembly_content = parse_patch_content("assembly_catalog", assembly_content)
+    assembly_type_ids: list[str] = []
+    if assembly_content is not None:
+        for assembly_type in getattr(assembly_content, "assembly_types", []) or []:
+            assembly_type_id = getattr(assembly_type, "assembly_type_id", None)
+            if assembly_type_id:
+                assembly_type_ids.append(str(assembly_type_id))
+
+    core_env = _valid(state, "core_layout")
+    core_content = core_env.content if core_env is not None else None
+    if isinstance(core_content, dict):
+        core_content = parse_patch_content("core_layout", core_content)
+    if core_content is not None:
+        core_lattice_id = getattr(core_content, "core_lattice_id", None)
+        if core_lattice_id:
+            lattice_ids.add(str(core_lattice_id))
+        pattern = getattr(core_content, "assembly_pattern", None) or []
+        for row in pattern:
+            if isinstance(row, (list, tuple)):
+                for assembly_type_id in row:
+                    if assembly_type_id:
+                        assembly_type_ids.append(str(assembly_type_id))
+
+    if assembly_type_ids:
+        lattice_ids.add("assembly_lattice")
+        for assembly_type_id in assembly_type_ids:
+            lattice_ids.add(f"assembly_lattice__{assembly_type_id}")
+
+    return lattice_ids
 
 
 def _collect_through_path_issues(view: AxialGeometryBindingView) -> list[dict[str, Any]]:

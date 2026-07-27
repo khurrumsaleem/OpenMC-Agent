@@ -192,6 +192,11 @@ def _build_overlay_records(overlays_patch: Any) -> list[AxialOverlayRecord]:
             thickness = round(z_max - z_min, 6)
         needs_density = getattr(overlay, "geometry_mode", "") == "mass_conserving_outer_frame"
         density = getattr(overlay, "effective_density_g_cm3", None)
+        total_mass_g = getattr(overlay, "total_mass_g", None)
+        has_mass_conserving_basis = (
+            (density is not None and density > 0)
+            or (total_mass_g is not None and total_mass_g > 0)
+        )
         records.append(AxialOverlayRecord(
             overlay_id=overlay.overlay_id,
             overlay_kind=getattr(overlay, "overlay_kind", ""),
@@ -202,7 +207,7 @@ def _build_overlay_records(overlays_patch: Any) -> list[AxialOverlayRecord]:
             material_id=getattr(overlay, "material_id", None),
             geometry_mode=getattr(overlay, "geometry_mode", ""),
             required_density=density if needs_density else None,
-            density_status="pass" if not needs_density or (density is not None and density > 0) else ("fail" if needs_density else "not_applicable"),
+            density_status="pass" if not needs_density or has_mass_conserving_basis else ("fail" if needs_density else "not_applicable"),
             structural_renderability="unverified",
             preserved_through_path_ids=[overlay.overlay_id] if getattr(overlay, "through_path_preserved", True) else [],
         ))
@@ -210,29 +215,51 @@ def _build_overlay_records(overlays_patch: Any) -> list[AxialOverlayRecord]:
 
 
 def _build_localized_insert_axial_records(
-    facts: Any, profiles_patch: Any, layers_patch: Any,
+    facts: Any, localized_profiles_patch: Any, layers_patch: Any,
 ) -> list[LocalizedInsertAxialRecord]:
     records: list[LocalizedInsertAxialRecord] = []
     if facts is None:
         return records
     axial_domain = getattr(facts, "axial_domain_cm", None) or (0.0, 0.0)
+    profiles_by_id = {
+        str(getattr(profile, "profile_id", "")): profile
+        for profile in (getattr(localized_profiles_patch, "profiles", []) if localized_profiles_patch else [])
+        if getattr(profile, "profile_id", "")
+    }
     for req in getattr(facts, "localized_insert_requirements", []):
         rid = req.requirement_id
-        profile_id = ""
-        anchor_z: float | None = None
-        control_state_id = ""
-        profiles = getattr(profiles_patch, "profiles", []) if profiles_patch else []
-        for profile in profiles:
-            for binding in getattr(profile, "state_bindings", []):
-                if getattr(binding, "axial_role", "") in {"control_rod", "absorber_insert", "pyrex_rod", "thimble_plug"}:
-                    profile_id = profile.profile_id
-                    break
-            if profile_id:
-                break
+        profile_id = str(getattr(req, "required_profile_id", None) or "")
+        profile = profiles_by_id.get(profile_id) if profile_id else None
+        anchor_z: float | None = getattr(req, "anchor_z_cm", None)
+        if anchor_z is None and profile is not None:
+            anchor_z = getattr(profile, "anchor_z_cm", None)
+        control_state_id = str(getattr(req, "control_state_id", None) or "")
         translated: tuple[float, float] | None = None
+        profile_extent: tuple[float, float] | None = None
+        segment_roles: list[str] = []
+        segment_universe_ids: list[str] = []
+        if profile is not None:
+            segments = list(getattr(profile, "segments", []) or [])
+            if segments:
+                starts = [float(getattr(segment, "relative_z_min_cm")) for segment in segments]
+                ends = [float(getattr(segment, "relative_z_max_cm")) for segment in segments]
+                profile_extent = (min(starts), max(ends))
+                segment_roles = [str(getattr(segment, "role", "")) for segment in segments if getattr(segment, "role", "")]
+                segment_universe_ids = [str(getattr(segment, "universe_id", "")) for segment in segments if getattr(segment, "universe_id", "")]
         if anchor_z is not None:
-            translated = (anchor_z, anchor_z)
+            if profile_extent is None:
+                translated = (anchor_z, anchor_z)
+            else:
+                anchor_kind = str(getattr(profile, "anchor_kind", "bottom")) if profile is not None else "bottom"
+                if anchor_kind == "top":
+                    translated = (anchor_z - profile_extent[1], anchor_z - profile_extent[0])
+                elif anchor_kind == "center":
+                    half = (profile_extent[1] - profile_extent[0]) / 2.0
+                    translated = (anchor_z - half, anchor_z + half)
+                else:
+                    translated = (anchor_z + profile_extent[0], anchor_z + profile_extent[1])
         host_layers: list[str] = []
+        overlaps: list[tuple[float, float]] = []
         if layers_patch and translated:
             for layer in getattr(layers_patch, "layers", []):
                 z_min = getattr(layer, "z_min_cm", None)
@@ -240,15 +267,18 @@ def _build_localized_insert_axial_records(
                 if z_min is not None and z_max is not None:
                     if _intervals_overlap(translated, (z_min, z_max), _Z_TOL):
                         host_layers.append(layer.layer_id)
+                        overlaps.append((max(float(z_min), translated[0]), min(float(z_max), translated[1])))
         records.append(LocalizedInsertAxialRecord(
             requirement_id=rid,
             profile_id=profile_id,
             control_state_id=control_state_id,
             anchor_z_cm=anchor_z,
+            profile_relative_extent=profile_extent,
             translated_absolute_extent=translated,
-            segment_roles=[req.insert_kind] if hasattr(req, "insert_kind") else [],
+            segment_roles=segment_roles or ([req.insert_kind] if hasattr(req, "insert_kind") else []),
+            segment_universe_ids=segment_universe_ids,
             host_layer_ids=host_layers,
-            overlapping_layer_intervals=[],
+            overlapping_layer_intervals=overlaps,
             clipping="reachable" if host_layers else ("outside_domain" if translated else "pending"),
             coverage_status="pass" if host_layers else "fail",
         ))
@@ -354,12 +384,15 @@ def build_axial_geometry_binding_view(*, state: Any) -> AxialGeometryBindingView
 
     profiles_patch = _valid(state, "base_path_axial_profiles")
     profiles_content = profiles_patch.content if profiles_patch is not None else None
+    localized_profiles_patch = _valid(state, "localized_insert_profiles")
+    localized_profiles_content = localized_profiles_patch.content if localized_profiles_patch is not None else None
     layers_patch = _valid(state, "axial_layers")
     layers_content = layers_patch.content if layers_patch is not None else None
     overlays_patch = _valid(state, "axial_overlays")
     overlays_content = overlays_patch.content if overlays_patch is not None else None
 
     profiles_obj = parse_patch_content("base_path_axial_profiles", profiles_content) if profiles_content else None
+    localized_profiles_obj = parse_patch_content("localized_insert_profiles", localized_profiles_content) if localized_profiles_content else None
     layers_obj = parse_patch_content("axial_layers", layers_content) if layers_content else None
     overlays_obj = parse_patch_content("axial_overlays", overlays_content) if overlays_content else None
 
@@ -371,7 +404,7 @@ def build_axial_geometry_binding_view(*, state: Any) -> AxialGeometryBindingView
     layer_records = _build_axial_layer_records(layers_obj)
     loading_records = _build_loading_records(layers_obj)
     overlay_records = _build_overlay_records(overlays_obj)
-    insert_records = _build_localized_insert_axial_records(facts_obj, profiles_obj, layers_obj)
+    insert_records = _build_localized_insert_axial_records(facts_obj, localized_profiles_obj, layers_obj)
     through_path_records = _build_through_path_records(layer_records, overlay_records)
     derived_segments = derive_axial_geometry_segments(
         axial_domain=axial_domain, layers=layer_records, overlays=overlay_records,

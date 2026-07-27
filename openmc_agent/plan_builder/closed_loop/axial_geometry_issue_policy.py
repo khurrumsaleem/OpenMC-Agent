@@ -23,7 +23,6 @@ _FACTS_DEPENDENCY_CODES = {
 
 # Codes whose root cause is a missing material property.
 _MATERIALS_DEPENDENCY_CODES = {
-    "axial.overlay_density_required",
     "axial.overlay_material_missing",
     "axial.material_reference_missing",
 }
@@ -75,6 +74,7 @@ _AXIAL_OVERLAYS_CODES = {
     "axial.overlay_through_path_not_preserved",
     "axial.overlay_duplicate_physical_band",
     "axial.overlay_source_count_mismatch",
+    "axial.overlay_density_required",
     "axial.through_path_fuel_interrupted",
     "axial.through_path_guide_tube_interrupted",
     "axial.through_path_instrument_tube_interrupted",

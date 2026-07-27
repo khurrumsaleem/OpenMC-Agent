@@ -31,10 +31,10 @@ def test_retry_owner_policy_routes_facts_dependency():
     assert PlanGateId.FACTS in policy.gates_to_invalidate
 
 
-def test_retry_owner_policy_routes_materials_dependency():
+def test_retry_owner_policy_routes_overlay_density_to_axial_overlays():
     policy = retry_owner_policy("axial.overlay_density_required")
     assert policy is not None
-    assert "materials" in policy.owner_patch_types
+    assert "axial_overlays" in policy.owner_patch_types
 
 
 def test_single_owner_per_finding():

@@ -4,6 +4,10 @@
 
 ### 2026-07-27
 
+- **Phase 8C Step 3K Axial target-seed deterministic preflight closure**：Axial seed v5 已复用 Facts/MU/Placement accepted 上游并停在 `BLOCKED_BY_GATE:axial_geometry`；失败不是网络或上游 gate 回退，而是 Axial deterministic preflight 将 `assembly_lattice` family alias 判为缺失、将已有 `total_mass_g` 的 spacer grid 误判为缺 density，并忽略已存在的 `localized_insert_profiles`。
+- **验证结果**：修复后 v5 `plan_build_state.json` 离线重放 Axial preflight 为 `ok=True`、blocking `0`；focused Axial preflight/retry-policy tests `39 passed`。全量非 OpenMC/非 LLM pytest `3734 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21` 通过；baseline diff 因 `data/evals/workflow/baseline/evaluation_report.json` 不存在跳过。
+- **风险/边界**：本修复只闭合 deterministic binding/preflight 假阳性，不声明 Axial reviewer accepted。下一次真实验收仍应使用新 output dir 的 target-seed Axial canary。
+
 - **Phase 8C Step 3K target-seed upstream gate reuse closure**：Axial seed v4 已不再 invalidated Placement-owned patches，但仍在 Axial target run 内重新调用 Placement reviewer，因 reviewer coverage drift 将已 accepted Placement 标成 blocked，继而 Axial barrier 报 `planning.axial_geometry_requires_accepted_placement`。现新增 target-seed upstream gate freeze：accepted seed 下，目标 gate 之前的 accepted stages 无条件复用，不因 hash drift 或循环调用重新 reviewer；Axial target 冻结 Facts/MU/Placement，Assembled target 冻结 Facts/MU/Placement/Axial。
 - **验证结果**：新增回归覆盖 Axial target seed 即使 Placement accepted hash stale 也不重审且不触发 placement blocker；相关 focused tests `31 passed`。全量非 OpenMC/非 LLM pytest `3731 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21`、fixture baseline diff 均通过。
 - **风险/边界**：冻结只适用于显式 accepted-state target seed run；普通 canary/resume 仍按 hash drift 重新打开 gate。若 target reviewer 发现 upstream semantic gap，应作为 target blocker/replay 分类，不在该 target run 内重开上游。

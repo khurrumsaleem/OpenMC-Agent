@@ -11,10 +11,10 @@ def test_domain_missing_routes_to_facts():
     assert PlanGateId.AXIAL_GEOMETRY in policy.gates_to_invalidate
 
 
-def test_overlay_density_routes_to_materials():
+def test_overlay_density_routes_to_axial_overlays():
     policy = axial_geometry_issue_owner("axial.overlay_density_required")
     assert policy is not None
-    assert "materials" in policy.owner_patch_types
+    assert "axial_overlays" in policy.owner_patch_types
 
 
 def test_universe_reference_routes_to_universes():

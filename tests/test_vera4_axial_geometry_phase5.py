@@ -99,9 +99,9 @@ def test_vera4_mutation_missing_replacement_universe():
     assert "axial.overlay_target_lattice_missing" in codes
 
 
-def test_vera4_overlay_density_routes_to_materials():
-    """Overlay density mutation should route to materials owner."""
+def test_vera4_overlay_density_routes_to_axial_overlays():
+    """Overlay mass-basis mutation should route to the axial overlay owner."""
     owner = axial_geometry_issue_owner("axial.overlay_density_required")
     assert owner is not None
-    assert "materials" in owner.owner_patch_types
+    assert "axial_overlays" in owner.owner_patch_types
     assert PlanGateId.AXIAL_GEOMETRY in owner.gates_to_invalidate
