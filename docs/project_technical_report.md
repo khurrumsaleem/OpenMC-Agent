@@ -1,6 +1,12 @@
 # OpenMC-Agent 技术报告与进度总览
 
-维护日期：2026-07-26
+维护日期：2026-07-27
+
+### 2026-07-27
+
+- **Phase 8C Step 3J Placement Gate milestone accepted**：真实 VERA4 `--stop-after-gate placement` v16 在 commit `dc84776b96a93008f74463f650a267a356f396bd` 上完成，enabled gates 为 Facts、Material-Universe、Placement，campaign 结果为 `CAMPAIGN_PASSED`，1/1 successful、0 failed。
+- **验证结果**：用户外部运行 artifact 目录为 `data/runs/phase8c_step3j_vera4_placement_gate_v16`，运行时间 `2026-07-27T07:40:47Z` 到 `2026-07-27T09:08:08Z`，模型 `zhipu:glm-5.2`。该 milestone 基于此前同一 HEAD 的全量非 OpenMC/非 LLM pytest `3715 passed, 2 skipped`、`compileall`、fake benchmark `21/21` 和 baseline diff 通过。
+- **风险/边界**：Placement Gate 已作为主线里程碑越过；下一主线目标转入下游 Axial Geometry Gate。除 Placement 相关代码再变更外，不再用完整 Placement canary 做日常定位。
 
 ### 2026-07-26
 
