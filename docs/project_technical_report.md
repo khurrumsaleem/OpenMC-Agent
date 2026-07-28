@@ -4,6 +4,10 @@
 
 ### 2026-07-28
 
+- **Phase 8C Step 3L Assembled binding planning-scope serialization**：Assembled seed v3 已完成 assembly 并进入 Assembled binding 构造，但在 `AssembledPlanBindingView.planning_scope` 写入 `ResolvedPlanningScope` 对象，Pydantic string 字段校验失败，`llm_call_count=0`。现与 Axial binding 一致，将 resolved scope 提取为稳定字符串值（优先 `value`）。
+- **验证结果**：v2 state 本地重放 assembly + Assembled binding 构造成功，scope=`multi_assembly_core`，object graph nodes `240`。Assembled binding focused tests `27 passed`；全量非 OpenMC/非 LLM pytest `3748 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21` 通过；baseline diff 因 baseline 缺失跳过。
+- **风险/边界**：本修复只关闭 binding view schema 崩溃，不声明 Assembled reviewer accepted；下一次 target run 应进入 deterministic preflight/reviewer 层。
+
 - **Phase 8C Step 3L Assembled seed skeleton grid materialization closure**：Assembled seed v2 已越过 `axial_overlays.material_missing`，但 assembly 阶段把 skeleton spacer grid 仍送入 concrete grid decoration，触发 `fullcore.grid_density_missing` 与空 `fill_id` schema error。现 materializer/assembler 只对非 skeleton 且具备 material_id 的 spacer grid 执行实体 grid decoration；skeleton overlay 保留在 plan 中供 Assembled Gate 审查，不参与可执行几何物化。
 - **验证结果**：v2 `plan_build_state.json` 本地重放 assembly 成功，issue `0`，8 个 skeleton overlay 保留，decorated grid universe `0`。focused tests `125 passed`；全量非 OpenMC/非 LLM pytest `3747 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21` 通过；baseline diff 因 baseline 缺失跳过。
 - **风险/边界**：本修复只解决 skeleton overlay 被误物化的问题，不补造缺失 grid material；下一次 Assembled target run 可能进入 reviewer 并将 skeleton grid/source-material gap 作为 blocking finding 分类。

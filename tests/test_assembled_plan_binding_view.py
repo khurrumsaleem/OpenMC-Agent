@@ -2,6 +2,7 @@
 
 from tests._assembled_plan_fixtures import state_with_assembled_plan, make_assembled_plan
 from openmc_agent.plan_builder.closed_loop.assembled_plan_binding import build_assembled_plan_binding_view
+from openmc_agent.plan_builder.planning_scope import ResolvedPlanningScope
 
 
 def test_binding_view_builds_object_graph():
@@ -21,6 +22,17 @@ def test_binding_view_extracts_model_kind():
     state = state_with_assembled_plan(plan=plan)
     view = build_assembled_plan_binding_view(state=state, plan=plan)
     assert view.model_kind == "assembly"
+
+
+def test_binding_view_extracts_resolved_planning_scope_value():
+    plan = make_assembled_plan()
+    state = state_with_assembled_plan(plan=plan)
+    state.resolved_planning_scope = ResolvedPlanningScope(
+        value="multi_assembly_core",
+        status="resolved",
+    )
+    view = build_assembled_plan_binding_view(state=state, plan=plan)
+    assert view.planning_scope == "multi_assembly_core"
 
 
 def test_binding_view_selects_root():

@@ -372,13 +372,26 @@ def build_assembled_plan_binding_view(*, state: Any, plan: Any) -> AssembledPlan
 
     plan_hash = compute_evidence_pack_hash({"plan": plan.model_dump(mode="json") if hasattr(plan, "model_dump") else {}})
 
+    _scope_obj = getattr(state, "resolved_planning_scope", None)
+    if _scope_obj is None:
+        planning_scope = "single_assembly"
+    elif isinstance(_scope_obj, str):
+        planning_scope = _scope_obj
+    else:
+        planning_scope = str(
+            getattr(_scope_obj, "value", None)
+            or getattr(_scope_obj, "model_scope", None)
+            or getattr(_scope_obj, "status", None)
+            or "unknown"
+        )
+
     return AssembledPlanBindingView(
         assembled_plan_hash=plan_hash,
         assembly_input_hash=plan_hash,
         canonical_task_plan_hash=getattr(state, "canonical_task_plan", None).plan_hash if getattr(state, "canonical_task_plan", None) else "",
         patch_hashes=patch_hashes,
         accepted_gate_hashes=accepted_gate_hashes,
-        planning_scope=getattr(state, "resolved_planning_scope", "") or "single_assembly",
+        planning_scope=planning_scope,
         model_kind=model_kind,
         object_graph=object_graph,
         root_candidates=root_candidates,
