@@ -4,6 +4,9 @@
 
 ### 2026-07-28
 
+- **Phase 8C Step 3O Facts source-note schema-boundary closure**：真实用户 CLI 的 VERA3B v11 run 在 Facts revision 四轮后仍被 `MISSING_MATERIAL_DENSITIES` / `MISSING_PYREX_COMPOSITION` 等 reviewer finding 阻断，其中部分事实已 source-backed 记录在 `source_notes`，但 FactsPatch 没有对应结构化字段。现 reviewer normalization 会用当前 FactsPatch 的 source-note carriers 做确定性覆盖判定，已覆盖的 schema-boundary finding 降为 warning；未覆盖数值仍 fail-closed。revision prompt 同步要求一次性补全同源 topic，并把 schema 不承载的事实写成可检索 source notes。
+- **验证结果**：focused Facts reviewer tests `5 passed`；全量非 OpenMC/非 LLM pytest `3809 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过；baseline diff 因 baseline 文件缺失跳过。
+
 - **Phase 8C Step 3O Facts revision schema-out metadata firewall**：真实用户 CLI 的 VERA3B v7 run 不再停在 reviewer human blocker，而是在 revision evaluator 因 LLM 提议 schema 外 `/operating_conditions` 被 `facts_revision.path_out_of_scope` 拒绝；同一 proposal 已正确追加 `/source_notes/-`。现对已知 operating-state metadata schema-out op 做确定性 source-note redirect/drop，未知 schema 外路径仍 fail-closed，并在 prompt 中明确 operating-state facts 应写入 source notes。
 - **验证结果**：v7 真实 `facts_revision_proposal_000.json` 离线复核 `accepted=True`，candidate 不包含 `operating_conditions`，保留 source-backed operating-state note；focused Facts revision/reviewer tests `62 passed`。全量非 OpenMC/非 LLM pytest `3800 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过；baseline diff 因 baseline 文件缺失跳过。
 

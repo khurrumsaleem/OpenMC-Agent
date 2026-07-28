@@ -59,6 +59,155 @@ _FACTS_REVIEW_PATH_PREFIXES: tuple[tuple[str, str], ...] = (
     ("/relevant_patches/facts/", ""),
 )
 
+_SOURCE_NOTE_FACT_CODES: frozenset[str] = frozenset({
+    "missing_material_densities",
+    "facts.missing_material_densities",
+    "missing_pyrex_composition",
+    "facts.missing_pyrex_composition",
+    "missing_moderator_specs",
+    "facts.missing_moderator_specs",
+    "missing_operating_condition",
+    "facts.missing_operating_condition",
+    "missing_operating_conditions",
+    "facts.missing_operating_conditions",
+})
+
+
+def _normalized_text(value: Any) -> str:
+    return re.sub(r"[^a-z0-9.+-]+", " ", str(value).lower()).strip()
+
+
+def _collect_source_note_text(value: Any, *, key_hint: str = "") -> list[str]:
+    """Collect user-visible FactsPatch note carriers recursively.
+
+    FactsPatch deliberately does not define structured slots for every
+    downstream fact (e.g. material density tables or insert composition
+    vectors).  Those source-backed details are carried through
+    ``source_notes``, nested ``source_note`` fields, and ``assumptions``.
+    Reviewer findings that demand a non-existent structured Facts field must
+    be checked against these carriers before they can block the gate.
+    """
+
+    if isinstance(value, dict):
+        out: list[str] = []
+        for key, child in value.items():
+            child_key = str(key)
+            if child_key in {"source_note", "source_notes", "assumption", "assumptions"}:
+                if isinstance(child, (list, tuple, dict)):
+                    out.extend(_collect_source_note_text(child, key_hint=child_key))
+                elif child is not None:
+                    out.append(str(child))
+            elif key_hint in {"source_note", "source_notes", "assumption", "assumptions"}:
+                out.extend(_collect_source_note_text(child, key_hint=key_hint))
+            elif isinstance(child, (dict, list, tuple)):
+                out.extend(_collect_source_note_text(child))
+        return out
+    if isinstance(value, (list, tuple)):
+        out: list[str] = []
+        for child in value:
+            out.extend(_collect_source_note_text(child, key_hint=key_hint))
+        return out
+    if key_hint in {"source_note", "source_notes", "assumption", "assumptions"} and value is not None:
+        return [str(value)]
+    return []
+
+
+def _number_tokens(text: str) -> set[str]:
+    tokens: set[str] = set()
+    for match in re.findall(r"(?<![a-z0-9])[-+]?\d+(?:\.\d+)?(?:e[-+]?\d+)?(?![a-z0-9])", text.lower()):
+        normalized = match.lstrip("+")
+        tokens.add(normalized)
+        if "." in normalized:
+            tokens.add(normalized.rstrip("0").rstrip("."))
+    return {token for token in tokens if token not in {"0", "1"}}
+
+
+def _source_note_schema_boundary_covered(
+    draft: FactsReviewFindingDraft,
+    facts_patch: dict[str, Any] | None,
+) -> tuple[FactsReviewFindingDraft, dict[str, Any] | None]:
+    """Reject false-positive requests for non-existent structured Facts fields.
+
+    A reviewer may correctly notice that a source-backed material or operating
+    detail is not a dedicated FactsPatch field, then incorrectly label that as
+    a blocking Facts error even though the detail is already recorded in
+    source notes for downstream gates.  This is a schema-boundary false
+    positive, not a repair request.
+    """
+
+    if not facts_patch or draft.severity is not PlanFindingSeverity.ERROR:
+        return draft, None
+    code = draft.code.strip().lower()
+    message = _normalized_text(" ".join([
+        draft.code,
+        draft.message,
+        str(draft.expected_value or ""),
+        str(draft.current_value or ""),
+    ]))
+    paths = tuple(draft.affected_json_paths)
+    path_in_note_boundary = (
+        not paths
+        or all(
+            path in {"/", ""}
+            or _is_facts_recording_metadata_path(path)
+            or path.endswith("/source_note")
+            or "/source_notes/" in path
+            for path in paths
+        )
+    )
+    mentions_schema_boundary = any(
+        marker in message
+        for marker in (
+            "source note",
+            "source notes",
+            "source_note",
+            "not structured",
+            "structured field",
+            "dedicated field",
+            "only recorded",
+        )
+    )
+    is_known_source_note_fact = code in _SOURCE_NOTE_FACT_CODES
+    if not ((is_known_source_note_fact or mentions_schema_boundary) and path_in_note_boundary):
+        return draft, None
+
+    note_text = _normalized_text(" ".join(_collect_source_note_text(facts_patch)))
+    if not note_text:
+        return draft, None
+    required_numbers = _number_tokens(message)
+    if required_numbers and not all(token in note_text for token in required_numbers):
+        return draft, None
+    topic_markers = {
+        "density": ("density", "densities", "g cm3", "g/cc"),
+        "pyrex": ("pyrex", "b10", "b 10", "b11", "b 11", "boron", "b2o3"),
+        "moderator": ("moderator", "coolant", "boron", "ppm", "pressure", "temperature"),
+        "operating": ("operating", "coolant", "boron", "pressure", "power"),
+        "material": ("material", "density", "composition", "isotope", "isotopic"),
+    }
+    topic_hits = [
+        topic
+        for topic, markers in topic_markers.items()
+        if any(marker in message for marker in markers)
+    ]
+    if topic_hits and not any(
+        any(marker in note_text for marker in topic_markers[topic])
+        for topic in topic_hits
+    ):
+        return draft, None
+
+    original = {
+        "reason": "facts_source_note_schema_boundary_covered",
+        "covered_by": "facts_patch.source_notes",
+        "original_severity": draft.severity.value,
+        "original_repairable_by_llm": draft.repairable_by_llm,
+        "original_requires_human": draft.requires_human,
+    }
+    return draft.model_copy(update={
+        "severity": PlanFindingSeverity.WARNING,
+        "repairable_by_llm": False,
+        "requires_human": False,
+    }), original
+
 
 def _canonicalize_facts_review_path(path: str) -> str:
     """Canonicalize reviewer path drift to FactsPatch JSON Pointer style."""
@@ -301,7 +450,11 @@ def _is_excerpt_limited_finding(draft: FactsReviewFindingDraft) -> bool:
     ) and scope_limited
 
 
-def normalize_facts_review_finding(draft: FactsReviewFindingDraft) -> FactsFindingNormalization:
+def normalize_facts_review_finding(
+    draft: FactsReviewFindingDraft,
+    *,
+    facts_patch: dict[str, Any] | None = None,
+) -> FactsFindingNormalization:
     """Normalize one reviewer finding before it can affect the Facts Gate.
 
     This is the deterministic firewall for reviewer drift.  It canonicalizes
@@ -330,6 +483,7 @@ def normalize_facts_review_finding(draft: FactsReviewFindingDraft) -> FactsFindi
         _normalize_confirmation_not_error_classification,
         _normalize_downstream_material_scope_classification,
         _normalize_blank_operating_state_classification,
+        lambda item: _source_note_schema_boundary_covered(item, facts_patch),
         _normalize_non_error_human_requirement,
     ):
         if classification_override is not None:
@@ -376,7 +530,10 @@ def _normalize(output: FactsReviewModelOutput, pack: PlanEvidencePack) -> tuple[
         if unknown:
             rejected.append({"code": "facts_review.unknown_evidence_hash", "finding_code": draft.code, "unknown": sorted(unknown)})
             continue
-        normalized = normalize_facts_review_finding(draft)
+        normalized = normalize_facts_review_finding(
+            draft,
+            facts_patch=pack.relevant_patches.get("facts", {}),
+        )
         if normalized.draft is not None:
             output.findings[index] = normalized.draft
         if normalized.rejected is not None:
