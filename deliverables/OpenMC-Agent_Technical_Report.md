@@ -111,7 +111,7 @@ LangGraph 在本系统中不只是"调用 LLM 的胶水"，而是承担**状态�
 
 ## Plan 阶段：从需求到可审查结构化模型
 
-> **图：** Plan 阶段端到端路径；失败被引导到局部、可审计的恢复分支。
+> **图：** Plan 阶段端到端路径；五 Gate 在 LLM 结构化 IR 与 Pydantic 校验之间增量执行（详见图 7），失败被引导到局部、可审计的恢复分支。
 
 考虑一个会反复出现的建模情形：需求明确某局部插入件只在有限轴向高度出现，但初始计划可能把它当作贯穿整个基础 lattice 的默认结构。这一情形与具体堆型无关，本质上属于"输入语义与组合后结构不一致"的问题，因此可作为本章后续讨论的锚点。
 
@@ -372,15 +372,63 @@ workflow trace 把 ``plan_generated``、``validation_completed``、``semantic_au
 
 - Material-Universe Gate 已完成 target-only live-review 验收；Placement/Axial/Assembled 三个 fixture 的 preflight 与 recorded-review 均已 accepted。
 
+### 目前实现的功能（面向用户）
+
+OpenMC-Agent 当前面向用户的能力可从入口、IR、渲染器、运行模式与可观测性六个方面概括。
+
+**入口与使用方式**。系统支持四类输入：（1）Markdown 需求文件（如 ``Input/VERA3_problem.md``），通过 ``scripts/run_inspect.sh --md-file ... --full`` 调用；（2）一句话需求 ``--requirement "..."``；（3）JSON；（4）``python -m openmc_agent.inspect "..."`` 直接进入 inspect CLI。``Makefile`` 提供 ``make model``、``make benchmark-fake``、``make benchmark-real``、``make benchmark-check`` 等 11 个 target。所有入口默认 fake 模型，必须显式 ``ALLOW_REAL_LLM=1`` 才调用真实 LLM。
+
+**结构化 IR 与双工作流**。LLM 输出被限定为 JSON-only 的强类型对象（``SimulationPlan`` / ``ComplexModelSpec``，Pydantic v2）。系统提供两条工作流：轻量 ``SimulationSpec``（仅 pin-cell）与完整 ``SimulationPlan``（含材料、几何、lattice、轴向 overlay、settings、capability report 与待确认项）。LLM 只提议计划、不写代码、不直接调用 OpenMC。
+
+**渲染能力四级**。``none``（仅有 IR）、``skeleton``（可审查骨架 + TODO）、``exportable``（可导出 XML）、``runnable``（可执行 + smoke test）；信息不完整时降级为 skeleton 或请求人工确认，"不知道"由此成为合法输出状态。5 个可插拔渲染器覆盖 PinCell / RectAssembly / TRISO+Pebble / RectCore / Skeleton 兜底；unsupported 子系统自动降级 skeleton 并写入 ``required_human_confirmations``。``assembly3d_guard`` 在 plan validation 阶段就阻断"形式可导出但物理错误的伪 3D 模型"。
+
+**运行模式与模型适配**。当前仅支持 ``eigenvalue`` 模式。内置多模型适配：智谱 GLM（默认 ``zhipu:glm-5.2``）、DeepSeek 官方（``deepseek:``）、SenseNova 托管（``ds:``）、fake（不调 LLM，秒级回归）；其余 provider 走 aisuite（OpenAI / Anthropic）；支持 SSE 流式、超时重试与 ``reasoning_effort`` 控制。
+
+**堆型中立**。系统刻意不为单一堆型写死规则：``few_shots.py`` 按"结构特征"打分而非按堆型名匹配，并由专门的通用性自检测试守护。已端到端验证的堆型包括 VERA3B 单组件与 VERA4 全堆（均属 PWR 类），其他堆型（BWR/VVER/HTGR/SFR/CANDU/MOX）依赖渲染器能力而非硬编码规则。
+
+**可观测产物与回归基础设施**。每次运行产出 ``transcript.json``（结构化 trace）、``capability_report.json``、``TODO.md``、``incremental/material_composition_report.json``、``inspect_runs.jsonl``；trace 不携带原始 prompt 或 reasoning，作为旁路不改变路由决策。``tests/`` 下 444 个 pytest 文件分 ``test-no-openmc`` / ``test-openmc`` / ``test-all`` 三层；``tests/fixtures/evaluation_cases.json`` 含 21 个 case 覆盖能力正确性、失败路径、repair/supervisor 路由；``make benchmark-check`` 在 fake 模型上秒级跑完，作为日常回归 gate。
+
+**明确未实现**。六角组件渲染器（HexAssembly）、depletion / burnup 渲染器、pebble_bed 渲染器（TRISO 渲染器目前只覆盖单颗粒/单球）、``renderer_authoring``（agent 自主编写新渲染器，目前为预留接口）均为已知能力缺口。
+
+### VERA 建模效果
+
+本节给出截至 2026-07-28 在 VERA benchmark 上的端到端建模结果。所有数据均来自 ``data/runs/`` 与 ``data/evals/`` 下的真实运行产物，可独立复现。
+
+**VERA3B 单组件**（17×17 3D assembly，Westinghouse OFA，2.619% 富集度）。建模粒度：fuel pin 264 / guide tube 24 / instrument tube 1（合计 289），轴向 16 层（$z \in [-55, 463.937]$ cm，active fuel $z \in [11.951, 377.711]$ cm），8 个 spacer grid overlays（2 个 Inconel-718 端部 + 6 个 Zircaloy-4 中间）。LLM 使用 ``deepseek:deepseek-chat``。
+
+**表：** VERA3B postfreeze2 资格认证与 transport 稳定性（2026-07-16）。
+
+| 维度 | 数据 |
+| --- | --- |
+| N=10 资格认证 | 10/10 FIRST_PASS_SUCCESS (100%)；real LLM=100%，real OpenMC=100%，0 unsafe acceptance，0 lost particles。 |
+| Transport 稳定性 | 3 seeds (10101/20202/30303)，20 batches × 10K 粒子；mean $k_{eff}$=**1.00554 ± 0.00169**，between-seed std=0.00169，max pairwise $z$=**1.01**（<2，统计稳定）。 |
+| 跨 seed 一致性 | geometry / materials / canonical-settings hashes 跨 seed 全部一致。 |
+| 真实性等级 | 已到 T6（N≥10 真实 LLM 稳定性 + transport seed stability）。 |
+| 已知 gap | ``fuel_3A``（UO2 3.1%）定义为 protected 但几何上 unreachable（VERA3B 只用 fuel_3B），不阻塞渲染或 transport。 |
+
+**VERA4 3×3 全堆芯**（multi_assembly_core）。建模粒度：9 个组件（center / edge / corner 三类），22 个 grid-decorated universes，4 unique grid geometries，8 spacer grid bands × 9 assemblies = 72 instances；176 frame surfaces，86 universes / 207 cells / 67 lattices / 275 surfaces；``model.py`` ≈ 806 KB。完整燃料路径：active r1/r2 / endplug / plenum / water_pin / guide_tube with wall / instrument_tube with wall；RCCA 多段 profile（AIC/B4C/plenum/endplug，anchor=257.9 cm）；Pyrex 坐标（20 per edge assembly）；Thimble plugs（112 total）。LLM 使用 ``zhipu:glm-5.2``。
+
+**表：** VERA4 全堆 acceptance 与 smoke transport（2026-07-17 ∼ 2026-07-28）。
+
+| 维度 | 数据 |
+| --- | --- |
+| Acceptance | grid geometry closure：**46/46 passed**，0 lost particles；deterministic base case 38/38 passed；grid_on vs grid_off digest 显著不同（确认 grid 注入生效）。 |
+| Smoke transport | $k_{eff}$=**1.27150 ± 0.00346**（5 batches × 500 粒子，**smoke 级，非生产精度**）。 |
+| 五 Gate 进度 | Facts / Material-Universe / Placement / Axial Geometry **已 accepted**（phase8c Step 3I / 3J-v16 / 3K-v7，真实 GLM-5.2）；Assembled Plan gate **未通过**（Step 3L-v3 仍 infrastructure_failure）。 |
+| 真实性等级 | 处于 T5（pilot）向 T6 推进中；五 Gate 流水线尚未端到端跑通。 |
+| 已知 gap | Assembled gate 未通过；所有 $k_{eff}$ 为 smoke 级；**未与 VERA4 benchmark reference 对标**。 |
+
+**精确表述边界**。上述 VERA3B 与 VERA4 数据支持"工程闭环可信基础"的结论，但**不等价于物理保真度已闭合**：两者均未与 VERA benchmark reference $k_{eff}$ 对标，VERA4 transport 仍为 smoke 级，VERA4 Assembled gate 仍卡在 infrastructure failure。后续 P0/P1 验收（见下一节）将专门闭合这些 gap。
+
 ### 必须保留的边界
 
 > **限制：可运行性与物理可信度必须分开**
 
-> 1. 低粒子 smoke test 主要验证基础设施，不等价于 $k_eff$ benchmark agreement。
+> 1. 低粒子 smoke test 主要验证基础设施，不等价于 $k_eff$ benchmark agreement；VERA4 全堆 smoke $k_eff=1.27150$ 仅证明 transport 链路不丢粒子，不代表生产精度。
 
-> 1. 已记录的 LLM 生成模型 $k_eff$ 与确定性 gold model 存在偏差，说明物理保真度仍需独立闭合。
+> 1. 已记录的 LLM 生成模型 $k_eff$ 与确定性 gold model 存在偏差，说明物理保真度仍需独立闭合；VERA3B 与 VERA4 均未与 VERA benchmark reference 对标。
 
-> 1. Placement 真实 milestone 仍需在新 output directory 中继续验证；不得把离线 qualification 表述为全部真实端到端成功。
+> 1. Assembled Plan gate 尚未端到端通过；Phase 8C Step 3L-v3 仍卡在 infrastructure_failure（``ResolvedPlanningScope`` 类型错误）；不得把离线 qualification 表述为全部真实端到端成功。
 
 > 1. HexAssembly、depletion、pebble-bed renderer 等能力未完成；Level 1 spacer-grid overlay 是均质近似而非体积分数标定。
 
@@ -390,11 +438,40 @@ workflow trace 把 ``plan_generated``、``validation_completed``、``semantic_au
 
 ### 下一阶段验收
 
-下一阶段的评价重点应从"流程能否走通"提升为"真实端到端稳定性、物理保真度与可量化评估是否同步闭合"。具体行动包括：完成 Placement → Axial → Assembled 的 production bundle target-only live-review，并以一次完整 milestone canary 进行集成验收；把真实 workflow case runner、持久 trace store 与可视化 dashboard 纳入日常回归闭环；以 geometry/material fidelity、更高粒子数与 benchmark 对照形成工程可运行性与物理准确性的双重验收。
+下一阶段的评价重点应从"流程能否走通"提升为"真实端到端稳定性、物理保真度与可量化评估是否同步闭合"。具体行动按优先级组织如下。
+
+**P0（必须，本阶段闭环）**：
+
+- 修复 Phase 8C Step 3L 的 ``ResolvedPlanningScope`` 类型错误，让 VERA4 五 Gate 端到端通过 Assembled gate；
+- 用一次完整 milestone canary 验证全链路（VERA4 input → 5 Gate → renderer → OpenMC export → smoke）；
+- 把 VERA4 transport 从 smoke 升到生产粒子数（≥10⁵/批），与 VERA4 benchmark reference $k_eff$ 对标。
+
+**P1（应做，物理保真度）**：
+
+- VERA2 跑通 17 个工况（2A∼2Q），至少到 smoke 级，建立 pin-cell benchmark 覆盖度；
+- 收敛性研究：粒子数、batch、网格对 $k_eff$ 与通量分布的影响；
+- geometry / material fidelity 量化（vs deterministic gold model）。
+
+**P2（能力扩展）**：
+
+- HexAssembly renderer（六角组件，覆盖 HTGR / SFR 部分堆型）；
+- depletion / burnup renderer；
+- pebble_bed renderer（TRISO 渲染器扩展到床）；
+- GraphRAG query planner / evidence ranker 用真实 case + ablation 校准。
+
+**P3（基础设施）**：
+
+- 真实 workflow case runner 纳入日常回归闭环；
+- 持久 trace store + 可视化 dashboard；
+- ``renderer_authoring``（agent 自主编写新渲染器）从预留接口进入实现。
+
+P0 是闭合当前已知 gap 的最小集；P1 把"工程闭环"升级为"物理可信"；P2 扩大堆型与子系统覆盖面；P3 提升长期可维护性。
 
 ## 结论
 
 OpenMC-Agent 的核心思路是用结构化状态与确定性策略，把 LLM 在核工程任务中的自由度限制在**可验证**的范围内。Plan 闭环把需求理解、语义审计与局部修复组织为受控决策；Runtime 闭环把真实执行反馈转化为分类、候选评估与有界恢复。两个闭环共享同一控制面——稳定 issue taxonomy、行动预算、fingerprint 防回归与 fail-closed 终止语义——使每一步都可被审查、可被拒绝、可被恢复。
+
+截至 2026-07-28，OpenMC-Agent 已在 VERA3B 单组件（17×17 3D，N=10 资格认证 100%、transport seed stability $z=1.01$）与 VERA4 3×3 全堆芯（46/46 acceptance、4/5 Gate accepted）上验证了端到端工程闭环。系统的当前局限同样清晰：物理保真度尚未与 VERA benchmark reference 对标，五 Gate 流水线在 VERA4 Assembled gate 仍有 infrastructure gap，六角组件 / depletion / pebble-bed 渲染器尚未实现。下一阶段将围绕"端到端稳定性 × 物理保真度 × 能力扩展"三条线推进，把当前形成的可信工程基础升级为可量产、可对标 benchmark 的反应堆建模 Agent。
 
 因此，系统的可用性应以"每一步是否可审查、可复现、可拒绝"衡量，而非以"能生成代码"或"能跑出 $k_eff$"衡量。当前阶段已形成复杂模型 Agent 工程化的可信基础；下一阶段将把已形成的 Agent 工程闭环与更严格的物理保真度验收结合起来，把"能生成"推进为"可验证、可恢复、可解释"。
 
