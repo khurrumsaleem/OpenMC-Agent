@@ -146,6 +146,22 @@ class TestAnnularInsertUniverseConstruction:
         ids = {c.material_id for c in built[0].cells}
         assert ids <= {"helium", "pyrex_glass", "ss304", "zircaloy4", "coolant"}
 
+    def test_ss304_outer_clad_not_misclassified_as_zircaloy(self):
+        """The 'SS304 外包壳' layer must bind to ss304, not zircaloy4.
+
+        Regression: a generic 'clad' keyword in the zircaloy group previously
+        captured SS304 outer-clad labels because zircaloy is matched before
+        ss304.
+        """
+        parsed = extract_radial_layers(VERA3_PYREX_TABLE_REQUIREMENT)
+        rows = parsed[0]
+        built = build_annular_insert_universe(
+            universe_id="u_pyrex", kind="pyrex_rod", rows=rows, materials=_materials(),
+        )
+        outer_clad = [c for c in built[0].cells if c.r_min_cm == 0.437]
+        assert len(outer_clad) == 1
+        assert outer_clad[0].material_id == "ss304"
+
     def test_unbindable_material_returns_none(self):
         parsed = extract_radial_layers(VERA3_PYREX_TABLE_REQUIREMENT)
         rows = parsed[0]

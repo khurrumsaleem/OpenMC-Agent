@@ -68,8 +68,8 @@ _MATERIAL_KEYWORD_GROUPS: tuple[tuple[tuple[str, ...], str, tuple[str, ...], str
     (("helium", "氦", "gas", "气体", "气腔", "间隙", "gap", "plenum", "空隙"), "gap", ("helium", "he"), "gas_gap"),
     (("aic", "ag-in-cd", "silver", "silver-indium-cadmium", "吸收体"), "poison", ("aic", "ag", "silver"), "poison"),
     (("b4c", "boron carbide", "碳化硼", "硼碳"), "poison", ("b4c", "boron_carbide", "boron"), "poison"),
-    (("zircaloy", "zr-4", "zr4", "zr ", "锆", "guide tube", "导向管", "包壳"), "cladding", ("zircaloy", "zr"), "cladding"),
-    (("ss304", "ss-304", "ss 304", "ss316", "stainless", "不锈钢", "ss ", "ss_"), "structural", ("ss304", "ss-304", "ss 304", "stainless", "ss"), "cladding"),
+    (("zircaloy", "zr-4", "zr4", "zr ", "锆", "guide tube", "导向管"), "cladding", ("zircaloy", "zr"), "cladding"),
+    (("ss304", "ss-304", "ss 304", "ss316", "stainless", "不锈钢", "ss ", "ss_"), "structural", ("ss304", "ss-304", "ss 304", "stainless"), "cladding"),
     (("pyrex", "毒物", "poison", "borosilicate", "硼硅", "burnable", "可燃毒物"), "poison", ("pyrex",), "poison"),
 )
 

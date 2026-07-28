@@ -94,6 +94,87 @@ def _localized_insert_ids_for_universe(universe: dict[str, Any]) -> set[str]:
     return ids
 
 
+# Markers indicating an expected universe id represents the upper gas-plenum
+# segment of an annular absorber insert (the absorber is replaced by gas).
+_GAS_PLENUM_SEGMENT_ID_MARKERS: tuple[str, ...] = (
+    "plenum",
+    "upper_gas",
+    "gas_plenum",
+    "upper_plenum",
+)
+
+# Roles / material tokens that mark a cell as the absorber to be replaced when
+# materializing the gas-plenum variant of an annular absorber insert.
+_ABSORBER_CELL_ROLES: frozenset[str] = frozenset({"poison", "absorber"})
+_ABSORBER_MATERIAL_MARKERS: tuple[str, ...] = (
+    "pyrex", "poison", "aic", "b4c", "boron_carbide", "boron-carbide",
+    "ag-in-cd", "silver", "gadolinium", "gd2o3",
+)
+_GAS_CELL_ROLES: frozenset[str] = frozenset({"gas_gap", "gas", "gap", "plenum"})
+
+
+def _is_gas_plenum_segment_id(expected_id: str) -> bool:
+    lower = str(expected_id or "").lower()
+    return any(marker in lower for marker in _GAS_PLENUM_SEGMENT_ID_MARKERS)
+
+
+def _materialize_gas_plenum_alias(alias: dict[str, Any]) -> dict[str, Any] | None:
+    """Transform an absorber universe into its upper gas-plenum variant.
+
+    The upper gas plenum of an annular absorber insert (e.g. a Pyrex rod above
+    the poison column) replaces the absorber material with gas while preserving
+    the structural tubes/cladding and the guide-tube wall.  The gas material is
+    inferred from the source's existing gas-gap cells.  Returns the transformed
+    alias, or ``None`` when no gas material can be inferred or no absorber cell
+    exists (fail-closed: the caller then keeps the plain alias, which will be
+    rejected by the plenum validator if it still carries absorber material).
+    """
+
+    cells = alias.get("cells")
+    if not isinstance(cells, list) or not cells:
+        return None
+    gas_material_id: str | None = None
+    for cell in cells:
+        if not isinstance(cell, dict):
+            continue
+        role = str(cell.get("role", "")).lower()
+        if role in _GAS_CELL_ROLES or "gas" in role or "gap" in role or "plenum" in role:
+            material_id = cell.get("material_id")
+            if isinstance(material_id, str) and material_id:
+                gas_material_id = material_id
+                break
+    if gas_material_id is None:
+        return None
+    transformed = deepcopy(alias)
+    new_cells: list[dict[str, Any]] = []
+    changed = False
+    for cell in transformed.get("cells") or []:
+        if not isinstance(cell, dict):
+            new_cells.append(cell)
+            continue
+        role = str(cell.get("role", "")).lower()
+        material_id = str(cell.get("material_id", "")).lower()
+        is_absorber = (
+            role in _ABSORBER_CELL_ROLES
+            or any(marker in material_id for marker in _ABSORBER_MATERIAL_MARKERS)
+        )
+        if is_absorber:
+            new_cell = dict(cell)
+            new_cell["material_id"] = gas_material_id
+            new_cell["role"] = "gas_gap"
+            new_cells.append(new_cell)
+            changed = True
+        else:
+            new_cells.append(cell)
+    if not changed:
+        return None
+    transformed["cells"] = new_cells
+    transformed_metadata = dict(transformed.get("metadata") or {})
+    transformed_metadata["gas_plenum_transform"] = True
+    transformed["metadata"] = transformed_metadata
+    return transformed
+
+
 def materialize_localized_insert_universe_aliases(
     patch: dict[str, Any],
     *,
@@ -148,6 +229,14 @@ def materialize_localized_insert_universe_aliases(
             alias = deepcopy(source)
             source_id = str(source.get("universe_id") or "")
             alias["universe_id"] = expected_id
+            # An upper-gas-plenum segment of an annular absorber insert (e.g.
+            # the Pyrex plenum above the poison column) is NOT a copy of the
+            # absorber segment: the absorber material is replaced by gas while
+            # structural tubes/cladding and the guide-tube wall are preserved.
+            if _is_gas_plenum_segment_id(expected_id):
+                gas_alias = _materialize_gas_plenum_alias(alias)
+                if gas_alias is not None:
+                    alias = gas_alias
             meta = dict(alias.get("metadata") or {})
             meta["alias_of_universe_id"] = source_id
             meta["localized_insert_expected_universe_id"] = expected_id
