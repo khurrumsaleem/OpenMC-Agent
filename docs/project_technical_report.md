@@ -4,6 +4,9 @@
 
 ### 2026-07-28
 
+- **Phase 8C Step 3O selected-state fuel-variant scope closure**：真实用户 CLI 的 VERA3B run 正确进入 Facts revision，但 selected benchmark state `3B` 被 feature contract 误当成“必须多燃料 variant”，导致已补出的单个 `3B_fuel` 仍被 `facts.fuel_variant_contract_missing` 阻断。现 `has_benchmark_variant` 不再等同于 `has_multiple_fuel_variants`；只有明确多燃料/多富集合同才要求至少两个 fuel variants。
+- **验证结果**：v3 最后一轮 Facts candidate 离线复查 consistency issue `0`；focused Facts tests `11 passed`；全量非 OpenMC/非 LLM pytest `3788 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过；baseline diff 因 baseline 文件缺失跳过。
+
 - **Phase 8C Step 3O Pyrex annular-profile hardening**：VERA4 base fixture now models source-backed Pyrex as helium center + SS304 inner tube + helium gap + annular Pyrex + helium gap + SS304 outer clad + water gap + guide-tube wall; upper Pyrex plenum now keeps helium center/plenum and SS304 tubes without poison glass. UniversesPatch validation now fails deterministic for solid Pyrex, missing helium center/gaps, or Pyrex material in an upper plenum.
 - **验证结果**：focused VERA4/Pyrex tests `104 passed`；全量非 OpenMC/非 LLM pytest `3787 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过；baseline diff 因 baseline 文件缺失跳过。下一步先用 no-LLM seed 重跑 VERA3B/VERA4 base plots/smoke，再启动从头真实 LLM milestone。
 

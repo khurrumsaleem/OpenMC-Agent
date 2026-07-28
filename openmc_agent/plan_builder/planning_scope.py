@@ -100,7 +100,11 @@ def planning_feature_contract(decision: dict[str, Any] | None) -> PlanningFeatur
         has_localized_insert=bool(summary.get("has_localized_insert")) or any(x in text for x in ("control", "rod", "absorber", "pyrex", "thimble")),
         has_multi_segment_localized_insert=bool(summary.get("has_multi_segment_localized_insert")),
         has_control_state=bool(summary.get("has_control_state")),
-        has_multiple_fuel_variants=bool(summary.get("has_multiple_fuel_variants") or summary.get("has_benchmark_variant")),
+        # A benchmark may list multiple operating states (e.g. 3A/3B), while a
+        # user run selects exactly one state.  Do not equate "has benchmark
+        # variants" with "this selected model needs multiple fuel variants";
+        # require the explicit multi-fuel signal instead.
+        has_multiple_fuel_variants=bool(summary.get("has_multiple_fuel_variants")),
         has_axial_geometry=bool(summary.get("has_axial_geometry")), evidence={"feature_summary": summary},
         confidence_by_feature={key: "high" for key, value in summary.items() if isinstance(value, bool) and value},
     )

@@ -9,6 +9,23 @@ def test_source_critical_features_cannot_be_erased_from_facts():
     assert {"facts.model_scope_conflicts_with_planning_features", "facts.localized_insert_contract_missing", "facts.localized_insert_profile_contract_missing", "facts.spacer_grid_contract_missing", "facts.fuel_variant_contract_missing"} <= codes
 
 
+def test_selected_benchmark_state_with_one_fuel_variant_is_closed():
+    """A benchmark state label like 3B is not itself a multi-fuel contract."""
+    contract = planning_feature_contract({"feature_summary": {"has_benchmark_variant": True}})
+    assert contract.has_multiple_fuel_variants is False
+    result = run_facts_consistency_preflight(
+        feature_contract=contract,
+        facts_patch={
+            "patch_type": "facts",
+            "model_scope": "single_assembly",
+            "fuel_variant_requirements": [{"variant_id": "3B_fuel"}],
+        },
+    )
+    assert "facts.fuel_variant_contract_missing" not in {
+        item["code"] for item in result.issues
+    }
+
+
 def test_unknown_counts_do_not_downgrade_multi_scope():
     contract = planning_feature_contract({"feature_summary": {"multi_assembly_core": True}})
     result = run_facts_consistency_preflight(feature_contract=contract, facts_patch={"patch_type":"facts", "model_scope":"multi_assembly_core"})
