@@ -15,6 +15,8 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from openmc_agent.material_species import canonical_nuclide_name, classify_species_name
+
 
 _MASS = {
     "H": 1.00784,
@@ -83,13 +85,18 @@ def normalize_materials_patch_content(
     if not isinstance(content, dict) or content.get("patch_type") != "materials":
         return MaterialsPatchNormalizationResult(content=content, operations=[])
 
+    normalized = copy.deepcopy(content)
+    operations: list[dict[str, Any]] = []
+    for material in normalized.get("materials", []) or []:
+        if not isinstance(material, dict):
+            continue
+        operations.extend(_normalize_material_schema_surface(material))
+
     source_text = _collect_source_text(state=state, requirement_text=requirement_text)
     requirement = extract_soluble_boron_requirement(source_text)
     if requirement is None:
-        return MaterialsPatchNormalizationResult(content=content, operations=[])
+        return MaterialsPatchNormalizationResult(content=normalized, operations=operations)
 
-    normalized = copy.deepcopy(content)
-    operations: list[dict[str, Any]] = []
     for material in normalized.get("materials", []) or []:
         if not isinstance(material, dict) or not _is_coolant_material(material):
             continue
@@ -98,6 +105,107 @@ def normalize_materials_patch_content(
             operations.append(operation)
 
     return MaterialsPatchNormalizationResult(content=normalized, operations=operations)
+
+
+def _normalize_material_schema_surface(material: dict[str, Any]) -> list[dict[str, Any]]:
+    """Repair schema-surface LLM drift before MaterialsPatch validation.
+
+    This is deliberately limited to reversible contract normalization:
+    enum synonyms, nested isotope override shape, and single element/nuclide
+    entries mistakenly emitted as compound components.  Scientific resolution
+    remains the job of validators/material species resolution.
+    """
+
+    material_id = str(material.get("material_id") or "")
+    operations: list[dict[str, Any]] = []
+
+    for component in list(material.get("compound_components") or []):
+        if not isinstance(component, dict):
+            continue
+        basis = component.get("fraction_basis")
+        if isinstance(basis, str) and basis.strip().lower() == "stoichiometric_ratio":
+            component["fraction_basis"] = "atom_frac"
+            operations.append({
+                "operation": "compound_fraction_basis_synonym_repair",
+                "material_id": material_id,
+                "formula": component.get("formula"),
+                "from": basis,
+                "to": "atom_frac",
+            })
+
+        policy = component.get("isotope_policy")
+        if isinstance(policy, str) and policy.strip().lower() in {"explicit", "explicit isotope", "explicit isotopes"}:
+            component["isotope_policy"] = "explicit_isotopes"
+            operations.append({
+                "operation": "compound_isotope_policy_synonym_repair",
+                "material_id": material_id,
+                "formula": component.get("formula"),
+                "from": policy,
+                "to": "explicit_isotopes",
+            })
+
+        overrides = component.get("isotope_overrides")
+        if isinstance(overrides, dict):
+            changed = False
+            fixed: dict[str, Any] = {}
+            for key, value in overrides.items():
+                if isinstance(value, dict):
+                    fixed[str(key)] = value
+                elif isinstance(value, (int, float)):
+                    fixed[str(key)] = {"fraction": float(value)}
+                    changed = True
+                else:
+                    fixed[str(key)] = value
+            if changed:
+                component["isotope_overrides"] = fixed
+                operations.append({
+                    "operation": "compound_isotope_override_shape_repair",
+                    "material_id": material_id,
+                    "formula": component.get("formula"),
+                })
+
+    components = material.get("compound_components")
+    if isinstance(components, list):
+        retained: list[Any] = []
+        moved_any = False
+        for component in components:
+            if not isinstance(component, dict):
+                retained.append(component)
+                continue
+            formula = str(component.get("formula") or "").strip()
+            kind = classify_species_name(formula)
+            if kind not in {"element", "nuclide"}:
+                retained.append(component)
+                continue
+            try:
+                fraction = float(component.get("fraction"))
+            except (TypeError, ValueError):
+                retained.append(component)
+                continue
+            composition = material.setdefault("composition", {})
+            if not isinstance(composition, dict):
+                retained.append(component)
+                continue
+            species_name = canonical_nuclide_name(formula) if kind == "nuclide" else formula
+            composition[species_name] = float(composition.get(species_name, 0.0)) + fraction
+            component_basis = component.get("fraction_basis")
+            if (
+                component_basis in {"weight_frac", "atom_frac"}
+                and material.get("composition_basis") in {None, "", "unknown"}
+            ):
+                material["composition_basis"] = component_basis
+            moved_any = True
+            operations.append({
+                "operation": "compound_element_component_to_composition_repair",
+                "material_id": material_id,
+                "species": species_name,
+                "species_kind": kind,
+                "fraction_basis": component_basis,
+            })
+        if moved_any:
+            material["compound_components"] = retained
+
+    return operations
 
 
 def normalize_materials_patches_in_state(state: Any) -> list[dict[str, Any]]:

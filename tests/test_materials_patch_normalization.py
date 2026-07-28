@@ -9,6 +9,7 @@ from openmc_agent.plan_builder.materials_patch_normalization import (
     normalize_materials_patch_content,
     normalize_materials_patches_in_state,
 )
+from openmc_agent.plan_builder.patches import parse_patch_content
 from openmc_agent.plan_builder.state import PlanBuildState
 
 
@@ -74,6 +75,52 @@ def test_does_not_modify_materials_without_source_boron_requirement() -> None:
     result = normalize_materials_patch_content(patch, requirement_text="plain water coolant")
     assert not result.changed
     assert result.content == patch
+
+
+def test_repairs_schema_surface_enum_and_element_component_drift() -> None:
+    patch = {
+        "patch_type": "materials",
+        "materials": [
+            {
+                "material_id": "fuel",
+                "name": "fuel",
+                "role": "fuel",
+                "density_g_cm3": 10.0,
+                "composition_basis": "unknown",
+                "compound_components": [{
+                    "formula": "UO2",
+                    "fraction": 1.0,
+                    "fraction_basis": "stoichiometric_ratio",
+                    "isotope_policy": "explicit",
+                    "isotope_overrides": {"U235": 2.0},
+                }],
+            },
+            {
+                "material_id": "ss304",
+                "name": "SS304",
+                "role": "structural",
+                "density_g_cm3": 8.0,
+                "composition_basis": "weight_frac",
+                "compound_components": [
+                    {"formula": "Fe", "fraction": 0.70, "fraction_basis": "weight_frac"},
+                    {"formula": "Cr", "fraction": 0.19, "fraction_basis": "weight_frac"},
+                    {"formula": "Ni", "fraction": 0.10, "fraction_basis": "weight_frac"},
+                ],
+            },
+        ],
+    }
+
+    result = normalize_materials_patch_content(patch, requirement_text="plain materials")
+
+    assert result.changed
+    fuel_component = result.content["materials"][0]["compound_components"][0]
+    assert fuel_component["fraction_basis"] == "atom_frac"
+    assert fuel_component["isotope_policy"] == "explicit_isotopes"
+    assert fuel_component["isotope_overrides"]["U235"] == {"fraction": 2.0}
+    steel = result.content["materials"][1]
+    assert steel["compound_components"] == []
+    assert steel["composition"] == {"Fe": 0.70, "Cr": 0.19, "Ni": 0.10}
+    parse_patch_content("materials", result.content)
 
 
 def test_normalizes_existing_assembled_plan_materials_in_seed_state() -> None:

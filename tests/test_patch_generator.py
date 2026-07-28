@@ -75,6 +75,42 @@ def test_facts_generation_success() -> None:
     assert result.attempts[0].validated is True
 
 
+def test_materials_generation_normalizes_schema_surface_before_parse() -> None:
+    raw = json.dumps({
+        "patch_type": "materials",
+        "materials": [
+            {
+                "material_id": "ss304",
+                "name": "SS304",
+                "role": "structural",
+                "density_g_cm3": 8.0,
+                "composition_basis": "weight_frac",
+                "composition_status": "approximate",
+                "compound_components": [
+                    {"formula": "Fe", "fraction": 0.70, "fraction_basis": "weight_frac"},
+                    {"formula": "Cr", "fraction": 0.19, "fraction_basis": "weight_frac"},
+                    {"formula": "Ni", "fraction": 0.10, "fraction_basis": "weight_frac"},
+                ],
+            },
+        ],
+    })
+    result = generate_patch(
+        patch_type="materials",
+        requirement="stainless steel alloy with element fractions",
+        llm_client=FakePatchLLM([raw]),
+        max_attempts=1,
+    )
+
+    assert result.ok
+    assert result.envelope is not None
+    material = result.envelope.content["materials"][0]
+    assert material["compound_components"] == []
+    assert material["composition"] == {"Cr": 0.19, "Fe": 0.70, "Ni": 0.10}
+    assert {
+        item["operation"] for item in result.attempts[0].semantic_normalizations
+    } == {"compound_element_component_to_composition_repair"}
+
+
 # ---------------------------------------------------------------------------
 # 3. PinMapPatch generation does not require full 17x17 map
 # ---------------------------------------------------------------------------

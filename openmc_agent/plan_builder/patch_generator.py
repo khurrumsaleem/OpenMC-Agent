@@ -1391,7 +1391,17 @@ def generate_patch(
             patch_type, content, effective_context
         )
         schema_normalizations: list[dict[str, Any]] = []
-        if patch_type == "axial_layers":
+        if patch_type == "materials":
+            from .materials_patch_normalization import normalize_materials_patch_content
+
+            normalization = normalize_materials_patch_content(
+                content,
+                requirement_text=prompt,
+            )
+            if normalization.changed:
+                content = normalization.content
+                schema_normalizations = normalization.operations
+        elif patch_type == "axial_layers":
             schema_normalizations = _normalize_axial_schema_defaults(content)
         elif patch_type == "axial_overlays":
             schema_normalizations = _normalize_axial_overlay_material_references(
