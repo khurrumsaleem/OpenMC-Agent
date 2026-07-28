@@ -25,6 +25,7 @@ _MASS = {
     "B10": 10.012937,
     "B11": 11.009305,
 }
+_REPAIR_RELATIVE_TOLERANCE = 0.01
 
 _COOLANT_ROLE_TOKENS = {"coolant", "moderator"}
 _COOLANT_TEXT_RE = re.compile(r"(coolant|moderator|borated\s*water|water|冷却剂|慢化剂|硼水|水)", re.IGNORECASE)
@@ -97,6 +98,127 @@ def normalize_materials_patch_content(
             operations.append(operation)
 
     return MaterialsPatchNormalizationResult(content=normalized, operations=operations)
+
+
+def normalize_materials_patches_in_state(state: Any) -> list[dict[str, Any]]:
+    """Apply production material normalization to valid patches and assembled plan."""
+
+    operations: list[dict[str, Any]] = []
+    source_text = _collect_source_text(state=state, requirement_text=None)
+    requirement = extract_soluble_boron_requirement(source_text)
+    if requirement is None:
+        return operations
+    patches = getattr(state, "patches", {})
+    if not isinstance(patches, dict):
+        patches = {}
+    else:
+        for patch in patches.values():
+            if getattr(patch, "patch_type", None) != "materials":
+                continue
+            if getattr(patch, "status", None) != "valid":
+                continue
+            content = getattr(patch, "content", None)
+            if not isinstance(content, dict):
+                continue
+            result = normalize_materials_patch_content(content, state=state)
+            if not result.changed:
+                continue
+            patch.content = result.content
+            patch.metadata.setdefault("deterministic_normalizations", [])
+            patch.metadata["deterministic_normalizations"].extend(result.operations)
+            getattr(state, "metadata", {}).setdefault("materials_deterministic_normalizations", [])
+            state.metadata["materials_deterministic_normalizations"].extend(result.operations)
+            operations.extend(result.operations)
+
+    assembled_ops = _normalize_assembled_plan_materials_in_state(state, requirement)
+    if assembled_ops:
+        getattr(state, "metadata", {}).setdefault("materials_deterministic_normalizations", [])
+        state.metadata["materials_deterministic_normalizations"].extend(assembled_ops)
+        operations.extend(assembled_ops)
+    if operations and hasattr(state, "add_event"):
+        state.add_event(
+            event_type="planning.materials_deterministic_normalization_applied",
+            message="materials patch normalized using source-declared unit semantics",
+            data={
+                "operation_count": len(operations),
+                "operations": [
+                    {
+                        "operation": op.get("operation"),
+                        "material_id": op.get("material_id"),
+                        "target_ppm_by_weight": op.get("target_ppm_by_weight"),
+                        "previous_boron_mass_fraction": op.get("previous_boron_mass_fraction"),
+                        "relative_error": op.get("relative_error"),
+                    }
+                    for op in operations
+                ],
+            },
+        )
+    return operations
+
+
+def _normalize_assembled_plan_materials_in_state(
+    state: Any,
+    requirement: SolubleBoronRequirement,
+) -> list[dict[str, Any]]:
+    assembled = getattr(state, "assembled_plan", None)
+    if not isinstance(assembled, dict):
+        return []
+    complex_model = assembled.get("complex_model")
+    if not isinstance(complex_model, dict):
+        return []
+    materials = complex_model.get("materials")
+    if not isinstance(materials, list):
+        return []
+    operations: list[dict[str, Any]] = []
+    for material in materials:
+        if not isinstance(material, dict):
+            continue
+        composition = material.get("composition")
+        if not isinstance(composition, list):
+            continue
+        composition_dict = {
+            str(item.get("name")): item.get("percent")
+            for item in composition
+            if isinstance(item, dict) and item.get("name")
+        }
+        patch_like = {
+            "material_id": material.get("id") or material.get("material_id"),
+            "name": material.get("name"),
+            "role": material.get("role") or "",
+            "composition": composition_dict,
+            "composition_basis": material.get("composition_basis"),
+            "composition_status": material.get("composition_status", "needs_confirmation"),
+            "source_note": material.get("source_note"),
+            "warnings": list(material.get("warnings") or []),
+        }
+        operation = _normalize_coolant_boron_atom_fraction(patch_like, requirement)
+        if operation is None:
+            continue
+        _apply_composition_dict_to_plan_material(material, patch_like["composition"])
+        material["composition_basis"] = "atom_fraction"
+        operation["target"] = "assembled_plan"
+        operations.append(operation)
+    return operations
+
+
+def _apply_composition_dict_to_plan_material(
+    material: dict[str, Any],
+    composition_dict: dict[str, float],
+) -> None:
+    existing = {
+        str(item.get("name")): item
+        for item in material.get("composition", [])
+        if isinstance(item, dict) and item.get("name")
+    }
+    new_items: list[dict[str, Any]] = []
+    for name, percent in composition_dict.items():
+        item = dict(existing.get(name) or {"name": name, "percent_type": "ao", "kind": "nuclide"})
+        item["name"] = name
+        item["percent"] = percent
+        item.setdefault("percent_type", "ao")
+        item.setdefault("kind", "nuclide")
+        new_items.append(item)
+    material["composition"] = new_items
 
 
 def extract_soluble_boron_requirement(text: str) -> SolubleBoronRequirement | None:
@@ -186,15 +308,15 @@ def _normalize_coolant_boron_atom_fraction(
     keys = {str(key) for key in composition}
     if not ({"H1", "O16"} <= keys or {"H", "O"} <= keys):
         return None
-    if not ({"B10", "B11"} & keys or "B" in keys):
-        return None
-
     current_boron_mass_fraction = _boron_mass_fraction_from_atom_fraction(composition)
-    if current_boron_mass_fraction <= 0:
+    if current_boron_mass_fraction <= 0 and requirement.b10_atom_fraction is None:
         return None
     target = requirement.mass_fraction
-    relative_error = abs(current_boron_mass_fraction - target) / target
-    if relative_error <= 0.05:
+    relative_error = (
+        abs(current_boron_mass_fraction - target) / target
+        if current_boron_mass_fraction > 0 else 1.0
+    )
+    if relative_error <= _REPAIR_RELATIVE_TOLERANCE:
         return None
 
     b10_split = _candidate_b10_split(composition)
@@ -316,4 +438,5 @@ __all__ = [
     "SolubleBoronRequirement",
     "extract_soluble_boron_requirement",
     "normalize_materials_patch_content",
+    "normalize_materials_patches_in_state",
 ]

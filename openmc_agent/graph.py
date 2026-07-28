@@ -1249,6 +1249,11 @@ def _receive_requirement(state: GraphState) -> GraphState:
         supplied_state = state.get("accepted_plan_build_state")
         if supplied_state:
             build_state = PlanBuildState.model_validate(supplied_state)
+            from openmc_agent.plan_builder.materials_patch_normalization import (
+                normalize_materials_patches_in_state,
+            )
+
+            normalize_materials_patches_in_state(build_state)
         else:
             build_state = initialize_plan_build_state(
                 requirement=effective_requirement,
@@ -1577,6 +1582,9 @@ def _run_incremental_plan_generation(
         PlanBuildState as _PlanBuildState,
         initialize_plan_build_state as _init_state,
     )
+    from openmc_agent.plan_builder.materials_patch_normalization import (
+        normalize_materials_patches_in_state,
+    )
     from openmc_agent.plan_builder.mode import (
         PlanningModeDecision as _PlanningModeDecision,
     )
@@ -1606,6 +1614,7 @@ def _run_incremental_plan_generation(
     # workflow without regenerating its source patches.
     accepted_seed = bool(state.get("accepted_plan_build_state"))
     if accepted_seed:
+        normalize_materials_patches_in_state(build_state)
         build_state.metadata["accepted_plan_build_state_seed"] = True
         stop_after_gate = getattr(plan_loop_policy, "stop_after_gate", None)
         if stop_after_gate is not None:

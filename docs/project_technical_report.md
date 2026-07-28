@@ -4,6 +4,9 @@
 
 ### 2026-07-28
 
+- **Phase 8C Step 3O accepted-seed material normalization closure**：`--accepted-plan-build-state` 和 graph accepted-state handoff 现在复用 production material normalizer，并同步修正 seed 中已有 `assembled_plan.complex_model.materials`，避免旧五 Gate seed 的 1300 ppm / H-O-only coolant 绕过 MaterialsPatch 写入层直接进入 renderer。Assembled-plan runtime material schema 不再写入 patch-only `warnings/source_note`，provenance 保留在 state/patch metadata。
+- **验证结果**：focused material/seed tests `16 passed`；seed openmc-smoke v5 在本地导出 runnable XML/plots 后仍因 UCX `getifaddrs Operation not permitted` 环境问题失败，但导出的所有 coolant/water materials 已归一化到约 `1360 ppm`。全量非 OpenMC/非 LLM pytest `3784 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过；baseline diff 因 baseline 文件缺失跳过。
+
 - **Phase 8C Step 3N production coolant-boron normalization**：VERA4 high-keff smoke root cause traced to source-declared soluble boron being under-modeled in coolant atom fractions (~90 ppm instead of 1360 ppm by mass). Production `PlanBuildState.add_patch()` now applies an input-driven deterministic MaterialsPatch normalization before persisting valid materials: source-declared soluble boron ppm/mass fraction plus isotope split repairs coolant/moderator water atom fractions and records provenance. Materials prompt also directs LLMs to use `ppm_by_weight` or mathematically converted atom fractions.
 - **验证结果**：focused production/VERA4 material tests `21 passed`；corrected deterministic VERA4 smoke reduced keff from prior direct run `1.19193 +/- 0.00449` to `1.01318 +/- 0.00400` under the same source-backed material correction path. 全量非 OpenMC/非 LLM pytest `3782 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过；baseline diff 因 baseline 文件缺失跳过。
 - **下一步建议**：先复用已通过五 Gate seed 跑 no-LLM render/openmc-smoke 与 normalization provenance inspection；通过后启动一次从头真实 LLM VERA4 milestone。若失败，不连续重跑 canary，先导出脱敏 replay/fixture 并离线修复对应 production path。

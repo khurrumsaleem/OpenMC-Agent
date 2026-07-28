@@ -7,7 +7,9 @@ import pytest
 from openmc_agent.plan_builder.materials_patch_normalization import (
     extract_soluble_boron_requirement,
     normalize_materials_patch_content,
+    normalize_materials_patches_in_state,
 )
+from openmc_agent.plan_builder.state import PlanBuildState
 
 
 def _boron_mass_fraction(atom: dict[str, float]) -> float:
@@ -72,3 +74,42 @@ def test_does_not_modify_materials_without_source_boron_requirement() -> None:
     result = normalize_materials_patch_content(patch, requirement_text="plain water coolant")
     assert not result.changed
     assert result.content == patch
+
+
+def test_normalizes_existing_assembled_plan_materials_in_seed_state() -> None:
+    state = PlanBuildState(
+        state_id="seed",
+        requirement_text=(
+            "coolant soluble boron 1360 ppm by mass\n"
+            "natural boron B-10 isotope fraction 19.9 at%"
+        ),
+    )
+    state.assembled_plan = {
+        "complex_model": {
+            "materials": [{
+                "id": "water",
+                "name": "Borated water coolant 1300ppmB",
+                "density_value": 0.743,
+                "density_unit": "g/cm3",
+                "composition_basis": "atom_fraction",
+                "composition": [
+                    {"name": "B10", "percent": 0.000143732, "percent_type": "ao", "kind": "nuclide"},
+                    {"name": "B11", "percent": 0.00057854, "percent_type": "ao", "kind": "nuclide"},
+                    {"name": "H1", "percent": 0.666172, "percent_type": "ao", "kind": "nuclide"},
+                    {"name": "O16", "percent": 0.333103, "percent_type": "ao", "kind": "nuclide"},
+                ],
+            }],
+        },
+    }
+
+    ops = normalize_materials_patches_in_state(state)
+
+    assert ops
+    material = state.assembled_plan["complex_model"]["materials"][0]
+    assert "warnings" not in material
+    assert "source_note" not in material
+    comp = {
+        item["name"]: item["percent"]
+        for item in material["composition"]
+    }
+    assert _boron_mass_fraction(comp) == pytest.approx(0.00136, rel=5e-4)

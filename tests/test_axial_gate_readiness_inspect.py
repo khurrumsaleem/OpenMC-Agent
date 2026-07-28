@@ -7,6 +7,8 @@ import json
 from types import SimpleNamespace
 from pathlib import Path
 
+import pytest
+
 from openmc_agent.plan_builder.closed_loop.campaign_checkpoint import (
     BOUNDARY_GATE_PLACEMENT,
     CampaignCheckpointStore,
@@ -153,6 +155,55 @@ def test_real_canary_cli_sanitizes_seed_audit_raw_outputs(tmp_path: Path) -> Non
     )
     assert payload["accepted_plan_build_state"]["facts_review_history"] == []
     assert next(iter(payload["accepted_plan_build_state"]["patches"].values()))["raw_text"] is None
+
+
+def test_real_canary_cli_normalizes_materials_in_accepted_seed(tmp_path: Path) -> None:
+    script = _load_real_canary_script()
+    state = state_with_axial_patches(include_profiles=True)
+    requirement_text = (
+        "test reactor\n"
+        "coolant soluble boron 1360 ppm by mass\n"
+        "natural boron B-10 isotope fraction 19.9 at%"
+    )
+    requirement_path = tmp_path / "input.md"
+    requirement_path.write_text(requirement_text, encoding="utf-8")
+    from openmc_agent.inspect import compose_operating_state_requirement
+    state.requirement_text = compose_operating_state_requirement(
+        requirement_path.read_text(encoding="utf-8"), ""
+    )
+    materials = next(env for env in state.patches.values() if env.patch_type == "materials")
+    materials.content["materials"].append({
+        "material_id": "coolant",
+        "name": "Borated water coolant",
+        "role": "coolant",
+        "density_g_cm3": 0.743,
+        "composition": {
+            "H1": 0.6667,
+            "O16": 0.3333,
+            "B10": 0.000143732,
+            "B11": 0.00057854,
+        },
+        "composition_basis": "atom_frac",
+        "composition_status": "confirmed",
+    })
+    seed_path = tmp_path / "seed_state.json"
+    seed_path.write_text(json.dumps(state.model_dump(mode="json")), encoding="utf-8")
+
+    payload = script._load_accepted_plan_build_state_seed(
+        seed_path,
+        case=SimpleNamespace(input_path=str(requirement_path), operating_state=""),
+        stop_after_gate="axial_geometry",
+    )
+
+    seed = payload["accepted_plan_build_state"]
+    mat_env = next(env for env in seed["patches"].values() if env["patch_type"] == "materials")
+    coolant = next(m for m in mat_env["content"]["materials"] if m["material_id"] == "coolant")
+    atom = coolant["composition"]
+    weights = {"H1": 1.00784, "O16": 15.994, "B10": 10.012937, "B11": 11.009305}
+    total = sum(atom[name] * weights[name] for name in weights)
+    boron = atom["B10"] * weights["B10"] + atom["B11"] * weights["B11"]
+    assert boron / total == pytest.approx(0.00136, rel=5e-4)
+    assert seed["metadata"]["materials_deterministic_normalizations"][0]["operation"] == "coolant_boron_mass_ppm_atom_fraction_repair"
 
 
 def test_real_canary_cli_rejects_seed_with_secret_like_field(tmp_path: Path) -> None:

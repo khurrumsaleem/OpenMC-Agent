@@ -137,6 +137,9 @@ def _load_accepted_plan_build_state_seed(path: Path, *, case: object, stop_after
 
     from openmc_agent.inspect import compose_operating_state_requirement
     from openmc_agent.plan_builder.closed_loop.models import PlanStageStatus
+    from openmc_agent.plan_builder.materials_patch_normalization import (
+        normalize_materials_patches_in_state,
+    )
     from openmc_agent.plan_builder.state import PlanBuildState
 
     state = PlanBuildState.model_validate(raw)
@@ -161,6 +164,7 @@ def _load_accepted_plan_build_state_seed(path: Path, *, case: object, stop_after
                 f"(current status={status})"
             )
 
+    normalize_materials_patches_in_state(state)
     return {
         "accepted_plan_build_state": state.model_dump(mode="json"),
         "accepted_plan_build_state_path": str(path),
