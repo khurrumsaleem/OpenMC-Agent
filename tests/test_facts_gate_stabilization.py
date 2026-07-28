@@ -293,11 +293,25 @@ class TestRepairCompleteness:
             "assembly_count": 9,
             "assembly_type_counts": {"fuel": 9},
             "fuel_variant_requirements": [{"variant_id": "v1"}],
+            "has_special_pin_map": True,
             "localized_insert_requirements": [],
             "has_spacer_grids": True,
         }
         missing = check_facts_repair_completeness(candidate)
         assert "/localized_insert_requirements" in missing
+
+    def test_empty_localized_inserts_allowed_without_special_pin_map(self):
+        candidate = {
+            "model_scope": "multi_assembly_core",
+            "assembly_count": 9,
+            "assembly_type_counts": {"fuel": 9},
+            "fuel_variant_requirements": [{"variant_id": "v1"}],
+            "has_special_pin_map": False,
+            "localized_insert_requirements": [],
+            "has_spacer_grids": True,
+        }
+        missing = check_facts_repair_completeness(candidate)
+        assert "/localized_insert_requirements" not in missing
 
     def test_required_coverage_paths_are_reactor_neutral(self):
         """The required paths must not include reactor-specific fields."""

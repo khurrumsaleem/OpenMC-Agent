@@ -25,6 +25,7 @@ __all__ = [
     "targeted_facts_repair",
     "run_clone_validation",
     "check_facts_repair_completeness",
+    "required_coverage_paths_for_patch",
     "facts_revision_closure_fingerprint",
     "MAX_FACTS_REVISION_CLOSURE_ROUNDS",
     "REQUIRED_COVERAGE_PATHS",
@@ -35,11 +36,15 @@ __all__ = [
 # Phase 8B Step 3: repair coverage completeness
 # ---------------------------------------------------------------------------
 
-# Fields that every FactsPatch MUST have non-empty after repair.
-# Reactor-neutral structural slots — same list used in the repair prompt.
+# Core FactsPatch fields considered by the repair coverage contract.  Whether
+# a field is required depends on the current source-derived model scope and
+# feature flags; for example a single-assembly case must not be forced to
+# invent assembly-type counts, and a case with no special pin map must not be
+# forced to invent localized insert requirements.
 REQUIRED_COVERAGE_PATHS: tuple[str, ...] = (
     "/model_scope",
     "/assembly_count",
+    "/core_lattice_size",
     "/assembly_type_counts",
     "/fuel_variant_requirements",
     "/localized_insert_requirements",
@@ -70,6 +75,58 @@ def facts_revision_closure_fingerprint(findings: list[PlanReviewFinding]) -> str
     )
 
 
+def _is_empty_coverage_value(value: Any) -> bool:
+    return (
+        value is None
+        or value == ""
+        or value == []
+        or value == {}
+        or value == "unknown"
+    )
+
+
+def required_coverage_paths_for_patch(candidate: dict[str, Any]) -> tuple[str, ...]:
+    """Return coverage fields required for this FactsPatch shape.
+
+    The contract stays reactor-neutral, but it must be conditional on source
+    scope.  A required field here is both shown in the revision prompt and
+    accepted by the revision evaluator.
+    """
+
+    scope = str(candidate.get("model_scope") or "").strip().lower()
+    assembly_count = candidate.get("assembly_count")
+    core_lattice_size = candidate.get("core_lattice_size")
+    assembly_type_counts = candidate.get("assembly_type_counts")
+    has_special_pin_map = candidate.get("has_special_pin_map")
+    localized_insert_requirements = candidate.get("localized_insert_requirements")
+    has_declared_insert_count = any(
+        (candidate.get(key) or 0) > 0
+        for key in ("expected_pyrex_count", "expected_thimble_plug_count")
+        if isinstance(candidate.get(key), (int, float))
+    )
+
+    paths: list[str] = [
+        "/model_scope",
+        "/assembly_count",
+        "/fuel_variant_requirements",
+        "/has_spacer_grids",
+    ]
+    is_multi_assembly = (
+        scope == "multi_assembly_core"
+        or (isinstance(assembly_count, int) and assembly_count > 1)
+        or not _is_empty_coverage_value(core_lattice_size)
+    )
+    if is_multi_assembly:
+        paths.append("/assembly_type_counts")
+    if (
+        has_special_pin_map is True
+        or has_declared_insert_count
+        or not _is_empty_coverage_value(localized_insert_requirements)
+    ):
+        paths.append("/localized_insert_requirements")
+    return tuple(dict.fromkeys(paths))
+
+
 def check_facts_repair_completeness(candidate: dict[str, Any]) -> list[str]:
     """Return the list of required coverage paths still empty in ``candidate``.
 
@@ -79,16 +136,10 @@ def check_facts_repair_completeness(candidate: dict[str, Any]) -> list[str]:
     """
 
     missing: list[str] = []
-    for pointer in REQUIRED_COVERAGE_PATHS:
+    for pointer in required_coverage_paths_for_patch(candidate):
         key = pointer.lstrip("/")
         value = candidate.get(key)
-        if (
-            value is None
-            or value == ""
-            or value == []
-            or value == {}
-            or value == "unknown"
-        ):
+        if _is_empty_coverage_value(value):
             missing.append(pointer)
     return missing
 
@@ -117,6 +168,47 @@ def _pointer_value(value: Any, pointer: str) -> Any:
 
 _MISSING = object()
 
+_FACTS_REVISION_LIST_PATHS = {
+    "/missing_facts",
+    "/assumptions",
+    "/source_notes",
+    "/fuel_variant_requirements",
+    "/localized_insert_requirements",
+}
+
+
+def _prepare_facts_revision_operations(
+    facts_patch: dict[str, Any],
+    operations: list[PatchRepairOperation],
+) -> list[PatchRepairOperation]:
+    """Normalize safe JSON Patch edge cases before application.
+
+    Review-time repair agents often use ``replace`` for an optional top-level
+    FactsPatch field that is absent from the current JSON.  RFC6902 rejects
+    that, but semantically the safe operation is ``add``.  Limit the conversion
+    to single-token top-level paths; nested or array edits still obey strict
+    JSON Patch semantics.
+    """
+
+    prepared: list[PatchRepairOperation] = []
+    for operation in operations:
+        if (
+            operation.op == "replace"
+            and operation.path.count("/") == 1
+            and _pointer_value(facts_patch, operation.path) is _MISSING
+        ):
+            prepared.append(operation.model_copy(update={"op": "add"}))
+        elif (
+            operation.op == "add"
+            and operation.path.endswith("/-")
+            and (parent_path := operation.path[:-2]) in _FACTS_REVISION_LIST_PATHS
+            and _pointer_value(facts_patch, parent_path) is _MISSING
+        ):
+            prepared.append(operation.model_copy(update={"path": parent_path, "value": [operation.value]}))
+        else:
+            prepared.append(operation)
+    return prepared
+
 
 def _confirmed_records(confirmed_facts: dict[str, Any]) -> list[tuple[str, Any]]:
     """Supports the stable typed record store and the legacy namespaced map."""
@@ -132,7 +224,7 @@ def _confirmed_records(confirmed_facts: dict[str, Any]) -> list[tuple[str, Any]]
     return result
 
 
-def allowed_paths_for_findings(findings: list[PlanReviewFinding]) -> list[str]:
+def allowed_paths_for_findings(findings: list[PlanReviewFinding], facts_patch: dict[str, Any] | None = None) -> list[str]:
     paths = {
         "/missing_facts",
         "/assumptions",
@@ -222,13 +314,14 @@ def normalize_facts_revision(raw: str | dict[str, Any]) -> FactsRevisionProposal
 def evaluate_facts_revision(*, facts_patch: dict[str, Any], proposal: FactsRevisionProposal,
                             findings: list[PlanReviewFinding], confirmed_facts: dict[str, Any],
                             prior_candidate_hashes: list[str]) -> FactsRevisionEvaluation:
-    allowed = allowed_paths_for_findings(findings)
+    allowed = allowed_paths_for_findings(findings, facts_patch)
     operations = [PatchRepairOperation.model_validate(item) for item in proposal.operations]
     for operation in operations:
         if operation.path == "" or operation.path == "/patch_type" or not any(operation.path == path or operation.path.startswith(path + "/") for path in allowed):
             return FactsRevisionEvaluation(reasons=["facts_revision.path_out_of_scope"])
     try:
-        applied = apply_json_patch_to_clone(facts_patch, [operation.model_dump(mode="json", exclude_none=True) for operation in operations])
+        prepared_operations = _prepare_facts_revision_operations(facts_patch, operations)
+        applied = apply_json_patch_to_clone(facts_patch, [operation.model_dump(mode="json", exclude_none=True) for operation in prepared_operations])
         if not applied.ok:
             return FactsRevisionEvaluation(reasons=[f"facts_revision.apply_failed: {applied.error}"])
         candidate = applied.plan

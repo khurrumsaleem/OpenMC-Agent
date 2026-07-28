@@ -90,32 +90,16 @@ def build_facts_revision_prompt(*, facts_patch: dict, findings: list[dict], evid
     )
 
 
-# Fields that every FactsPatch must cover.  Reactor-neutral — these are
-# structural slots, not reactor-type-specific values.
-_REQUIRED_COVERAGE_FIELDS: tuple[str, ...] = (
-    "/model_scope",
-    "/assembly_count",
-    "/assembly_type_counts",
-    "/fuel_variant_requirements",
-    "/localized_insert_requirements",
-    "/has_spacer_grids",
-)
-
-
 def _required_coverage_fields_with_status(facts_patch: dict) -> list[dict]:
     """Return per-field status so the LLM sees which fields are empty."""
 
+    from .facts_revision import _is_empty_coverage_value, required_coverage_paths_for_patch
+
     statuses: list[dict] = []
-    for path in _REQUIRED_COVERAGE_FIELDS:
+    for path in required_coverage_paths_for_patch(facts_patch):
         key = path.lstrip("/")
         value = facts_patch.get(key)
-        is_empty = (
-            value is None
-            or value == ""
-            or value == []
-            or value == {}
-            or value == "unknown"
-        )
+        is_empty = _is_empty_coverage_value(value)
         statuses.append({
             "path": path,
             "status": "MISSING" if is_empty else "present",

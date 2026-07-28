@@ -71,6 +71,112 @@ class TestComputeAllowedActionsCoverageIncomplete:
         assert "/fuel_variant_requirements" in allowed
         assert "/localized_insert_requirements" in allowed
 
+    def test_required_coverage_paths_are_scope_conditional(self):
+        from openmc_agent.plan_builder.closed_loop.facts_revision import (
+            check_facts_repair_completeness,
+            required_coverage_paths_for_patch,
+        )
+
+        single = {
+            "patch_type": "facts",
+            "model_scope": "single_assembly",
+            "assembly_count": 1,
+            "fuel_variant_requirements": [{"variant_id": "fuel"}],
+            "has_spacer_grids": False,
+            "assembly_type_counts": {},
+            "localized_insert_requirements": [],
+        }
+        assert "/assembly_type_counts" not in required_coverage_paths_for_patch(single)
+        assert "/localized_insert_requirements" not in required_coverage_paths_for_patch(single)
+        assert check_facts_repair_completeness(single) == []
+
+        multi = {
+            **single,
+            "model_scope": "multi_assembly_core",
+            "assembly_count": 9,
+            "core_lattice_size": None,
+            "assembly_type_counts": {},
+        }
+        assert "/core_lattice_size" not in required_coverage_paths_for_patch(multi)
+        assert "/assembly_type_counts" in required_coverage_paths_for_patch(multi)
+        assert check_facts_repair_completeness(multi) == ["/assembly_type_counts"]
+
+        inserts = {
+            **single,
+            "has_special_pin_map": True,
+            "localized_insert_requirements": [],
+        }
+        assert "/localized_insert_requirements" in required_coverage_paths_for_patch(inserts)
+        assert check_facts_repair_completeness(inserts) == ["/localized_insert_requirements"]
+
+    def test_optional_coverage_paths_are_still_safe_revision_targets(self):
+        from openmc_agent.plan_builder.closed_loop.facts_revision import evaluate_facts_revision
+        from openmc_agent.plan_builder.closed_loop.models import (
+            FactsRevisionProposal,
+            PlanFindingCategory,
+            PlanFindingSeverity,
+            PlanGateId,
+            PlanReviewFinding,
+        )
+
+        facts = {
+            "patch_type": "facts",
+            "model_scope": "single_assembly",
+            "assembly_count": 1,
+            "fuel_variant_requirements": [{"variant_id": "fuel"}],
+            "localized_insert_requirements": [{"requirement_id": "insert", "insert_kind": "pyrex_rod"}],
+            "has_spacer_grids": False,
+        }
+        proposal = FactsRevisionProposal.model_validate({
+            "proposal_id": "optional_count",
+            "confidence": 0.9,
+            "rationale": "record a harmless single-assembly type count while fixing source notes",
+            "operations": [
+                {"op": "replace", "path": "/assembly_type_counts", "value": {"default": 1}},
+                {"op": "add", "path": "/source_notes/-", "value": "source-backed note"},
+            ],
+            "resolved_finding_ids": [],
+        })
+        finding = PlanReviewFinding(
+            gate_id=PlanGateId.FACTS,
+            code="SOURCE_COVERAGE.NOTE",
+            severity=PlanFindingSeverity.ERROR,
+            category=PlanFindingCategory.SOURCE_COVERAGE,
+            message="repairable source-note gap",
+            affected_patch_types=["facts"],
+            affected_json_paths=["/source_notes"],
+            repairable_by_llm=True,
+            requires_human=False,
+            confidence=0.9,
+        )
+
+        result = evaluate_facts_revision(
+            facts_patch=facts,
+            proposal=proposal,
+            findings=[finding],
+            confirmed_facts={},
+            prior_candidate_hashes=[],
+        )
+
+        assert result.accepted
+        assert result.candidate["assembly_type_counts"] == {"default": 1}
+
+    def test_revision_prompt_uses_same_conditional_required_coverage_contract(self):
+        from openmc_agent.plan_builder.closed_loop.facts_revision import required_coverage_paths_for_patch
+        from openmc_agent.plan_builder.closed_loop.facts_revision_prompts import _required_coverage_fields_with_status
+
+        facts = {
+            "patch_type": "facts",
+            "model_scope": "single_assembly",
+            "assembly_count": 1,
+            "fuel_variant_requirements": [{"variant_id": "fuel"}],
+            "has_spacer_grids": False,
+        }
+
+        prompt_paths = [item["path"] for item in _required_coverage_fields_with_status(facts)]
+
+        assert prompt_paths == list(required_coverage_paths_for_patch(facts))
+
     def test_repairable_error_findings_yield_revise(self):
         """Error findings with repairable_by_llm → REVISE_CURRENT_PATCH."""
         from openmc_agent.plan_builder.closed_loop.models import (

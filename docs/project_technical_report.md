@@ -4,6 +4,9 @@
 
 ### 2026-07-28
 
+- **Phase 8C Step 3O Gate/schema contract audit**：针对“过完五 Gate 仍无法建模”的风险，审计 Facts revision prompt/evaluator/schema 和下游 seed/renderer 接口。发现 required coverage 与 safe optional edit 混用、单组件被非必要 assembly type/core lattice 约束牵连、以及 LLM 常见 `replace` missing field / `add /list/-` missing parent 与 RFC6902 严格语义冲突。现 required coverage 条件化，prompt/checker 共用同一函数，evaluator 仍允许安全 coverage superset，并在应用前规范化缺失顶层 optional replace/list append。
+- **验证结果**：v5 真实 proposal 离线仍 `accepted=True`；Facts/Gate focused tests `57 passed`，下游 gate/schema/seed/renderer tests `113 passed`。全量非 OpenMC/非 LLM pytest `3795 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过；baseline diff 因 baseline 文件缺失跳过。旧 VERA4 五 Gate seed 在当前 Pyrex validator 下会报 `patch.universes.pyrex_plenum_helium_missing`，因此后续最终验收应使用当前生产路径重新生成，不把旧 seed 作为最终建模通过依据。
+
 - **Phase 8C Step 3O Facts required-coverage revision path closure**：真实用户 CLI 的 VERA3B v5 run 已越过 `unresolved_requires_human`，但第一轮 Facts revision 被 evaluator 拒绝为 `facts_revision.path_out_of_scope`。根因是 prompt/coverage checker 要求补 `/assembly_type_counts`，而 edit-path 白名单没有包含 required coverage slots。现白名单与 required coverage 合同对齐，仍只允许 FactsPatch 内的 reactor-neutral coverage 字段。
 - **验证结果**：v5 真实 `facts_revision_proposal_000.json` 离线复核从 path-out-of-scope 变为 `accepted=True`；focused Facts revision/reviewer tests `30 passed`。全量非 OpenMC/非 LLM pytest `3791 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过；baseline diff 因 baseline 文件缺失跳过。
 
