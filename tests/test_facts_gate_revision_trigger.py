@@ -161,6 +161,108 @@ class TestComputeAllowedActionsCoverageIncomplete:
         assert result.accepted
         assert result.candidate["assembly_type_counts"] == {"default": 1}
 
+    def test_schema_out_operating_conditions_are_recorded_as_source_notes(self):
+        from openmc_agent.plan_builder.closed_loop.facts_revision import evaluate_facts_revision
+        from openmc_agent.plan_builder.closed_loop.models import (
+            FactsRevisionProposal,
+            PlanFindingCategory,
+            PlanFindingSeverity,
+            PlanGateId,
+            PlanReviewFinding,
+        )
+
+        facts = {
+            "patch_type": "facts",
+            "model_scope": "single_assembly",
+            "assembly_count": 1,
+            "fuel_variant_requirements": [{"variant_id": "fuel"}],
+            "has_spacer_grids": False,
+        }
+        proposal = FactsRevisionProposal.model_validate({
+            "proposal_id": "operating_conditions",
+            "confidence": 0.9,
+            "rationale": "record operating-state values",
+            "operations": [
+                {
+                    "op": "add",
+                    "path": "/operating_conditions",
+                    "value": {"boron_ppm": 1066, "coolant_temperature_K": 565},
+                },
+                {
+                    "op": "add",
+                    "path": "/source_notes/-",
+                    "value": "Variant 3B operating state: boron 1066 ppm, coolant temperature 565 K.",
+                },
+            ],
+            "resolved_finding_ids": [],
+        })
+        finding = PlanReviewFinding(
+            gate_id=PlanGateId.FACTS,
+            code="OPERATING_CONDITIONS_MISSING",
+            severity=PlanFindingSeverity.ERROR,
+            category=PlanFindingCategory.SOURCE_COVERAGE,
+            message="record operating conditions",
+            affected_patch_types=["facts"],
+            affected_json_paths=["/source_notes"],
+            repairable_by_llm=True,
+            requires_human=False,
+            confidence=0.9,
+        )
+
+        result = evaluate_facts_revision(
+            facts_patch=facts,
+            proposal=proposal,
+            findings=[finding],
+            confirmed_facts={},
+            prior_candidate_hashes=[],
+        )
+
+        assert result.accepted
+        assert "operating_conditions" not in result.candidate
+        assert result.candidate["source_notes"] == [
+            "Variant 3B operating state: boron 1066 ppm, coolant temperature 565 K."
+        ]
+
+    def test_unknown_schema_out_path_still_fails_closed(self):
+        from openmc_agent.plan_builder.closed_loop.facts_revision import evaluate_facts_revision
+        from openmc_agent.plan_builder.closed_loop.models import (
+            FactsRevisionProposal,
+            PlanFindingCategory,
+            PlanFindingSeverity,
+            PlanGateId,
+            PlanReviewFinding,
+        )
+
+        proposal = FactsRevisionProposal.model_validate({
+            "proposal_id": "unknown_path",
+            "confidence": 0.9,
+            "rationale": "bad field",
+            "operations": [{"op": "add", "path": "/made_up_field", "value": 1}],
+            "resolved_finding_ids": [],
+        })
+        finding = PlanReviewFinding(
+            gate_id=PlanGateId.FACTS,
+            code="BAD",
+            severity=PlanFindingSeverity.ERROR,
+            category=PlanFindingCategory.SOURCE_COVERAGE,
+            message="bad",
+            affected_patch_types=["facts"],
+            affected_json_paths=["/source_notes"],
+            repairable_by_llm=True,
+            requires_human=False,
+            confidence=0.9,
+        )
+
+        result = evaluate_facts_revision(
+            facts_patch={"patch_type": "facts"},
+            proposal=proposal,
+            findings=[finding],
+            confirmed_facts={},
+            prior_candidate_hashes=[],
+        )
+
+        assert result.reasons == ["facts_revision.path_out_of_scope"]
+
     def test_revision_prompt_uses_same_conditional_required_coverage_contract(self):
         from openmc_agent.plan_builder.closed_loop.facts_revision import required_coverage_paths_for_patch
         from openmc_agent.plan_builder.closed_loop.facts_revision_prompts import _required_coverage_fields_with_status

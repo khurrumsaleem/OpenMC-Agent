@@ -176,6 +176,40 @@ _FACTS_REVISION_LIST_PATHS = {
     "/localized_insert_requirements",
 }
 
+_FACTS_REVISION_SOURCE_NOTE_ONLY_PATHS = {
+    "/operating_conditions",
+    "/operating_state_parameters",
+    "/operating_state_conditions",
+    "/coolant_conditions",
+}
+
+
+def _schema_out_metadata_operation_to_source_note(
+    operation: PatchRepairOperation,
+    *,
+    drop_if_source_note_already_present: bool,
+) -> PatchRepairOperation | None:
+    """Map known schema-out Facts metadata edits to source_notes.
+
+    FactsPatch intentionally has no structured operating-conditions object.
+    Review repair LLMs may still propose one because the information is real
+    and source-backed.  Keep the data as a note, but never accept the schema-out
+    field itself.
+    """
+
+    if operation.path not in _FACTS_REVISION_SOURCE_NOTE_ONLY_PATHS:
+        return None
+    if drop_if_source_note_already_present:
+        return None
+    value = json.dumps(operation.value, ensure_ascii=False, sort_keys=True)
+    return operation.model_copy(
+        update={
+            "op": "add",
+            "path": "/source_notes/-",
+            "value": f"{operation.path.lstrip('/').replace('_', ' ')}: {value}",
+        }
+    )
+
 
 def _prepare_facts_revision_operations(
     facts_patch: dict[str, Any],
@@ -316,11 +350,28 @@ def evaluate_facts_revision(*, facts_patch: dict[str, Any], proposal: FactsRevis
                             prior_candidate_hashes: list[str]) -> FactsRevisionEvaluation:
     allowed = allowed_paths_for_findings(findings, facts_patch)
     operations = [PatchRepairOperation.model_validate(item) for item in proposal.operations]
+    has_source_note_edit = any(
+        operation.path == "/source_notes" or operation.path.startswith("/source_notes/")
+        for operation in operations
+    )
+    operations_to_apply: list[PatchRepairOperation] = []
     for operation in operations:
         if operation.path == "" or operation.path == "/patch_type" or not any(operation.path == path or operation.path.startswith(path + "/") for path in allowed):
-            return FactsRevisionEvaluation(reasons=["facts_revision.path_out_of_scope"])
+            converted = _schema_out_metadata_operation_to_source_note(
+                operation,
+                drop_if_source_note_already_present=has_source_note_edit,
+            )
+            if converted is None:
+                if operation.path in _FACTS_REVISION_SOURCE_NOTE_ONLY_PATHS and has_source_note_edit:
+                    continue
+                return FactsRevisionEvaluation(reasons=["facts_revision.path_out_of_scope"])
+            operations_to_apply.append(converted)
+            continue
+        operations_to_apply.append(operation)
+    if not operations_to_apply:
+        return FactsRevisionEvaluation(reasons=["facts_revision.no_applicable_operations"])
     try:
-        prepared_operations = _prepare_facts_revision_operations(facts_patch, operations)
+        prepared_operations = _prepare_facts_revision_operations(facts_patch, operations_to_apply)
         applied = apply_json_patch_to_clone(facts_patch, [operation.model_dump(mode="json", exclude_none=True) for operation in prepared_operations])
         if not applied.ok:
             return FactsRevisionEvaluation(reasons=[f"facts_revision.apply_failed: {applied.error}"])

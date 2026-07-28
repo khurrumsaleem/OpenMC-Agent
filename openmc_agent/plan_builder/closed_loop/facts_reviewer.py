@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from openmc_agent.structured_output import canonical_payload_hash
 
+import re
 from typing import Any
 
 from pydantic import Field
@@ -36,11 +37,49 @@ class FactsReviewResult(AgentBaseModel):
     failure_code: str = ""
 
 
+class FactsFindingNormalization(AgentBaseModel):
+    """Deterministic firewall result for one untrusted Facts reviewer finding."""
+
+    draft: FactsReviewFindingDraft | None = None
+    rejected: dict[str, Any] | None = None
+    classification_override: dict[str, Any] | None = None
+
+
 _FACTS_RECORDING_METADATA_ROOTS = (
     "/missing_facts",
     "/assumptions",
     "/source_notes",
 )
+
+
+_FACTS_REVIEW_PATH_PREFIXES: tuple[tuple[str, str], ...] = (
+    ("facts_subset.", ""),
+    ("/facts_subset/", ""),
+    ("/relevant_patches.facts.", ""),
+    ("/relevant_patches/facts/", ""),
+)
+
+
+def _canonicalize_facts_review_path(path: str) -> str:
+    """Canonicalize reviewer path drift to FactsPatch JSON Pointer style."""
+
+    p = str(path).strip()
+    for prefix, replacement in _FACTS_REVIEW_PATH_PREFIXES:
+        if p.startswith(prefix):
+            p = replacement + p[len(prefix):]
+            break
+    if p in {"relevant_patches.facts", "/relevant_patches.facts", "/relevant_patches/facts", "facts_subset"}:
+        p = ""
+    if not p.startswith("/"):
+        p = "/" + p
+    p = re.sub(r"\[([0-9]+)\]", r"/\1", p)
+    # Reviewers often emit dotted object/list paths.  Convert those to JSON
+    # Pointer tokens after known FactsPatch roots, while preserving ordinary
+    # field names that do not contain nesting.
+    if "." in p:
+        p = "/" + "/".join(token for token in p.strip("/").split(".") if token)
+    p = re.sub(r"/+", "/", p)
+    return p
 
 
 def _is_facts_recording_metadata_path(path: str) -> bool:
@@ -205,6 +244,22 @@ def _normalize_blank_operating_state_classification(
     }), original
 
 
+def _normalize_non_error_human_requirement(
+    draft: FactsReviewFindingDraft,
+) -> tuple[FactsReviewFindingDraft, dict[str, Any] | None]:
+    """Non-error findings may be advisory, but must not remain human blockers."""
+
+    if draft.severity is PlanFindingSeverity.ERROR or not draft.requires_human:
+        return draft, None
+    original = {
+        "reason": "facts_non_error_human_advisory",
+        "original_severity": draft.severity.value,
+        "original_requires_human": draft.requires_human,
+        "original_repairable_by_llm": draft.repairable_by_llm,
+    }
+    return draft.model_copy(update={"requires_human": False, "repairable_by_llm": False}), original
+
+
 def _is_excerpt_limited_finding(draft: FactsReviewFindingDraft) -> bool:
     """Reject chunk-local missing-evidence claims.
 
@@ -246,65 +301,90 @@ def _is_excerpt_limited_finding(draft: FactsReviewFindingDraft) -> bool:
     ) and scope_limited
 
 
+def normalize_facts_review_finding(draft: FactsReviewFindingDraft) -> FactsFindingNormalization:
+    """Normalize one reviewer finding before it can affect the Facts Gate.
+
+    This is the deterministic firewall for reviewer drift.  It canonicalizes
+    paths, routes/downshifts known owner-boundary findings, rejects chunk-local
+    missing-evidence claims, and fail-closes malformed blocking contracts.
+    """
+
+    if not draft.code.strip():
+        return FactsFindingNormalization(
+            rejected={"code": "facts_review.invalid_finding_contract", "reason": "blank code"}
+        )
+
+    normalized_paths = [_canonicalize_facts_review_path(path) for path in draft.affected_json_paths]
+    if normalized_paths != draft.affected_json_paths:
+        draft = draft.model_copy(update={"affected_json_paths": normalized_paths})
+
+    if any(not path.startswith("/") or path.startswith("/materials") or path.startswith("/universes") for path in draft.affected_json_paths):
+        return FactsFindingNormalization(
+            draft=draft,
+            rejected={"code": "facts_review.path_out_of_scope", "finding_code": draft.code},
+        )
+
+    classification_override = None
+    for normalizer in (
+        _normalize_recording_metadata_classification,
+        _normalize_confirmation_not_error_classification,
+        _normalize_downstream_material_scope_classification,
+        _normalize_blank_operating_state_classification,
+        _normalize_non_error_human_requirement,
+    ):
+        if classification_override is not None:
+            break
+        draft, classification_override = normalizer(draft)
+
+    if _is_excerpt_limited_finding(draft):
+        return FactsFindingNormalization(
+            draft=draft.model_copy(update={"severity": PlanFindingSeverity.WARNING, "requires_human": False}),
+            rejected={
+                "code": "facts_review.excerpt_limited_finding",
+                "finding_code": draft.code,
+                "reason": "chunk-local missing-evidence claim is not a whole-source human blocker",
+            },
+        )
+
+    if draft.requires_human and draft.repairable_by_llm:
+        return FactsFindingNormalization(
+            draft=draft,
+            rejected={"code": "facts_review.invalid_finding_contract", "finding_code": draft.code},
+        )
+
+    if draft.severity is PlanFindingSeverity.ERROR and draft.category is not PlanFindingCategory.PHYSICAL_AMBIGUITY:
+        # An error must be both evidence-grounded and actionable against
+        # a specific FactsPatch field.  This rejects self-contradictory
+        # critic output such as "this is consistent; no issue" labelled
+        # as an error with no affected path; accepting such a finding
+        # would fail-close a valid plan without a repairable contract.
+        if not draft.evidence_hashes or not draft.affected_json_paths:
+            return FactsFindingNormalization(
+                draft=draft,
+                rejected={"code": "facts_review.invalid_finding_contract", "finding_code": draft.code},
+            )
+
+    return FactsFindingNormalization(draft=draft, classification_override=classification_override)
+
+
 def _normalize(output: FactsReviewModelOutput, pack: PlanEvidencePack) -> tuple[list[PlanReviewFinding], list[dict[str, Any]]]:
     evidence = {item.evidence_hash: item for item in pack.source_excerpts}
-    facts = pack.relevant_patches.get("facts", {})
     accepted: list[PlanReviewFinding] = []
     rejected: list[dict[str, Any]] = []
     for index, draft in enumerate(output.findings):
-        if not draft.code.strip():
-            rejected.append({"code": "facts_review.invalid_finding_contract", "reason": "blank code"})
-            continue
         unknown = set(draft.evidence_hashes) - set(evidence)
         if unknown:
             rejected.append({"code": "facts_review.unknown_evidence_hash", "finding_code": draft.code, "unknown": sorted(unknown)})
             continue
-        normalized_paths: list[str] = []
-        for p in draft.affected_json_paths:
-            if p.startswith("facts_subset."):
-                p = "/" + p[len("facts_subset."):]
-            elif p.startswith("/relevant_patches.facts."):
-                p = "/" + p[len("/relevant_patches.facts."):]
-            elif p.startswith("/relevant_patches/facts/"):
-                p = "/" + p[len("/relevant_patches/facts/"):]
-            elif p == "/relevant_patches.facts" or p == "/relevant_patches/facts":
-                p = "/"
-            elif not p.startswith("/"):
-                p = "/" + p
-            normalized_paths.append(p)
-        if normalized_paths != draft.affected_json_paths:
-            draft = draft.model_copy(update={"affected_json_paths": normalized_paths})
-        if any(not path.startswith("/") or path.startswith("/materials") or path.startswith("/universes") for path in draft.affected_json_paths):
-            rejected.append({"code": "facts_review.path_out_of_scope", "finding_code": draft.code})
+        normalized = normalize_facts_review_finding(draft)
+        if normalized.draft is not None:
+            output.findings[index] = normalized.draft
+        if normalized.rejected is not None:
+            rejected.append(normalized.rejected)
             continue
-        draft, classification_override = _normalize_recording_metadata_classification(draft)
-        if classification_override is None:
-            draft, classification_override = _normalize_confirmation_not_error_classification(draft)
-        if classification_override is None:
-            draft, classification_override = _normalize_downstream_material_scope_classification(draft)
-        if classification_override is None:
-            draft, classification_override = _normalize_blank_operating_state_classification(draft)
-        if _is_excerpt_limited_finding(draft):
-            rejected.append({
-                "code": "facts_review.excerpt_limited_finding",
-                "finding_code": draft.code,
-                "reason": "chunk-local missing-evidence claim is not a whole-source human blocker",
-            })
-            output.findings[index] = draft.model_copy(update={"severity": PlanFindingSeverity.WARNING, "requires_human": False})
+        if normalized.draft is None:
             continue
-        output.findings[index] = draft
-        if draft.requires_human and draft.repairable_by_llm:
-            rejected.append({"code": "facts_review.invalid_finding_contract", "finding_code": draft.code})
-            continue
-        if draft.severity is PlanFindingSeverity.ERROR and draft.category is not PlanFindingCategory.PHYSICAL_AMBIGUITY:
-            # An error must be both evidence-grounded and actionable against
-            # a specific FactsPatch field.  This rejects self-contradictory
-            # critic output such as "this is consistent; no issue" labelled
-            # as an error with no affected path; accepting such a finding
-            # would fail-close a valid plan without a repairable contract.
-            if not draft.evidence_hashes or not draft.affected_json_paths:
-                rejected.append({"code": "facts_review.invalid_finding_contract", "finding_code": draft.code})
-                continue
+        draft = normalized.draft
         excerpts = [evidence[key] for key in draft.evidence_hashes]
         finding = PlanReviewFinding(
             gate_id=PlanGateId.FACTS, code=draft.code, severity=draft.severity,
@@ -315,7 +395,7 @@ def _normalize(output: FactsReviewModelOutput, pack: PlanEvidencePack) -> tuple[
             metadata={"expected_value": draft.expected_value, "current_value": draft.current_value,
                       "candidate_interpretations": [item.model_dump(mode="json") for item in draft.candidate_interpretations],
                       "downstream_impact": draft.downstream_impact,
-                      **({"classification_override": classification_override} if classification_override else {})},
+                      **({"classification_override": normalized.classification_override} if normalized.classification_override else {})},
         )
         accepted.append(finding)
     # Finding identity excludes wording and unions evidence under the same semantic fingerprint.

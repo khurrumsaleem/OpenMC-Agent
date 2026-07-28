@@ -18,7 +18,11 @@ from typing import Any
 import pytest
 
 from openmc_agent.plan_builder.closed_loop.facts_evidence import build_facts_evidence_packs
-from openmc_agent.plan_builder.closed_loop.facts_reviewer import _normalize, run_facts_review
+from openmc_agent.plan_builder.closed_loop.facts_reviewer import (
+    _normalize,
+    normalize_facts_review_finding,
+    run_facts_review,
+)
 from openmc_agent.plan_builder.closed_loop.models import (
     FactsReviewModelOutput,
     PlanClosedLoopPolicy,
@@ -300,7 +304,7 @@ class TestPathNormalization:
         findings, rejected = _normalize(output, pack)
 
         assert rejected == []
-        assert findings[0].affected_json_paths == ["/source_notes[7]"]
+        assert findings[0].affected_json_paths == ["/source_notes/7"]
 
     def test_excerpt_limited_source_coverage_is_rejected_as_chunk_local(self):
         pack = _make_pack()
@@ -330,8 +334,33 @@ class TestPathNormalization:
             }
         ]
         assert output.findings[0].affected_json_paths == [
-            "/localized_insert_requirements[0].source_note"
+            "/localized_insert_requirements/0/source_note"
         ]
+
+    def test_normalization_firewall_directly_classifies_non_error_human_as_advisory(self):
+        payload = _make_draft_dict(
+            code="PYREX_ENDCAP_COORD_AMBIGUITY",
+            severity="info",
+            paths=["/relevant_patches.facts.localized_insert_requirements[0]"],
+            repairable=False,
+            requires_human=True,
+            category="physical_ambiguity",
+        )
+        payload["message"] = "Exact endcap coordinates are ambiguous, but this is advisory context."
+        draft = FactsReviewModelOutput.model_validate({
+            "review_status": "complete_with_gaps",
+            "reviewed_evidence_hashes": [],
+            "coverage_summary": {},
+            "findings": [payload],
+        }).findings[0]
+
+        normalized = normalize_facts_review_finding(draft)
+
+        assert normalized.rejected is None
+        assert normalized.draft is not None
+        assert normalized.draft.requires_human is False
+        assert normalized.draft.affected_json_paths == ["/localized_insert_requirements/0"]
+        assert normalized.classification_override["reason"] == "facts_non_error_human_advisory"
 
 
 class TestEndToEndPathNormalization:
