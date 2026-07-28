@@ -777,6 +777,100 @@ def _generate_and_qualify_one_fragment(
     return record, qualification, outcome
 
 
+def _try_annular_insert_oracle(
+    *,
+    item: UniverseManifestItem,
+    requirement: str,
+    materials_obj: Any,
+    known_material_ids: set[str],
+    material_roles_by_id: dict[str, str],
+    material_source_variants_by_id: dict[str, str | None],
+    prior_failures: list[str],
+) -> tuple[AcceptedFragmentRecord | None, dict[str, Any]]:
+    """Deterministic fallback for a failed annular-insert universe fragment.
+
+    Invoked only after the LLM fragment attempts have failed.  Constructs an
+    annular-insert universe (pyrex rod and similar concentric inserts) by
+    parsing the radial cross-section declared in the source document, then
+    qualifies it through the standard pipeline.  Returns ``(record,
+    telemetry)``; ``record`` is ``None`` when the oracle declines (no
+    parseable radial structure, unbindable material) or its proposal fails
+    qualification.  Never overrides accepted LLM output.
+    """
+
+    from .closed_loop.annular_insert_universe_oracle import (
+        propose_annular_insert_universe,
+    )
+    from .universe_fragment_qualification import qualify_universe_fragment
+
+    materials = list(getattr(materials_obj, "materials", []) or [])
+    proposal = propose_annular_insert_universe(
+        manifest_item=item,
+        requirement=requirement,
+        materials=materials,
+    )
+    telemetry: dict[str, Any] = {
+        "universe_id": item.universe_id,
+        "attempt": "annular_insert_oracle",
+        "oracle": "annular_insert_universe_oracle",
+        "invoked": True,
+        "ok": bool(proposal.ok),
+        "reason": proposal.reason,
+        "layer_count": proposal.layer_count,
+    }
+    if not proposal.ok or not proposal.universe_data:
+        return None, telemetry
+    fragment = UniverseDefinitionFragment(
+        universe_id=item.universe_id,
+        universe=proposal.universe_data,
+        manifest_contract_hash=item.contract_hash,
+    )
+    qualification = qualify_universe_fragment(
+        manifest_item=item,
+        fragment=fragment,
+        known_material_ids=known_material_ids,
+        material_roles_by_id=material_roles_by_id,
+        material_source_variants_by_id=material_source_variants_by_id,
+        qualification_attempt=len(prior_failures),
+    )
+    telemetry["qualification_ok"] = bool(qualification.ok)
+    if not qualification.ok:
+        telemetry["qualification_issues"] = [
+            issue.model_dump(mode="json") for issue in qualification.issues
+        ]
+        return None, telemetry
+    record = AcceptedFragmentRecord(
+        universe_id=item.universe_id,
+        universe=qualification.canonical_universe_data,
+        fragment_hash=qualification.fragment_hash,
+        manifest_contract_hash=item.contract_hash,
+        qualification_status="passed",
+        qualification_issues=[
+            {
+                "code": "qualification.annular_insert_oracle_constructed",
+                "severity": "warning",
+                "universe_id": item.universe_id,
+                "message": (
+                    "universe constructed deterministically by the "
+                    "annular_insert_universe_oracle after LLM fragment failure"
+                ),
+                "retryable": False,
+                "metadata": {
+                    "oracle_reason": proposal.reason,
+                    "layer_count": proposal.layer_count,
+                },
+            }
+        ],
+        accepted_at_attempt=len(prior_failures),
+        metadata={
+            "constructed_by_oracle": True,
+            "oracle_reason": proposal.reason,
+            "oracle_layer_count": proposal.layer_count,
+        },
+    )
+    return record, telemetry
+
+
 # ---------------------------------------------------------------------------
 # Top-level entry
 # ---------------------------------------------------------------------------
@@ -1055,6 +1149,33 @@ def generate_universes_patch(
             elif outcome is not None:
                 fs.metadata["last_outcome_kind"] = outcome.outcome_kind
                 fs.metadata["last_exception_class"] = outcome.exception_class
+
+        if record is None:
+            # Deterministic fallback: construct an annular-insert universe
+            # (pyrex rod and similar concentric inserts) from the radial
+            # cross-section declared in the source when the LLM could not.
+            oracle_record, oracle_telemetry = _try_annular_insert_oracle(
+                item=item,
+                requirement=requirement,
+                materials_obj=materials_obj,
+                known_material_ids=known_material_ids,
+                material_roles_by_id=material_roles_by_id,
+                material_source_variants_by_id=material_source_variants_by_id,
+                prior_failures=prior_failures,
+            )
+            session.provider_telemetry.append(oracle_telemetry)
+            if oracle_record is not None:
+                record = oracle_record
+                prior_failures.append(
+                    f"oracle[{item_id}] constructed universe from source radial cross-section"
+                )
+            else:
+                fs = _fragment_status(item_id)
+                fs.metadata["annular_insert_oracle"] = {
+                    "invoked": True,
+                    "ok": False,
+                    "reason": oracle_telemetry.get("reason"),
+                }
 
         if record is None:
             fs = _fragment_status(item_id)

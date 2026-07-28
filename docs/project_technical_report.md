@@ -4,6 +4,10 @@
 
 ### 2026-07-28
 
+- **Phase 8C Step 3P Facts whole-source reconciliation**：真实用户 CLI 的 VERA4 base run 在 Facts revision 四轮后仍被 `UNSUPPORTED_RCCA_DATA` / `THIMBLE_PLUG_GEOMETRY_MISSING` 阻断；根因是 split review 按源文档分块，单块 reviewer 看到全 FactsPatch 但只有本块 excerpt，遂把 §14/§15（位于另一块）的事实标为 unsupported。现 Facts reviewer 在 coverage 判定前对全源做 reconciliation：凡 SOURCE_COVERAGE/UNSUPPORTED_INFERENCE error 且其引用的 §章节/数值确存在于整篇源文档者降为 warning（fail-closed，hard-contract 缺口仍 blocking）；并新增 localized-insert 详细几何 finding 的 downstream-owner 路由，放宽 chunk-local 防火墙对自由形式 `unsupported_*` code 的识别。
+- **Phase 8C Step 3P Annular-insert universe oracle**：真实用户 CLI 的 VERA3B v12 run 在 Universes gate 反复 `patch.universes.pyrex_annular_poison_missing` 后 `fragment_failed`；根因是 fragmented universe prompt 只传 role 名（`radial_layers` 在生产中从未填充）且 JSON 示例误导为单 cell 实心圆柱，glm-5.2 两轮无法合成 7-8 层同心环。新增确定性 `annular_insert_universe_oracle`：LLM 片段失败后从源文档径向截面表（markdown 表格或 `role=rmin-rmax cm` 注记）解析层序、绑定 material catalog、构造 cylinder→annulus→…→background 同心 universe，再走原 `qualify_universe_fragment` 把关；reactor-neutral，不硬编码任何基准半径/材料。生产侧暂只对 `pyrex_rod`（四重确定性 validator）启用。
+- **验证结果**：focused Facts reconciliation/insert-geometry tests `12 passed`，annular-insert oracle tests `11 passed`；全量非 OpenMC/非 LLM pytest `3833 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过；baseline diff 因 baseline 文件缺失跳过。
+
 - **Phase 8C Step 3O Facts source-note schema-boundary closure**：真实用户 CLI 的 VERA3B v11 run 在 Facts revision 四轮后仍被 `MISSING_MATERIAL_DENSITIES` / `MISSING_PYREX_COMPOSITION` 等 reviewer finding 阻断，其中部分事实已 source-backed 记录在 `source_notes`，但 FactsPatch 没有对应结构化字段。现 reviewer normalization 会用当前 FactsPatch 的 source-note carriers 做确定性覆盖判定，已覆盖的 schema-boundary finding 降为 warning；未覆盖数值仍 fail-closed。revision prompt 同步要求一次性补全同源 topic，并把 schema 不承载的事实写成可检索 source notes。
 - **验证结果**：focused Facts reviewer tests `5 passed`；全量非 OpenMC/非 LLM pytest `3809 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过；baseline diff 因 baseline 文件缺失跳过。
 

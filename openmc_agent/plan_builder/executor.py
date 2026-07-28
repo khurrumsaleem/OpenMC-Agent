@@ -2422,7 +2422,7 @@ def run_incremental_planning(
             _write_facts_gate_result("reviewer_unavailable")
             return None
         state.add_event("planning.facts_review_started", "independent facts critic called", {"pack_count": len(packs)})
-        review = run_facts_review(evidence_packs=packs, reviewer_client=plan_reviewer_client, state=state, policy=policy)
+        review = run_facts_review(evidence_packs=packs, reviewer_client=plan_reviewer_client, state=state, policy=policy, whole_source_text=requirement)
         for index, raw_output in enumerate(review.raw_outputs):
             path = artifact_writer._write(f"facts_review_raw_{index:03d}.json", {"raw": raw_output})
             if path:
@@ -2756,6 +2756,7 @@ def run_incremental_planning(
                     reviewer_client=plan_reviewer_client,
                     state=state,
                     policy=policy,
+                    whole_source_text=requirement,
                 )
                 for index, raw_output in enumerate(rereview.raw_outputs):
                     path = artifact_writer._write(
