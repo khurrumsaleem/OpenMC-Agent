@@ -13,7 +13,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
-from vera4_base_fixture import build_all_vera4_patches
+from vera4_base_fixture import build_all_vera4_patches, build_vera4_materials
 from openmc_agent.plan_builder.assembler import assemble_simulation_plan_from_patches
 from openmc_agent.campaign_eval.vera4_base_acceptance import (
     AcceptanceResult,
@@ -32,6 +32,21 @@ def assembled_plan():
 
 
 class TestPlanLevelAcceptance:
+    def test_borated_water_matches_1360_ppm_mass_fraction(self):
+        materials = build_vera4_materials()
+        water = next(m for m in materials.materials if m.material_id == "water")
+        assert water.density_g_cm3 == pytest.approx(0.743)
+        atom = water.composition
+        atomic_weights = {"H1": 1.00784, "O16": 15.994, "B10": 10.0129, "B11": 11.0093}
+        total_mass = sum(atom[name] * atomic_weights[name] for name in atomic_weights)
+        boron_mass = atom["B10"] * atomic_weights["B10"] + atom["B11"] * atomic_weights["B11"]
+        assert boron_mass / total_mass == pytest.approx(0.001360, rel=5e-4)
+
+    def test_b4c_density_matches_input_table(self):
+        materials = build_vera4_materials()
+        b4c = next(m for m in materials.materials if m.material_id == "rcca_b4c_mat")
+        assert b4c.density_g_cm3 == pytest.approx(1.76)
+
     def test_all_key_universes_present(self, assembled_plan):
         checks = check_plan_level(assembled_plan)
         uv_checks = [c for c in checks if c.code.startswith("plan.universe.")]

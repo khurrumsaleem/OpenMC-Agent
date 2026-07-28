@@ -187,10 +187,22 @@ def build_vera4_materials() -> MaterialsPatch:
         # --- Coolant ---
         MaterialSpecPatch(
             material_id="water", name="borated water", role="coolant",
-            density_g_cm3=0.7409,
-            composition={"H1": 0.666633333, "O16": 0.333316667, "B10": 1e-5, "B11": 4e-5},
+            density_g_cm3=0.743,
+            composition={
+                # 1360 ppm soluble boron by mass with natural boron
+                # (B-10 ≈ 19.9 at%), converted to atom fractions on an
+                # H2O + natural-B atom basis.
+                "H1": 0.666162697,
+                "O16": 0.333081349,
+                "B10": 0.000150435,
+                "B11": 0.000605519,
+            },
             composition_basis="atom_frac",
-            composition_status="approximate",
+            composition_status="confirmed",
+            source_note=(
+                "VERA4 input: HZP coolant density 0.743 g/cc; soluble boron "
+                "1360 ppm by mass, natural boron B-10 ≈ 19.9 at%"
+            ),
         ),
         # --- Structural ---
         MaterialSpecPatch(
@@ -249,10 +261,11 @@ def build_vera4_materials() -> MaterialsPatch:
         ),
         MaterialSpecPatch(
             material_id="rcca_b4c_mat", name="B4C absorber", role="absorber",
-            density_g_cm3=2.52,
+            density_g_cm3=1.76,
             composition={"B10": 0.1592, "B11": 0.6408, "C0": 0.2},
             composition_basis="atom_frac",
-            composition_status="approximate",
+            composition_status="confirmed",
+            source_note="VERA4 input §16.1 B4C density 1.76 g/cc; natural boron B4C stoichiometry",
         ),
         MaterialSpecPatch(
             material_id="thimble_plug_mat", name="SS-304 thimble plug", role="structural",

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import copy
 
+import pytest
+
 from scripts.vera4_base_fixture import build_all_vera4_patches
 
 from openmc_agent.plan_builder.closed_loop.material_universe_binding import build_material_universe_binding_view
@@ -68,3 +70,39 @@ def test_vera4_unknown_material_reference_detected() -> None:
     result = run_material_universe_preflight(state=state, policy=policy)
     codes = {i["code"] for i in result.issues}
     assert "material_universe.material_reference_missing" in codes
+
+
+def test_source_declared_coolant_boron_atom_fraction_is_repaired_on_add_patch() -> None:
+    state = PlanBuildState(
+        state_id="vera4-boron-repair",
+        requirement_text=(
+            "coolant density 0.743 g/cc\n"
+            "soluble boron 1360 ppm by mass\n"
+            "natural boron B-10 isotope fraction 19.9 at%"
+        ),
+        benchmark_id="VERA4",
+    )
+    materials = next(p for p in build_all_vera4_patches() if p.patch_type == "materials").model_dump(mode="json")
+    for material in materials["materials"]:
+        if material["material_id"] == "water":
+            material["composition"] = {
+                "H1": 0.666633333,
+                "O16": 0.333316667,
+                "B10": 0.00001,
+                "B11": 0.00004,
+            }
+            material["composition_basis"] = "atom_frac"
+            material["source_note"] = "LLM candidate used atom fractions"
+            break
+
+    state.add_patch(PlanPatchEnvelope(patch_id="materials", patch_type="materials", content=materials, status="valid", source="llm"))
+
+    stored = state.patches["materials"].content
+    water = next(m for m in stored["materials"] if m["material_id"] == "water")
+    atom = water["composition"]
+    atomic_weights = {"H1": 1.00784, "O16": 15.994, "B10": 10.012937, "B11": 11.009305}
+    total_mass = sum(atom[name] * atomic_weights[name] for name in atomic_weights)
+    boron_mass = atom["B10"] * atomic_weights["B10"] + atom["B11"] * atomic_weights["B11"]
+    assert boron_mass / total_mass == pytest.approx(0.001360, rel=5e-4)
+    assert state.metadata["materials_deterministic_normalizations"][0]["operation"] == "coolant_boron_mass_ppm_atom_fraction_repair"
+    assert "deterministically normalized coolant boron" in water["warnings"][0]

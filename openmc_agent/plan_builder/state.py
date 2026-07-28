@@ -274,6 +274,38 @@ class PlanBuildState(AgentBaseModel):
 
     def add_patch(self, patch: PlanPatchEnvelope) -> None:
         """Add a patch envelope and initialize its status tracking."""
+        if patch.patch_type == "materials" and patch.status == "valid":
+            from .materials_patch_normalization import normalize_materials_patch_content
+
+            normalization = normalize_materials_patch_content(patch.content, state=self)
+            if normalization.changed:
+                patch.content = normalization.content
+                patch.metadata.setdefault("deterministic_normalizations", [])
+                patch.metadata["deterministic_normalizations"].extend(
+                    normalization.operations
+                )
+                self.metadata.setdefault("materials_deterministic_normalizations", [])
+                self.metadata["materials_deterministic_normalizations"].extend(
+                    normalization.operations
+                )
+                self.add_event(
+                    event_type="planning.materials_deterministic_normalization_applied",
+                    message="materials patch normalized using source-declared unit semantics",
+                    data={
+                        "patch_id": patch.patch_id,
+                        "operation_count": len(normalization.operations),
+                        "operations": [
+                            {
+                                "operation": op.get("operation"),
+                                "material_id": op.get("material_id"),
+                                "target_ppm_by_weight": op.get("target_ppm_by_weight"),
+                                "previous_boron_mass_fraction": op.get("previous_boron_mass_fraction"),
+                                "relative_error": op.get("relative_error"),
+                            }
+                            for op in normalization.operations
+                        ],
+                    },
+                )
         self.patches[patch.patch_id] = patch
         self.patch_status[patch.patch_id] = patch.status
 

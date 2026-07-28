@@ -183,6 +183,10 @@ composition_basis semantics (MUST declare for every material with a composition)
 - "ppm_by_weight": a coolant entry like B10=1066 means 1066 ppm total boron
   by weight (NOT an atom fraction).  Use this when the source gives boron
   concentration in ppm.
+- If the source gives soluble/coolant boron in ppm or as a boron mass fraction,
+  do not invent tiny atom fractions. Prefer "ppm_by_weight"; if you emit
+  "atom_frac", it must be the mathematically converted H/O/B atom-fraction
+  vector consistent with the source mass concentration and isotope split.
 - "unknown": only if truly unclear; this will BLOCK rendering and require retry.
 
 Minimal example:
