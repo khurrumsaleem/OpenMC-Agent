@@ -184,6 +184,63 @@ def test_multiple_compound_components_same_species_still_accumulate() -> None:
     assert mix["composition"] == {"Fe": 0.70}
 
 
+def test_fuel_source_variant_id_canonicalized_to_facts_variant_id() -> None:
+    """The LLM often emits a short fuel variant label (e.g. "3B") where Facts
+    declared a canonical variant id (e.g. "fuel_3B"); universe qualification
+    requires the material source_variant_id to match the universe's
+    fuel_variant_id exactly. The normalizer must canonicalize via the Facts
+    variant ids."""
+    from openmc_agent.plan_builder.state import PlanPatchEnvelope, PlanBuildState
+
+    patch = {
+        "patch_type": "materials",
+        "materials": [
+            {"material_id": "fuel_3b", "name": "Fuel 3B", "role": "fuel",
+             "density_g_cm3": 10.257, "source_variant_id": "3B"},
+            {"material_id": "coolant", "name": "Water", "role": "coolant",
+             "density_g_cm3": 0.743},
+        ],
+    }
+    state = PlanBuildState(state_id="s", requirement_text="r")
+    state.add_patch(PlanPatchEnvelope(
+        patch_id="facts", patch_type="facts",
+        content={"patch_type": "facts",
+                 "fuel_variant_requirements": [{"variant_id": "fuel_3B"}]},
+        status="valid",
+    ))
+
+    result = normalize_materials_patch_content(patch, state=state)
+
+    fuel = result.content["materials"][0]
+    assert fuel["source_variant_id"] == "fuel_3B"
+    ops = [op["operation"] for op in result.operations]
+    assert "fuel_source_variant_id_canonicalized" in ops
+
+
+def test_fuel_source_variant_id_ambiguous_not_canonicalized() -> None:
+    """When the short label matches multiple Facts variants, do not guess."""
+    from openmc_agent.plan_builder.state import PlanPatchEnvelope, PlanBuildState
+
+    patch = {
+        "patch_type": "materials",
+        "materials": [
+            {"material_id": "fuel", "name": "Fuel", "role": "fuel",
+             "density_g_cm3": 10.0, "source_variant_id": "3"},
+        ],
+    }
+    state = PlanBuildState(state_id="s", requirement_text="r")
+    state.add_patch(PlanPatchEnvelope(
+        patch_id="facts", patch_type="facts",
+        content={"patch_type": "facts",
+                 "fuel_variant_requirements": [{"variant_id": "fuel_3A"}, {"variant_id": "fuel_3B"}]},
+        status="valid",
+    ))
+
+    result = normalize_materials_patch_content(patch, state=state)
+    assert result.content["materials"][0]["source_variant_id"] == "3"
+    assert "fuel_source_variant_id_canonicalized" not in [op["operation"] for op in result.operations]
+
+
 def test_normalizes_existing_assembled_plan_materials_in_seed_state() -> None:
     state = PlanBuildState(
         state_id="seed",

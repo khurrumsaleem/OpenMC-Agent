@@ -4,6 +4,9 @@
 
 ### 2026-07-29
 
+- **Phase 8C Step 3P Materials fuel source_variant_id canonicalization**：v15 重跑确认 materials 碎片化已激活、materials gate 通过，但 universes 在 fuel 片段 `qualification.fuel_variant_material_mismatch` 失败：LLM 把 materials 的 fuel material `source_variant_id` 写成短标签 `3B`，而 Facts/universe manifest 用 canonical `fuel_3B`，二者严格不等。现 materials normalizer 增加 fuel source_variant_id 规范化：从已接受 FactsPatch 取 fuel variant_ids，对每个 fuel material 用“精确→唯一子串包含”匹配把 source_variant_id 改写为 canonical variant_id（歧义/无匹配则 fail-closed 不改）。
+- **验证结果**：v15 真实 materials+facts 离线复核 `3B→fuel_3B` 规范化生效；新增 canonicalize + ambiguous-fail-closed tests `2 passed`；全量非 OpenMC/非 LLM pytest `3863 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过。
+
 - **Phase 8C Step 3P Materials fragmented-generation activation fix**：v3/v5 的 materials 截断/碎片化根因查明：`materials_patch_pipeline`（碎片化生成）虽已存在，但 executor 仅在 `state.metadata["planning_material_requirement_set"]` 存在时才路由进去，而该 set 只由 geometry-inventory 编译路径填充——v3/v5 未走该路径，故 materials 退回单体 `generate_patch`（无截断回退）并失败。修复（reactor-neutral，镜像 universes 的 facts-driven 模式）：(1) 新增 `extract_material_requirements_from_facts`，当缺 inventory set 时从已接受 FactsPatch 的 `material_roles` + `fuel_variant_requirements` 派生需求集（每燃料 variant 一条 fuel 需求，每非 fuel role 一条；燃料 role 在有 variant 时不重复计数）；(2) `generate_materials_patch` 在缺 set 时回退到 facts 派生；(3) executor 对 materials 始终走 `generate_materials_patch`；(4) auto 模式改为先试单体（一次调用），仅在截断/解析/校验失败时回退碎片化——这样小目录/喂全量 patch 的测试走单体成功，大目录截断则碎片化，且单体校验失败（如组成错误）也回退。
 - **验证结果**：v5/v14 真实 facts 离线派生需求集 16/7 条，`should_fragment_materials` 触发碎片化；新增 facts 派生 + pipeline 回退 tests `5 passed`；全量非 OpenMC/非 LLM pytest `3861 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过。本修复使此前两个“仍开放”的 materials 大 patch 输出截断/碎片化问题获得结构性对策（不再是单点修补）。
 

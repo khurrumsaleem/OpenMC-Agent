@@ -92,6 +92,20 @@ def normalize_materials_patch_content(
             continue
         operations.extend(_normalize_material_schema_surface(material))
 
+    # Canonicalize fuel material source_variant_id against the accepted Facts
+    # fuel variant ids.  The LLM frequently emits a short label (e.g. "3B")
+    # where Facts declared a canonical variant id (e.g. "fuel_3B"); downstream
+    # universe qualification requires the universe's fuel_variant_id to match
+    # the material's source_variant_id exactly.
+    canonical_variant_ids = _fuel_variant_ids_from_state(state)
+    if canonical_variant_ids:
+        for material in normalized.get("materials", []) or []:
+            if not isinstance(material, dict):
+                continue
+            op = _canonicalize_fuel_source_variant_id(material, canonical_variant_ids)
+            if op is not None:
+                operations.append(op)
+
     source_text = _collect_source_text(state=state, requirement_text=requirement_text)
     requirement = extract_soluble_boron_requirement(source_text)
     if requirement is None:
@@ -419,6 +433,75 @@ def _is_coolant_material(material: dict[str, Any]) -> bool:
         return True
     text = " ".join(str(material.get(key) or "") for key in ("material_id", "name", "source_note"))
     return bool(_COOLANT_TEXT_RE.search(text))
+
+
+def _fuel_variant_ids_from_state(state: Any | None) -> list[str]:
+    """Return the canonical fuel variant ids declared by the accepted FactsPatch."""
+
+    if state is None:
+        return []
+    ids: list[str] = []
+    for envelope in getattr(state, "patches", {}).values():
+        if getattr(envelope, "patch_type", None) != "facts":
+            continue
+        content = getattr(envelope, "content", None)
+        if not isinstance(content, dict):
+            continue
+        for variant in content.get("fuel_variant_requirements", []) or []:
+            if not isinstance(variant, dict):
+                continue
+            vid = variant.get("variant_id")
+            if isinstance(vid, str) and vid.strip():
+                ids.append(vid.strip())
+    return ids
+
+
+def _match_canonical_variant(actual: str, canonical_ids: list[str]) -> str | None:
+    """Return the canonical variant id that uniquely matches ``actual``.
+
+    Matches exact (case-insensitive) first, then a unique canonical id that
+    contains ``actual`` as a substring or vice-versa.  Returns ``None`` when
+    there is no unique match (ambiguous → fail-closed).
+    """
+
+    actual_l = actual.strip().lower()
+    if not actual_l:
+        return None
+    canonical_lower = [str(c).strip().lower() for c in canonical_ids]
+    for canonical, cl in zip(canonical_ids, canonical_lower):
+        if cl == actual_l:
+            return canonical
+    matches = [
+        canonical
+        for canonical, cl in zip(canonical_ids, canonical_lower)
+        if actual_l in cl or cl in actual_l
+    ]
+    if len(matches) == 1:
+        return matches[0]
+    return None
+
+
+def _canonicalize_fuel_source_variant_id(
+    material: dict[str, Any], canonical_ids: list[str]
+) -> dict[str, Any] | None:
+    """Canonicalize a fuel material's source_variant_id to the Facts variant id."""
+
+    role = str(material.get("role") or "").strip().lower()
+    if role != "fuel":
+        return None
+    actual = material.get("source_variant_id")
+    if not isinstance(actual, str) or not actual.strip():
+        return None
+    canonical = _match_canonical_variant(actual, canonical_ids)
+    if canonical is None or canonical == actual:
+        return None
+    material["source_variant_id"] = canonical
+    return {
+        "operation": "fuel_source_variant_id_canonicalized",
+        "material_id": material.get("material_id"),
+        "from": actual,
+        "to": canonical,
+    }
 
 
 def _normalize_coolant_boron_atom_fraction(
