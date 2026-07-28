@@ -2,8 +2,8 @@
 
 维护日期：2026-07-28
 
-当前基线：`main`，最近确认生产修复：MaterialsPatch source-declared coolant boron normalization；Pyrex annular poison / upper helium plenum deterministic validation；selected benchmark state fuel-variant scope
-全量测试：非 OpenMC/非 LLM `3788 passed, 2 skipped, 393 deselected`；`compileall` 通过；fake workflow benchmark `21/21`；baseline diff 因 baseline 文件缺失跳过
+当前基线：`main`，最近确认生产修复：MaterialsPatch source-declared coolant boron normalization；Pyrex annular poison / upper helium plenum deterministic validation；selected benchmark state fuel-variant scope；Facts split-review chunk-local unsupported-inference normalization
+全量测试：非 OpenMC/非 LLM `3790 passed, 2 skipped, 393 deselected`；`compileall` 通过；fake workflow benchmark `21/21`；baseline diff 因 baseline 文件缺失跳过
 
 本文档用于维护仓库级主线、已完成能力、近期任务和长期方向。  
 它不是单次运行生成的 skeleton `TODO.md`，也不应记录一次性调试日志。
@@ -25,7 +25,7 @@
 
 1. 复用 deterministic fixture/accepted seed 重跑 VERA3B 与 VERA4 base render/openmc-smoke，确认 Pyrex 轴向连续性、环形毒物、helium center/plenum 和 keff sanity；
 2. 确认生产 materials normalization 与 Pyrex profile validation 在真实 LLM path、fragmented path、retry path 都生效；
-3. 只在上述低成本验证通过后，启动一次从头真实 LLM VERA3B / VERA4 base 建模里程碑；
+3. 只在上述低成本验证通过后，启动一次从头真实 LLM VERA3B / VERA4 base 建模里程碑；若 Facts split-review 再次阻塞，先抽取 normalized artifact 离线分类，不连续重跑；
 4. 若从头真实 run 失败，导出脱敏 artifact/replay fixture 离线修复，禁止连续盲目重跑 canary；
 5. 完整通过后再整理 deliverables、更新验收报告，并考虑将 reactor-neutral 模式抽象进 few-shot/memory 候选。
 

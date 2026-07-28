@@ -254,6 +254,37 @@ class TestPathNormalization:
         assert findings[0].code == "FUEL_VARIANT_COUNT_TOTAL_MISMATCH"
         assert findings[0].severity is PlanFindingSeverity.WARNING
 
+    def test_excerpt_limited_unsupported_inference_is_rejected_as_chunk_local(self):
+        pack = _make_pack()
+        evidence_hash = pack.source_excerpts[0].evidence_hash
+        payload = _make_draft_dict(
+            code="unsupported_inference.pyrex_radial_layers_and_isotopics",
+            paths=["/expected_pyrex_count"],
+            evidence_hash=evidence_hash,
+            repairable=False,
+            requires_human=True,
+            category="unsupported_inference",
+        )
+        payload["message"] = (
+            "The source excerpt truncates before Section 12.2, so the radial "
+            "layers are not provided in the source excerpt."
+        )
+        payload["expected_value"] = "Not provided in the source excerpt"
+        output = _make_output([payload])
+
+        findings, rejected = _normalize(output, pack)
+
+        assert findings == []
+        assert rejected == [
+            {
+                "code": "facts_review.excerpt_limited_unsupported_inference",
+                "finding_code": "unsupported_inference.pyrex_radial_layers_and_isotopics",
+                "reason": "chunk-local unsupported-inference claim is not a whole-source human blocker",
+            }
+        ]
+        assert output.findings[0].severity is PlanFindingSeverity.WARNING
+        assert output.findings[0].requires_human is False
+
 
 class TestEndToEndPathNormalization:
     """End-to-end: run_facts_review accepts findings with bare paths."""
@@ -296,3 +327,73 @@ class TestEndToEndPathNormalization:
         assert len(result.findings) == 1
         assert result.findings[0].affected_json_paths == ["/expected_pyrex_count"]
         assert result.coverage_complete  # warning-only, no error findings
+
+    def test_split_review_excerpt_limited_false_positive_does_not_block_coverage(self):
+        policy = PlanClosedLoopPolicy()
+        packs = [
+            PlanEvidencePack(
+                evidence_pack_id="chunk-1",
+                gate_id=PlanGateId.FACTS,
+                source_excerpts=[SourceExcerpt(source_id="s1", text="first chunk without section 12.2")],
+                relevant_patches={"facts": {"expected_pyrex_count": 16}},
+            ),
+            PlanEvidencePack(
+                evidence_pack_id="chunk-2",
+                gate_id=PlanGateId.FACTS,
+                source_excerpts=[SourceExcerpt(source_id="s2", text="section 12.2 confirms sixteen pyrex rods")],
+                relevant_patches={"facts": {"expected_pyrex_count": 16}},
+            ),
+        ]
+        payloads = []
+        for index, pack in enumerate(packs):
+            evidence_hash = pack.source_excerpts[0].evidence_hash
+            findings = []
+            if index == 0:
+                findings.append(
+                    {
+                        "code": "unsupported_inference.pyrex_radial_layers_and_isotopics",
+                        "severity": "error",
+                        "category": "unsupported_inference",
+                        "message": (
+                            "The provided source excerpt does not include Section 12.2, "
+                            "so the Pyrex dimensions are not provided in this source excerpt."
+                        ),
+                        "evidence_hashes": [evidence_hash],
+                        "affected_json_paths": ["/expected_pyrex_count"],
+                        "repairable_by_llm": False,
+                        "requires_human": True,
+                        "confidence": 0.8,
+                        "expected_value": "Not provided in the source excerpt",
+                    }
+                )
+            payloads.append(
+                json.dumps(
+                    {
+                        "review_status": "complete",
+                        "reviewed_evidence_hashes": [evidence_hash],
+                        "coverage_summary": {},
+                        "findings": findings,
+                    }
+                )
+            )
+
+        def reviewer(_: str) -> str:
+            return payloads.pop(0)
+
+        result = run_facts_review(
+            evidence_packs=packs,
+            reviewer_client=reviewer,
+            state=PlanBuildState(state_id="s", requirement_text="r"),
+            policy=policy,
+        )
+
+        assert result.ok
+        assert result.coverage_complete
+        assert result.findings == []
+        assert result.rejected == [
+            {
+                "code": "facts_review.excerpt_limited_unsupported_inference",
+                "finding_code": "unsupported_inference.pyrex_radial_layers_and_isotopics",
+                "reason": "chunk-local unsupported-inference claim is not a whole-source human blocker",
+            }
+        ]

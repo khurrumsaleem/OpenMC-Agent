@@ -4,6 +4,9 @@
 
 ### 2026-07-28
 
+- **Phase 8C Step 3O Facts split-review human-blocker closure**：真实用户 CLI 的 VERA3B v4 run 不再卡在 Facts 内容本身，而是 split rereview 的第一个 evidence pack 把“本片段未包含 §12.2/§13”误升为 whole-source `unsupported_inference` + `requires_human`，虽然第二个 pack 已覆盖这些事实。现 Facts normalization 拒收这类 chunk-local unsupported-inference 作为全局人工 blocker，并保留真正 repairable coverage error 进入自动 revision。
+- **验证结果**：v4 artifact 离线复核 `requires_human` 从 4 个误报降为 `0`，剩余 `source_coverage.pyrex_plenum_truncation` 为可自动修复 coverage gap；focused Facts reviewer tests `22 passed`。全量非 OpenMC/非 LLM pytest `3790 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过；baseline diff 因 baseline 文件缺失跳过。
+
 - **Phase 8C Step 3O selected-state fuel-variant scope closure**：真实用户 CLI 的 VERA3B run 正确进入 Facts revision，但 selected benchmark state `3B` 被 feature contract 误当成“必须多燃料 variant”，导致已补出的单个 `3B_fuel` 仍被 `facts.fuel_variant_contract_missing` 阻断。现 `has_benchmark_variant` 不再等同于 `has_multiple_fuel_variants`；只有明确多燃料/多富集合同才要求至少两个 fuel variants。
 - **验证结果**：v3 最后一轮 Facts candidate 离线复查 consistency issue `0`；focused Facts tests `11 passed`；全量非 OpenMC/非 LLM pytest `3788 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过；baseline diff 因 baseline 文件缺失跳过。
 

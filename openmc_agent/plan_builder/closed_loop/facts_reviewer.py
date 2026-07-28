@@ -205,6 +205,34 @@ def _normalize_blank_operating_state_classification(
     }), original
 
 
+def _is_excerpt_limited_unsupported_inference(draft: FactsReviewFindingDraft) -> bool:
+    """Reject chunk-local unsupported-inference claims.
+
+    Facts review can be split across source chunks.  A reviewer for one chunk
+    may say a value is "not provided in this source excerpt" even though a
+    later chunk contains the source-backed value.  That is not a valid
+    whole-source ambiguity and must not be promoted to a human blocker.
+    """
+
+    code = draft.code.strip().lower()
+    message = draft.message.lower()
+    expected = str(draft.expected_value or "").lower()
+    if draft.category is not PlanFindingCategory.UNSUPPORTED_INFERENCE:
+        return False
+    if draft.requires_human:
+        return (
+            "source excerpt" in message
+            or "provided text" in message
+            or "provided source excerpt" in message
+            or "not provided in source excerpt" in expected
+            or "not provided in the source excerpt" in expected
+        )
+    return code.startswith("unsupported_inference.") and (
+        "source excerpt" in message
+        or "provided text" in message
+    )
+
+
 def _normalize(output: FactsReviewModelOutput, pack: PlanEvidencePack) -> tuple[list[PlanReviewFinding], list[dict[str, Any]]]:
     evidence = {item.evidence_hash: item for item in pack.source_excerpts}
     facts = pack.relevant_patches.get("facts", {})
@@ -237,6 +265,14 @@ def _normalize(output: FactsReviewModelOutput, pack: PlanEvidencePack) -> tuple[
             draft, classification_override = _normalize_downstream_material_scope_classification(draft)
         if classification_override is None:
             draft, classification_override = _normalize_blank_operating_state_classification(draft)
+        if _is_excerpt_limited_unsupported_inference(draft):
+            rejected.append({
+                "code": "facts_review.excerpt_limited_unsupported_inference",
+                "finding_code": draft.code,
+                "reason": "chunk-local unsupported-inference claim is not a whole-source human blocker",
+            })
+            output.findings[index] = draft.model_copy(update={"severity": PlanFindingSeverity.WARNING, "requires_human": False})
+            continue
         output.findings[index] = draft
         if draft.requires_human and draft.repairable_by_llm:
             rejected.append({"code": "facts_review.invalid_finding_contract", "finding_code": draft.code})
@@ -342,7 +378,10 @@ def run_facts_review(*, evidence_packs: list[PlanEvidencePack], reviewer_client:
         reviewed.update(out_entry["output"].get("reviewed_evidence_hashes", []))
         for finding in out_entry["output"].get("findings", []):
             reviewed.update(finding.get("evidence_hashes", []))
-    result.coverage_complete = _aggregate_coverage(result.outputs, expected_stage_count=len(evidence_packs))
+    result.coverage_complete = (
+        _aggregate_coverage(result.outputs, expected_stage_count=len(evidence_packs))
+        and not any(item.severity is PlanFindingSeverity.ERROR for item in result.findings)
+    )
     if not result.coverage_complete:
         result.failure_code = "facts_review.coverage_incomplete"
     result.ok = not result.error
