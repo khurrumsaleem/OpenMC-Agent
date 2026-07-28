@@ -205,8 +205,8 @@ def _normalize_blank_operating_state_classification(
     }), original
 
 
-def _is_excerpt_limited_unsupported_inference(draft: FactsReviewFindingDraft) -> bool:
-    """Reject chunk-local unsupported-inference claims.
+def _is_excerpt_limited_finding(draft: FactsReviewFindingDraft) -> bool:
+    """Reject chunk-local missing-evidence claims.
 
     Facts review can be split across source chunks.  A reviewer for one chunk
     may say a value is "not provided in this source excerpt" even though a
@@ -217,20 +217,33 @@ def _is_excerpt_limited_unsupported_inference(draft: FactsReviewFindingDraft) ->
     code = draft.code.strip().lower()
     message = draft.message.lower()
     expected = str(draft.expected_value or "").lower()
-    if draft.category is not PlanFindingCategory.UNSUPPORTED_INFERENCE:
+    if draft.category not in {
+        PlanFindingCategory.SOURCE_COVERAGE,
+        PlanFindingCategory.UNSUPPORTED_INFERENCE,
+    }:
         return False
-    if draft.requires_human:
-        return (
-            "source excerpt" in message
-            or "provided text" in message
-            or "provided source excerpt" in message
-            or "not provided in source excerpt" in expected
-            or "not provided in the source excerpt" in expected
-        )
-    return code.startswith("unsupported_inference.") and (
-        "source excerpt" in message
-        or "provided text" in message
+    excerpt_markers = (
+        "source excerpt",
+        "provided text",
+        "provided evidence",
+        "supplied excerpt",
+        "supplied source",
+        "supplied source excerpt",
+        "provided source excerpt",
+        "assigned excerpt",
+        "evidence pack",
     )
+    scope_limited = (
+        any(marker in message for marker in excerpt_markers)
+        or "not provided in source excerpt" in expected
+        or "not provided in the source excerpt" in expected
+    )
+    if draft.requires_human:
+        return scope_limited
+    return (
+        code.startswith("unsupported_inference.")
+        or code.endswith("_unevidenced")
+    ) and scope_limited
 
 
 def _normalize(output: FactsReviewModelOutput, pack: PlanEvidencePack) -> tuple[list[PlanReviewFinding], list[dict[str, Any]]]:
@@ -250,6 +263,12 @@ def _normalize(output: FactsReviewModelOutput, pack: PlanEvidencePack) -> tuple[
         for p in draft.affected_json_paths:
             if p.startswith("facts_subset."):
                 p = "/" + p[len("facts_subset."):]
+            elif p.startswith("/relevant_patches.facts."):
+                p = "/" + p[len("/relevant_patches.facts."):]
+            elif p.startswith("/relevant_patches/facts/"):
+                p = "/" + p[len("/relevant_patches/facts/"):]
+            elif p == "/relevant_patches.facts" or p == "/relevant_patches/facts":
+                p = "/"
             elif not p.startswith("/"):
                 p = "/" + p
             normalized_paths.append(p)
@@ -265,11 +284,11 @@ def _normalize(output: FactsReviewModelOutput, pack: PlanEvidencePack) -> tuple[
             draft, classification_override = _normalize_downstream_material_scope_classification(draft)
         if classification_override is None:
             draft, classification_override = _normalize_blank_operating_state_classification(draft)
-        if _is_excerpt_limited_unsupported_inference(draft):
+        if _is_excerpt_limited_finding(draft):
             rejected.append({
-                "code": "facts_review.excerpt_limited_unsupported_inference",
+                "code": "facts_review.excerpt_limited_finding",
                 "finding_code": draft.code,
-                "reason": "chunk-local unsupported-inference claim is not a whole-source human blocker",
+                "reason": "chunk-local missing-evidence claim is not a whole-source human blocker",
             })
             output.findings[index] = draft.model_copy(update={"severity": PlanFindingSeverity.WARNING, "requires_human": False})
             continue

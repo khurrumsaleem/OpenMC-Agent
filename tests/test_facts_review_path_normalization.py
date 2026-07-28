@@ -277,13 +277,61 @@ class TestPathNormalization:
         assert findings == []
         assert rejected == [
             {
-                "code": "facts_review.excerpt_limited_unsupported_inference",
+                "code": "facts_review.excerpt_limited_finding",
                 "finding_code": "unsupported_inference.pyrex_radial_layers_and_isotopics",
-                "reason": "chunk-local unsupported-inference claim is not a whole-source human blocker",
+                "reason": "chunk-local missing-evidence claim is not a whole-source human blocker",
             }
         ]
         assert output.findings[0].severity is PlanFindingSeverity.WARNING
         assert output.findings[0].requires_human is False
+
+    def test_relevant_patches_facts_path_is_normalized(self):
+        pack = _make_pack()
+        evidence_hash = pack.source_excerpts[0].evidence_hash
+        output = _make_output([
+            _make_draft_dict(
+                code="FACTS_NOTE",
+                severity="warning",
+                paths=["/relevant_patches.facts.source_notes[7]"],
+                evidence_hash=evidence_hash,
+            ),
+        ])
+
+        findings, rejected = _normalize(output, pack)
+
+        assert rejected == []
+        assert findings[0].affected_json_paths == ["/source_notes[7]"]
+
+    def test_excerpt_limited_source_coverage_is_rejected_as_chunk_local(self):
+        pack = _make_pack()
+        evidence_hash = pack.source_excerpts[0].evidence_hash
+        payload = _make_draft_dict(
+            code="PYREX_RADIAL_LAYERS_UNEVIDENCED",
+            paths=["/relevant_patches.facts.localized_insert_requirements[0].source_note"],
+            evidence_hash=evidence_hash,
+            repairable=False,
+            requires_human=True,
+            category="source_coverage",
+        )
+        payload["message"] = (
+            "The supplied source excerpt is truncated immediately before the "
+            "section containing the Pyrex radial structure."
+        )
+        output = _make_output([payload])
+
+        findings, rejected = _normalize(output, pack)
+
+        assert findings == []
+        assert rejected == [
+            {
+                "code": "facts_review.excerpt_limited_finding",
+                "finding_code": "PYREX_RADIAL_LAYERS_UNEVIDENCED",
+                "reason": "chunk-local missing-evidence claim is not a whole-source human blocker",
+            }
+        ]
+        assert output.findings[0].affected_json_paths == [
+            "/localized_insert_requirements[0].source_note"
+        ]
 
 
 class TestEndToEndPathNormalization:
@@ -392,8 +440,8 @@ class TestEndToEndPathNormalization:
         assert result.findings == []
         assert result.rejected == [
             {
-                "code": "facts_review.excerpt_limited_unsupported_inference",
+                "code": "facts_review.excerpt_limited_finding",
                 "finding_code": "unsupported_inference.pyrex_radial_layers_and_isotopics",
-                "reason": "chunk-local unsupported-inference claim is not a whole-source human blocker",
+                "reason": "chunk-local missing-evidence claim is not a whole-source human blocker",
             }
         ]

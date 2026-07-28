@@ -2,8 +2,8 @@
 
 维护日期：2026-07-28
 
-当前基线：`main`，最近确认生产修复：MaterialsPatch source-declared coolant boron normalization；Pyrex annular poison / upper helium plenum deterministic validation；selected benchmark state fuel-variant scope；Facts split-review chunk-local unsupported-inference normalization；Facts required-coverage revision path closure；Facts JSON Patch/schema adapter hardening
-全量测试：非 OpenMC/非 LLM `3795 passed, 2 skipped, 393 deselected`；`compileall` 通过；fake workflow benchmark `21/21`；baseline diff 因 baseline 文件缺失跳过
+当前基线：`main`，最近确认生产修复：MaterialsPatch source-declared coolant boron normalization；Pyrex annular poison / upper helium plenum deterministic validation；selected benchmark state fuel-variant scope；Facts split-review chunk-local missing-evidence normalization；Facts required-coverage revision path closure；Facts JSON Patch/schema adapter hardening
+全量测试：非 OpenMC/非 LLM `3797 passed, 2 skipped, 393 deselected`；`compileall` 通过；fake workflow benchmark `21/21`；baseline diff 因 baseline 文件缺失跳过
 
 本文档用于维护仓库级主线、已完成能力、近期任务和长期方向。  
 它不是单次运行生成的 skeleton `TODO.md`，也不应记录一次性调试日志。
