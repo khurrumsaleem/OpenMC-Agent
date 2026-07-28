@@ -1,0 +1,33 @@
+{
+  "scenario": "facts_chunk_local_unsupported_finding_reconciled_by_whole_source",
+  "source_run": "VERA_4_llm_user_v1",
+  "description": "Facts split-review chunk 0 ended at section 13.4, so its reviewer flagged RCCA data (section 15) and thimble-plug geometry (section 14) as UNSUPPORTED / source-coverage errors. The cited sections live in chunk 1; whole-source reconciliation must downgrade both findings to warnings.",
+  "requirement_excerpt": "### 13.4 轴向恢复规则\n\n- z<15.761 cm：Pyrex 坐标为普通水导向管。\n- 15.761–376.441 cm：使用毒物截面。\n\n## 14. 套管塞（C 和 E 组件）\n\n| 参数 | 值 |\n|---|---:|\n| 材料 | SS304 |\n| 外半径 | 0.538 cm |\n| 高度 | 11.0 cm |\n| 底/顶 | 383.310 / 394.310 cm |\n\n有效高度内的径向结构：\n\n| 半径范围 | 材料 |\n|---|---|\n| 0–0.538 cm | 实心 SS304 套管塞 |\n| 0.538–0.561 cm | 含硼水隙 |\n| 0.561–0.602 cm | Zircaloy-4 导向管壁 |\n\n## 15. RCCA（仅中心 R 组件）\n\n### 15.1 AIC 截面\n\n| 半径范围 | 材料 |\n|---|---|\n| 0–0.382 cm | AIC：80/15/5 wt% Ag/In/Cd，密度 10.2 g/cc |\n| 0.382–0.386 cm | 氦气间隙 |\n| 0.386–0.484 cm | SS304 控制棒包壳 |\n",
+  "findings": [
+    {
+      "code": "UNSUPPORTED_RCCA_DATA",
+      "severity": "error",
+      "category": "unsupported_inference",
+      "message": "The facts patch includes detailed properties for RCCA materials (e.g., AIC density 10.2 g/cc, AIC radius 0-0.382 cm) and attributes them to sections §15.1-15.6. However, the provided source excerpt explicitly ends at §13.4. These specific dimensional and material values cannot be verified against the supplied evidence.",
+      "affected_json_paths": ["/localized_insert_requirements/3/source_note"],
+      "repairable_by_llm": true,
+      "requires_human": false,
+      "confidence": 1.0,
+      "current_value": "AIC_composition=80 wt% Ag / 15 wt% In / 5 wt% Cd; AIC_density=10.2 g/cc; B4C_density=1.76 g/cc; source=§15.1,§15.2"
+    },
+    {
+      "code": "THIMBLE_PLUG_GEOMETRY_MISSING",
+      "severity": "error",
+      "category": "source_coverage",
+      "message": "Thimble plug insert requirements lack all geometric parameters specified in §14: outer_radius=0.538 cm, height=11.0 cm, z_bottom=383.310 cm, z_top=394.310 cm and the full radial cross-section.",
+      "affected_json_paths": [
+        "/localized_insert_requirements/1/source_note",
+        "/localized_insert_requirements/1/required_segment_roles"
+      ],
+      "repairable_by_llm": true,
+      "requires_human": false,
+      "confidence": 0.98,
+      "current_value": "SS304 thimble plugs in 24 guide tubes"
+    }
+  ]
+}

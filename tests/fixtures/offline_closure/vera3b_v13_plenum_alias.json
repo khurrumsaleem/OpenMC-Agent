@@ -1,0 +1,28 @@
+{
+  "scenario": "gas_plenum_alias_replaces_absorber",
+  "source_run": "VERA_3B_llm_user_v13",
+  "description": "A single pyrex poison universe was generated for a requirement that expects both a poison segment and an upper gas-plenum segment. The alias materialization must transform the absorber into gas for the plenum alias rather than deepcopying the poison universe.",
+  "source_universe": {
+    "universe_id": "localized_insert_pyrex_3B",
+    "kind": "pyrex_rod",
+    "cells": [
+      {"id": "inner_helium", "role": "gas_gap", "material_id": "helium", "region_kind": "cylinder", "r_min_cm": 0.0, "r_max_cm": 0.214},
+      {"id": "inner_tube", "role": "cladding", "material_id": "ss304", "region_kind": "annulus", "r_min_cm": 0.214, "r_max_cm": 0.231},
+      {"id": "inner_gap", "role": "gas_gap", "material_id": "helium", "region_kind": "annulus", "r_min_cm": 0.231, "r_max_cm": 0.241},
+      {"id": "pyrex", "role": "poison", "material_id": "pyrex_glass", "region_kind": "annulus", "r_min_cm": 0.241, "r_max_cm": 0.427},
+      {"id": "outer_gap", "role": "gas_gap", "material_id": "helium", "region_kind": "annulus", "r_min_cm": 0.427, "r_max_cm": 0.437},
+      {"id": "outer_clad", "role": "cladding", "material_id": "ss304", "region_kind": "annulus", "r_min_cm": 0.437, "r_max_cm": 0.484},
+      {"id": "water_gap", "role": "inner_flow", "material_id": "coolant_3b", "region_kind": "annulus", "r_min_cm": 0.484, "r_max_cm": 0.561},
+      {"id": "wall", "role": "cladding", "material_id": "zircaloy4", "region_kind": "annulus", "r_min_cm": 0.561, "r_max_cm": 0.602},
+      {"id": "coolant", "role": "coolant", "material_id": "coolant_3b", "region_kind": "background"}
+    ],
+    "metadata": {
+      "localized_insert_requirement_ids": ["pyrex_3B"],
+      "source_requirement_ids": ["localized_insert:pyrex_3B"]
+    }
+  },
+  "facts_expected_ids": {
+    "pyrex_3B": ["pyrex_poison_segment", "pyrex_plenum_segment"]
+  },
+  "known_material_ids": ["helium", "ss304", "pyrex_glass", "zircaloy4", "coolant_3b"]
+}

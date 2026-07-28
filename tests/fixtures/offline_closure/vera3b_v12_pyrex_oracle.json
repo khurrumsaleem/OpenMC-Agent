@@ -1,0 +1,20 @@
+{
+  "scenario": "annular_insert_oracle_rescues_pyrex_fragment",
+  "source_run": "VERA_3B_llm_user_v12",
+  "description": "Fragmented universe generation repeatedly failed the pyrex_rod annular-poison validators. The deterministic annular-insert oracle must parse the source radial cross-section table and construct a qualifying concentric universe.",
+  "requirement_excerpt": "### 12.2 毒物有效段的完整嵌套径向结构\n\n| 半径范围 | 材料 |\n|---|---|\n| `0–0.214 cm` | 氦气中心腔 |\n| `0.214–0.231 cm` | SS304 内管 |\n| `0.231–0.241 cm` | 氦气内间隙 |\n| `0.241–0.427 cm` | Pyrex 环形毒物 |\n| `0.427–0.437 cm` | 氦气外间隙 |\n| `0.437–0.484 cm` | SS304 外包壳 |\n| `0.484–0.561 cm` | 含硼水：Pyrex 棒与导向管之间的水隙 |\n| `0.561–0.602 cm` | Zircaloy-4 原导向管壁 |\n| `r≥0.602 cm` 至栅元边界 | 含硼水 |\n",
+  "materials": [
+    {"material_id": "helium", "name": "Helium", "role": "gap"},
+    {"material_id": "pyrex_glass", "name": "Pyrex Borosilicate Glass", "role": "poison"},
+    {"material_id": "ss304", "name": "SS-304", "role": "structural"},
+    {"material_id": "zircaloy4", "name": "Zircaloy-4", "role": "cladding"},
+    {"material_id": "coolant_3b", "name": "Borated Water 3B", "role": "coolant"}
+  ],
+  "manifest_item": {
+    "universe_id": "localized_insert_pyrex_3B",
+    "kind": "pyrex_rod",
+    "required_layer_roles": ["pyrex_poison_segment", "pyrex_plenum_segment"],
+    "required_cell_roles": [],
+    "required_material_roles": ["poison"]
+  }
+}

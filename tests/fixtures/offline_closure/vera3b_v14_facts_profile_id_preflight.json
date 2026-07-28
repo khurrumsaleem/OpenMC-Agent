@@ -1,0 +1,27 @@
+{
+  "scenario": "multi_segment_insert_profile_contract_satisfied_by_segment_roles",
+  "source_run": "VERA_3B_llm_user_v14",
+  "description": "The LLM left required_profile_id null on multi-segment localized inserts but declared required_segment_roles. The deterministic preflight previously blocked with facts.localized_insert_profile_contract_missing and the reviewer echoed it as a schema_or_format error; segment_roles must now satisfy the contract.",
+  "feature_summary": {
+    "has_localized_insert": true,
+    "has_multi_segment_localized_insert": true
+  },
+  "facts_patch": {
+    "patch_type": "facts",
+    "model_scope": "single_assembly",
+    "localized_insert_requirements": [
+      {
+        "requirement_id": "pyrex_3B_16",
+        "insert_kind": "pyrex_rod",
+        "required_profile_id": null,
+        "required_segment_roles": ["pyrex_poison", "helium_plenum"]
+      },
+      {
+        "requirement_id": "thimble_plug_3B_8",
+        "insert_kind": "thimble_plug",
+        "required_profile_id": null,
+        "required_segment_roles": ["ss304_plug"]
+      }
+    ]
+  }
+}

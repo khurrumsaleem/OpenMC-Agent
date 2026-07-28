@@ -4,6 +4,10 @@
 
 ### 2026-07-29
 
+- **Phase 8C Step 3P Offline campaign closure regression suite**：结束连续真实 LLM canary 的被动修补循环，把本轮 v1/v3/v5/v12/v13/v14 六个已闭合失败抽取为脱敏离线 fixture（`tests/fixtures/offline_closure/`，最小切片：需求 excerpt + patch/raw LLM 输出 + canned findings；剥离运行路径/时间戳/telemetry；`runs/` 本身未入库），新增 `tests/test_offline_campaign_closure.py`（12 tests，无 LLM 调用）逐一回放各确定性闸门并断言闭合。该 suite 与 `runs/` 解耦，作为永久回归盾，后续真实 run 暴露新失败时先扩展 fixture 而非盲目重跑。
+- **验证结果**：6 fixture 各自经生产函数（`reconcile_facts_findings_against_whole_source`、`run_facts_consistency_preflight`、`parse_llm_patch_json`、`normalize_materials_patch_content`→`validate_patch`、`propose_annular_insert_universe`→`qualify_universe_fragment`、`materialize_localized_insert_universe_aliases`→`validate_patch`）复核全部闭合；全量非 OpenMC/非 LLM pytest `3856 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过。
+- **仍开放（无确定性修复，记录待办，不作为通过 fixture）**：(1) materials 输出截断（v5 attempt 1，44KB 未闭合 JSON，输出 token 容量耗尽）——需结构性对策：提高 materials 的 `PATCH_MAX_TOKENS` 或启用 materials 碎片化生成路径；(2) materials 输出碎片化（v3 attempt 2，LLM 把单个 patch 拆成多段 prose-separated JSON）——需解析器多块合并或 prompt 收敛。两者属 LLM 大 patch 输出稳定性问题，非单点逻辑 bug。
+
 - **Phase 8C Step 3P Materials redundant compound-component double-count fix**：v5（VERA4 base）在 materials 生成失败：attempt 1 大输出被截断（token budget），attempt 2 解析通过但 `materials.composition_fraction_sum_invalid`——`aic` 的 weight_frac composition 求和=2。根因在 materials schema-surface normalizer：当 LLM 把某元素同时写进 `composition` 和 `compound_components`（常见冗余），normalizer 用 `composition[sp] = get(sp,0)+fraction` 累加，导致翻倍（Ag 0.8+0.8=1.6 等）。现 normalizer 先记录 composition 原始 species 集合，species 已在原始 composition 中时丢弃冗余 compound component（而非累加）；未在原始 composition 中的 species 仍按原意累加多 compound 贡献。
 - **验证结果**：v5 真实 `materials_attempt_2_raw.txt` 离线经 normalizer+validate 复核从 `sum=2 error` 变为 `sum=1.0, errors=0`（3 个冗余 Ag/In/Cd compound 被 dropped）；新增 redundant-drop + accumulate regression tests `2 passed`；全量非 OpenMC/非 LLM pytest `3844 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过；baseline diff 因 baseline 文件缺失跳过。注：attempt 1 的截断是输出 token 容量问题，attempt 2 现已可过，故 materials gate 可经由 attempt 2 通过。
 
