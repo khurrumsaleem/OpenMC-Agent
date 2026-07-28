@@ -4,6 +4,10 @@
 
 ### 2026-07-28
 
+- **Phase 8C Step 3L Assembled reachability preflight closure**：Assembled seed v4 已完成 assembly 并实际调用 reviewer，但 deterministic preflight 将所有未从 selected root 达到的 alternate/segment-specific 对象都写入 `unreachable_required_ids`，产生 457 个 root reachability blocking 假阳性，并诱发 reviewer schema invalid。现 `unreachable_required_ids` 只包含 `ReachabilityRecord.required=True` 且 unreachable 的对象；其他 unreachable 对象进入 `optional_orphan_ids` 审计，不阻断。
+- **验证结果**：v4 state 离线重放 Assembled preflight：`ok=True`、blocking `0`、object graph nodes `512`、edges `10348`、renderer `core/runnable`。Assembled focused tests `27 passed`；全量非 OpenMC/非 LLM pytest `3749 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21` 通过；baseline diff 因 baseline 缺失跳过。
+- **风险/边界**：本修复关闭 deterministic reachability 假阳性，不忽略真实 required-object reachability；下一次 target run 应直接进入 Assembled reviewer 的真实 finding/accepted 判定。
+
 - **Phase 8C Step 3L Assembled binding planning-scope serialization**：Assembled seed v3 已完成 assembly 并进入 Assembled binding 构造，但在 `AssembledPlanBindingView.planning_scope` 写入 `ResolvedPlanningScope` 对象，Pydantic string 字段校验失败，`llm_call_count=0`。现与 Axial binding 一致，将 resolved scope 提取为稳定字符串值（优先 `value`）。
 - **验证结果**：v2 state 本地重放 assembly + Assembled binding 构造成功，scope=`multi_assembly_core`，object graph nodes `240`。Assembled binding focused tests `27 passed`；全量非 OpenMC/非 LLM pytest `3748 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21` 通过；baseline diff 因 baseline 缺失跳过。
 - **风险/边界**：本修复只关闭 binding view schema 崩溃，不声明 Assembled reviewer accepted；下一次 target run 应进入 deterministic preflight/reviewer 层。

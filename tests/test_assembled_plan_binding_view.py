@@ -51,6 +51,14 @@ def test_binding_view_computes_reachability():
     assert len(reachable) > 0
 
 
+def test_binding_view_does_not_mark_optional_orphans_as_required_unreachable():
+    plan = make_assembled_plan()
+    state = state_with_assembled_plan(plan=plan)
+    view = build_assembled_plan_binding_view(state=state, plan=plan)
+    assert view.unreachable_required_ids == []
+    assert all(not r.required for r in view.reachability_records)
+
+
 def test_binding_view_builds_renderer_matrix():
     plan = make_assembled_plan()
     state = state_with_assembled_plan(plan=plan)

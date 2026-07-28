@@ -352,10 +352,16 @@ def build_assembled_plan_binding_view(*, state: Any, plan: Any) -> AssembledPlan
     plot_records = _assess_plots(plan)
     exec_check = _assess_execution_check(plan, selected_renderability)
 
-    # Categorize unreachable.
-    node_ids = {n.node_id for n in object_graph.nodes}
-    reachable_ids = {r.object_id for r in reachability if r.reachable}
-    unreachable_ids = node_ids - reachable_ids
+    # Categorize unreachable.  Only objects explicitly marked required by the
+    # reachability projection are blocking.  Segment-specific/alternate objects
+    # can legitimately be unreachable from the selected root and are retained
+    # as optional orphans for audit instead of reported as required blockers.
+    unreachable_required_ids = {
+        r.object_id for r in reachability if r.required and not r.reachable
+    }
+    optional_orphan_ids = {
+        r.object_id for r in reachability if not r.required and not r.reachable
+    }
 
     patch_hashes: dict[str, str] = {}
     for ptype in ("facts", "materials", "universes", "axial_layers", "axial_overlays"):
@@ -398,7 +404,8 @@ def build_assembled_plan_binding_view(*, state: Any, plan: Any) -> AssembledPlan
         selected_roots=selected_roots,
         reference_edges=object_graph.edges,
         reachability_records=reachability,
-        unreachable_required_ids=sorted(unreachable_ids),
+        unreachable_required_ids=sorted(unreachable_required_ids),
+        optional_orphan_ids=sorted(optional_orphan_ids),
         cycles=cycles,
         renderer_capability_matrix=renderer_rows,
         selected_renderer=selected_renderer,
