@@ -4,6 +4,10 @@
 
 ### 2026-07-28
 
+- **Phase 8C Step 3M render-detail readiness**：multi-assembly plot derivation now emits high-resolution full-core slices, localized-insert slices, center-assembly zooms, spacer-grid zooms, and upper/lower interface XZ zooms from concrete axial segment metadata. Axial preflight now blocks source-required skeleton/no-material spacer grids and bare component-profile lattice layers without fuel-path loading/profile bindings.
+- **验证结果**：focused offline tests `36 passed`；基于 v5 five-gate seed 的离线 reassembly 派生 11 个 diagnostic plot specs 且不调用 LLM；同一 seed 的 axial readiness inspection 报出 skeleton grid/material gap 与裸 `upper_plenum` lattice deterministic blockers，和当前图像细节缺失一致。
+- **风险/边界**：本修复不凭空补造 grid/fuel-plenum 材料或尺寸；若上游 Facts/MU 未识别 fuel upper plenum，仍需通过 replay/targeted gate 修正 source-backed 合同后再重新 render。
+
 - **Phase 8C Step 3M render-compile seed handoff closure**：已通过五 Gate 的 Assembled seed v5 可直接进入 render-compile，且不再被 planning `--stop-after-gate assembled_plan` fast-stop 截断。修复 render/openmc stage 的 stop barrier 传递、render-compile final disposition 判定，以及 region expression parser 对 input-derived dotted/percent surface IDs（如 `surf_u_fuel_region_1_2.11pct_fuel_inner`）的支持。
 - **验证结果**：focused tests `34 passed`；基于 v5 `plan_build_state.json` 的本地 render-compile seed smoke 通过：`RENDER_COMPILE_CANARY_PASSED`、`renderability=runnable`、`export_backend=real_python_export`、`xml_exported=true`、`llm_call_count=0`。全量非 OpenMC/非 LLM pytest `3757 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21` 通过；baseline diff 因 baseline 缺失跳过。
 - **风险/边界**：本修复不重跑真实 LLM gates，不改变物理合同；后续 openmc-smoke 可继续复用同一五 Gate seed，若失败应归类为 OpenMC runtime/geometry smoke 问题而非 Gate 问题。

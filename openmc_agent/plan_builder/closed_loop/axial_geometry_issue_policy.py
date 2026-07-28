@@ -74,6 +74,7 @@ _AXIAL_OVERLAYS_CODES = {
     "axial.overlay_through_path_not_preserved",
     "axial.overlay_duplicate_physical_band",
     "axial.overlay_source_count_mismatch",
+    "axial.overlay_skeleton_not_materialized",
     "axial.overlay_density_required",
     "axial.through_path_fuel_interrupted",
     "axial.through_path_guide_tube_interrupted",

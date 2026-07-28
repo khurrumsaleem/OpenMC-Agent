@@ -201,6 +201,29 @@ def _collect_fill_reference_issues(view: AxialGeometryBindingView, state: Any) -
                 lattice_ids.add(loading.base_lattice_id)
             if loading.derived_lattice_id:
                 lattice_ids.add(loading.derived_lattice_id)
+    base_path_roles: set[str] = set()
+    profiles_env = _valid(state, "base_path_axial_profiles")
+    profiles_content = profiles_env.content if profiles_env is not None else None
+    if isinstance(profiles_content, dict):
+        profiles_content = parse_patch_content("base_path_axial_profiles", profiles_content)
+    if profiles_content is not None:
+        for profile in getattr(profiles_content, "profiles", []) or []:
+            if getattr(profile, "path_family", "") not in {"", "fuel_rod"}:
+                continue
+            for binding in getattr(profile, "state_bindings", []) or []:
+                role = str(getattr(binding, "axial_role", "") or "")
+                if role:
+                    base_path_roles.add(role)
+    component_profile_roles = {
+        "lower_plenum",
+        "fuel_upper_plenum",
+        "upper_plenum",
+        "gas_gap",
+        "lower_fuel_endplug",
+        "lower_end_plug",
+        "upper_fuel_endplug",
+        "upper_end_plug",
+    }
     for layer in view.axial_layer_records:
         if layer.fill_type in {"material", "universe", "lattice"} and not layer.fill_id:
             issues.append(_issue("axial.fill_missing", f"layer {layer.layer_id} fill_type={layer.fill_type} but no fill_id", row_kind="layer_fill_binding", row_key=layer.layer_id, owner_patch_type="axial_layers"))
@@ -213,6 +236,22 @@ def _collect_fill_reference_issues(view: AxialGeometryBindingView, state: Any) -
             issues.append(_issue("axial.universe_reference_missing", f"layer {layer.layer_id} references universe {layer.fill_id} not in universes patch", row_kind="layer_fill_binding", row_key=layer.layer_id, owner_patch_type="universes"))
         if layer.fill_type == "lattice" and layer.fill_id and layer.fill_id not in lattice_ids:
             issues.append(_issue("axial.lattice_reference_missing", f"layer {layer.layer_id} references lattice {layer.fill_id} not defined", row_kind="layer_fill_binding", row_key=layer.layer_id, owner_patch_type="axial_layers"))
+        if (
+            layer.fill_type == "lattice"
+            and layer.role in component_profile_roles
+            and not layer.loading_ids
+            and layer.role not in base_path_roles
+        ):
+            issues.append(_issue(
+                "axial.base_path_profile_missing",
+                (
+                    f"component-profile layer {layer.layer_id} role={layer.role} "
+                    "uses a bare lattice with no lattice loading or fuel-path base profile"
+                ),
+                row_kind="base_path_profile_coverage",
+                row_key=layer.layer_id,
+                owner_patch_type="base_path_axial_profiles",
+            ))
     # Loading references.
     declared_loadings: set[str] = set()
     if layers_content is not None:
@@ -278,6 +317,34 @@ def _collect_overlay_issues(view: AxialGeometryBindingView, state: Any) -> list[
         actual_grids = len([o for o in view.axial_overlay_records if o.overlay_kind == "spacer_grid"])
         if actual_grids != expected_grids:
             issues.append(_issue("axial.overlay_source_count_mismatch", f"expected {expected_grids} spacer grids, found {actual_grids}", row_kind="spacer_grid_structural_count", row_key="spacer_grids", owner_patch_type="axial_overlays", severity="warning", expected=expected_grids, actual=actual_grids))
+    source_requires_grids = any(
+        "spacer_grid" in set(c.required_axial_roles)
+        or bool(c.metadata.get("expected_spacer_grid_count"))
+        for c in view.source_axial_contracts
+    )
+    if source_requires_grids:
+        for overlay in view.axial_overlay_records:
+            if overlay.overlay_kind != "spacer_grid":
+                continue
+            if overlay.geometry_mode == "skeleton":
+                issues.append(_issue(
+                    "axial.overlay_skeleton_not_materialized",
+                    (
+                        f"spacer-grid overlay {overlay.overlay_id} remains "
+                        "geometry_mode=skeleton despite source requiring spacer grids"
+                    ),
+                    row_kind="overlay_binding",
+                    row_key=overlay.overlay_id,
+                    owner_patch_type="axial_overlays",
+                ))
+            if not overlay.material_id:
+                issues.append(_issue(
+                    "axial.overlay_material_missing",
+                    f"spacer-grid overlay {overlay.overlay_id} has no material_id",
+                    row_kind="overlay_binding",
+                    row_key=overlay.overlay_id,
+                    owner_patch_type="materials",
+                ))
     return issues
 
 

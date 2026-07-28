@@ -129,6 +129,9 @@ def _derive_multi_assembly_plots(
     axial_layers: list[Any],
     overlays: list[Any],
     core_width: float,
+    *,
+    assembly_pitch_cm: float | None = None,
+    axial_segment_index: list[dict[str, Any]] | None = None,
 ) -> list[PlotSpec]:
     """Derive plot specifications for a multi-assembly core.
 
@@ -160,26 +163,76 @@ def _derive_multi_assembly_plots(
         af_mid = (z_min_all + z_max_all) / 2.0
 
     plots: list[PlotSpec] = []
+    high_res_xy = (2400, 2400)
+    high_res_xz = (1600, 3600)
+    zoom_width = assembly_pitch_cm if assembly_pitch_cm and assembly_pitch_cm > 0 else core_width
+
+    def _add_unique(plot: PlotSpec) -> None:
+        if plot.filename not in {p.filename for p in plots}:
+            plots.append(plot)
 
     # 1. XY at active-fuel midplane — shows the pin lattice.
-    plots.append(PlotSpec(
+    _add_unique(PlotSpec(
         basis="xy", origin=(0.0, 0.0, af_mid),
         width_cm=(core_width, core_width),
+        pixels=high_res_xy,
         filename="full_core_xy_active_fuel.png",
         purpose=f"XY slice at active-fuel midplane (z={af_mid:.1f} cm).",
     ))
+
+    # Localized inserts (control rods, burnable absorbers, plugs, etc.) may be
+    # active only over a subrange of the active fuel.  A single active-fuel
+    # midplane can therefore miss them.  Prefer an inserted segment from the
+    # materializer's concrete segment index when available.
+    insert_segments = [
+        s for s in (axial_segment_index or [])
+        if s.get("active_types") and s.get("z_min_cm") is not None and s.get("z_max_cm") is not None
+    ]
+    if insert_segments:
+        seg = insert_segments[len(insert_segments) // 2]
+        z_mid = (float(seg["z_min_cm"]) + float(seg["z_max_cm"])) / 2.0
+        _add_unique(PlotSpec(
+            basis="xy", origin=(0.0, 0.0, z_mid),
+            width_cm=(core_width, core_width),
+            pixels=high_res_xy,
+            filename="full_core_xy_localized_insert.png",
+            purpose=(
+                "XY slice through a localized-insert active axial segment "
+                f"(z={z_mid:.1f} cm, active_types={seg.get('active_types')})."
+            ),
+        ))
+        if zoom_width < core_width:
+            _add_unique(PlotSpec(
+                basis="xy", origin=(0.0, 0.0, z_mid),
+                width_cm=(zoom_width, zoom_width),
+                pixels=(1800, 1800),
+                filename="center_assembly_xy_localized_insert.png",
+                purpose=(
+                    "Center assembly zoom through a localized-insert segment "
+                    f"(z={z_mid:.1f} cm)."
+                ),
+            ))
 
     # 2. XY at spacer-grid mid-elevation — shows grid-decorated universes.
     if overlays:
         mid_idx = len(overlays) // 2
         ov = overlays[mid_idx]
         grid_mid = (ov.z_min_cm + ov.z_max_cm) / 2.0
-        plots.append(PlotSpec(
+        _add_unique(PlotSpec(
             basis="xy", origin=(0.0, 0.0, grid_mid),
             width_cm=(core_width, core_width),
+            pixels=high_res_xy,
             filename="full_core_xy_grid_mid.png",
             purpose=f"XY slice at spacer-grid mid-elevation (z={grid_mid:.1f} cm).",
         ))
+        if zoom_width < core_width:
+            _add_unique(PlotSpec(
+                basis="xy", origin=(0.0, 0.0, grid_mid),
+                width_cm=(zoom_width, zoom_width),
+                pixels=(1800, 1800),
+                filename="center_assembly_xy_grid_mid.png",
+                purpose=f"Center assembly zoom at spacer-grid mid-elevation (z={grid_mid:.1f} cm).",
+            ))
 
     # 3. XY at lower structural region (bottom nozzle / core plate).
     material_layers = [L for L in axial_layers if L.fill.type == "material"]
@@ -187,9 +240,10 @@ def _derive_multi_assembly_plots(
     if lower_struct:
         ls = lower_struct[-1]
         ls_mid = (ls.z_min_cm + ls.z_max_cm) / 2.0
-        plots.append(PlotSpec(
+        _add_unique(PlotSpec(
             basis="xy", origin=(0.0, 0.0, ls_mid),
             width_cm=(core_width, core_width),
+            pixels=high_res_xy,
             filename="full_core_xy_lower_struct.png",
             purpose=f"XY slice at lower structural region (z={ls_mid:.1f} cm).",
         ))
@@ -199,20 +253,48 @@ def _derive_multi_assembly_plots(
     if upper_struct:
         us = upper_struct[0]
         us_mid = (us.z_min_cm + us.z_max_cm) / 2.0
-        plots.append(PlotSpec(
+        _add_unique(PlotSpec(
             basis="xy", origin=(0.0, 0.0, us_mid),
             width_cm=(core_width, core_width),
+            pixels=high_res_xy,
             filename="full_core_xy_upper_struct.png",
             purpose=f"XY slice at upper structural region (z={us_mid:.1f} cm).",
         ))
 
     # 5. XZ full-height axial cross-section.
-    plots.append(PlotSpec(
+    _add_unique(PlotSpec(
         basis="xz", origin=(0.0, 0.0, (z_min_all + z_max_all) / 2.0),
         width_cm=(core_width, axial_height),
+        pixels=high_res_xz,
         filename="full_core_xz.png",
         purpose=f"XZ slice covering full axial domain ({axial_height:.1f} cm).",
     ))
+
+    if zoom_width < core_width:
+        _add_unique(PlotSpec(
+            basis="xz", origin=(0.0, 0.0, (z_min_all + z_max_all) / 2.0),
+            width_cm=(zoom_width, axial_height),
+            pixels=(1400, 4200),
+            filename="center_assembly_xz_full_height.png",
+            purpose="Center assembly XZ zoom covering the full axial domain.",
+        ))
+
+    def _add_interface_zoom(filename: str, z_center: float, label: str) -> None:
+        z_window = min(axial_height, max(40.0, axial_height * 0.18))
+        z0 = max(z_min_all, z_center - z_window / 2.0)
+        z1 = min(z_max_all, z_center + z_window / 2.0)
+        _add_unique(PlotSpec(
+            basis="xz", origin=(0.0, 0.0, (z0 + z1) / 2.0),
+            width_cm=(zoom_width, z1 - z0),
+            pixels=(1400, 2200),
+            filename=filename,
+            purpose=f"XZ zoom across the {label} structural interface.",
+        ))
+
+    if lattice_layers and lower_struct and zoom_width < core_width:
+        _add_interface_zoom("center_assembly_xz_lower_interface.png", min(L.z_min_cm for L in lattice_layers), "lower")
+    if lattice_layers and upper_struct and zoom_width < core_width:
+        _add_interface_zoom("center_assembly_xz_upper_interface.png", max(L.z_max_cm for L in lattice_layers), "upper")
 
     return plots
 
@@ -1862,9 +1944,14 @@ def assemble_simulation_plan_from_patches(
             requires_human_confirmation=list(dict.fromkeys(all_confirms)),
         )
 
-        core_width = assembly_pitch * (core_layout_patch.shape[0] if core_layout_patch else 3)
+        core_cols = core_layout_patch.shape[1] if core_layout_patch else 3
+        core_width = assembly_pitch * core_cols
         plot_specs = _derive_multi_assembly_plots(
-            axial_layers, axial_overlays, core_width,
+            axial_layers,
+            axial_overlays,
+            core_width,
+            assembly_pitch_cm=assembly_pitch,
+            axial_segment_index=concrete_result.segment_index if concrete_result is not None else None,
         )
 
         run_settings = RunSettingsSpec(

@@ -209,3 +209,39 @@ def test_multi_assembly_plots_filenames_distinct() -> None:
     filenames = [p.filename for p in plots]
     assert len(filenames) == len(set(filenames)), \
         f"Duplicate filenames: {filenames}"
+
+
+def test_multi_assembly_plots_include_localized_insert_slice_and_zoom() -> None:
+    """Concrete segment metadata should add a slice through active inserts.
+
+    This prevents the default active-fuel midplane plot from missing rods or
+    other inserts whose axial occupancy covers only part of the fuel height.
+    """
+    layers = [
+        _mat_layer("lower", 0.0, 10.0),
+        _lat_layer("fuel_lower", 10.0, 200.0),
+        _lat_layer("fuel_inserted", 200.0, 300.0),
+        _mat_layer("upper", 300.0, 350.0),
+    ]
+    segments = [
+        {
+            "segment_id": "seg_inserted",
+            "z_min_cm": 220.0,
+            "z_max_cm": 260.0,
+            "active_types": ["inserted_assembly"],
+        }
+    ]
+    plots = _derive_multi_assembly_plots(
+        layers,
+        [],
+        core_width=64.5,
+        assembly_pitch_cm=21.5,
+        axial_segment_index=segments,
+    )
+
+    full = next(p for p in plots if p.filename == "full_core_xy_localized_insert.png")
+    zoom = next(p for p in plots if p.filename == "center_assembly_xy_localized_insert.png")
+    assert full.origin[2] == pytest.approx(240.0)
+    assert full.pixels == (2400, 2400)
+    assert zoom.width_cm == (21.5, 21.5)
+    assert zoom.origin[2] == pytest.approx(240.0)
