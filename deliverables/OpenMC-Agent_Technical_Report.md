@@ -406,6 +406,19 @@ OpenMC-Agent 当前面向用户的能力可从入口、IR、渲染器、运行�
 | 真实性等级 | 已到 T6（N≥10 真实 LLM 稳定性 + transport seed stability）。 |
 | 已知 gap | ``fuel_3A``（UO2 3.1%）定义为 protected 但几何上 unreachable（VERA3B 只用 fuel_3B），不阻塞渲染或 transport。 |
 
+<div style="display:flex; gap:8px; flex-wrap:wrap;">
+<div style="flex:1; min-width:240px; text-align:center;">
+<img src="assets/vera3b_xy_material.png" alt="VERA3B xy material" style="width:100%;"/>
+<sub>(a) material 视图</sub>
+</div>
+<div style="flex:1; min-width:240px; text-align:center;">
+<img src="assets/vera3b_xy_cell.png" alt="VERA3B xy cell" style="width:100%;"/>
+<sub>(b) cell 视图</sub>
+</div>
+</div>
+
+**图：** VERA3B 单组件 xy 切面（由 OpenMC ``openmc -p`` 在 ``data/runs/VERA_3B/plots/`` 渲染）。17×17 lattice 清晰可辨：center instrument tube、24 guide tubes 与 264 fuel pins 的相对位置符合 VERA3B 几何契约。左图按 material 染色，右图按 cell 染色，两者互相验证几何与材料绑定的一致性。
+
 **VERA4 3×3 全堆芯**（multi_assembly_core）。建模粒度：9 个组件（center / edge / corner 三类），22 个 grid-decorated universes，4 unique grid geometries，8 spacer grid bands × 9 assemblies = 72 instances；176 frame surfaces，86 universes / 207 cells / 67 lattices / 275 surfaces；``model.py`` ≈ 806 KB。完整燃料路径：active r1/r2 / endplug / plenum / water_pin / guide_tube with wall / instrument_tube with wall；RCCA 多段 profile（AIC/B4C/plenum/endplug，anchor=257.9 cm）；Pyrex 坐标（20 per edge assembly）；Thimble plugs（112 total）。LLM 使用 ``zhipu:glm-5.2``。
 
 **表：** VERA4 全堆 acceptance 与 smoke transport（2026-07-17 ∼ 2026-07-28）。
