@@ -64,6 +64,7 @@ class UniverseGenerationRequirement(AgentBaseModel):
     localized_insert_requirement_ids: list[str] = Field(default_factory=list)
     base_path_component_profile_id: str | None = None
     protected_through_path_roles: list[str] = Field(default_factory=list)
+    required_layer_roles: list[str] = Field(default_factory=list)
     source_requirement_ids: list[str] = Field(default_factory=list)
     dependency_ids: list[str] = Field(default_factory=list)
     resolved: bool = False
@@ -277,6 +278,7 @@ def convert_inventory_to_generation_requirements(
             localized_insert_requirement_ids=localized_insert_ids,
             base_path_component_profile_id=geometry_profile_id,
             protected_through_path_roles=list(rd.get("protected_through_path_roles", [])),
+            required_layer_roles=list(rd.get("required_layer_roles", [])),
             source_requirement_ids=source_ids,
             resolved=rd.get("resolved", True),
             metadata={
@@ -338,6 +340,7 @@ _MANIFEST_CONTRACT_FIELDS: tuple[str, ...] = (
     "localized_insert_requirement_ids",
     "base_path_component_profile_id",
     "protected_through_path_roles",
+    "required_layer_roles",
     "source_requirement_ids",
     "dependency_ids",
 )
@@ -376,6 +379,7 @@ class UniverseManifestItem(AgentBaseModel):
     expected_cell_count: int | None = None
     # --- Contract binding fields (participate in contract_hash) ---
     protected_through_path_roles: list[str] = Field(default_factory=list)
+    required_layer_roles: list[str] = Field(default_factory=list)
     source_requirement_ids: list[str] = Field(default_factory=list)
     dependency_ids: list[str] = Field(default_factory=list)
     localized_insert_requirement_id: str | None = None
@@ -467,6 +471,7 @@ def build_manifest_from_requirements(
             localized_insert_requirement_ids=list(req.localized_insert_requirement_ids),
             base_path_component_profile_id=req.base_path_component_profile_id,
             protected_through_path_roles=list(req.protected_through_path_roles),
+            required_layer_roles=list(req.required_layer_roles),
             source_requirement_ids=list(req.source_requirement_ids or [req.requirement_id]),
             dependency_ids=list(req.dependency_ids),
         )

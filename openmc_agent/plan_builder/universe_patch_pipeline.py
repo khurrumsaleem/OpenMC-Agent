@@ -399,6 +399,19 @@ def _build_fragment_prompt(
         )
     if item.protected_through_path_roles:
         lines.append(f"Protected through-path roles: {', '.join(item.protected_through_path_roles)}")
+    if item.required_layer_roles:
+        lines.append(
+            "Required radial/structural layer roles in source order: "
+            f"{', '.join(item.required_layer_roles)}"
+        )
+        lines.append(
+            "Create one cell per required layer role. Do NOT merge cavities, gas gaps, "
+            "water gaps, poison/absorber annuli, plugs, walls, or cladding into adjacent layers."
+        )
+        lines.append(
+            "For annular or hollow inserts, any center cavity and every radial gap declared "
+            "by the source must remain an explicit cylinder/annulus cell with its own material_id."
+        )
     lines.append(f"\nAvailable materials:\n{material_summary}")
     lines.append(f"\nSource context:\n{requirement[:2000]}")
     lines.append("\nOutput a single JSON object with keys: patch_type, universes (list with ONE universe).")
@@ -464,6 +477,15 @@ def _build_schema_repair_prompt(
             "Every role='fuel' cell MUST use a fuel material whose "
             "source_variant_id matches this fuel variant; do not mix fuel "
             "materials from multiple variants inside one universe."
+        )
+    if item.required_layer_roles:
+        lines.append(
+            "Required radial/structural layer roles in source order "
+            f"(each MUST be represented by a separate cell): {', '.join(item.required_layer_roles)}"
+        )
+        lines.append(
+            "Do NOT collapse hollow centers or thin gas/water gaps into the poison, absorber, "
+            "plug, wall, clad, or coolant cells."
         )
     if role_binding:
         lines.append("\nRole → material bindings (MUST use these exact material_id values):")
@@ -1044,6 +1066,14 @@ def generate_universes_patch(
                     f"fragment {item_id} failed after {max_fragment_attempts} attempts; "
                     f"last_failures={prior_failures[-3:]}"
                 ),
+                "metadata": {
+                    "universe_id": item_id,
+                    "required_layer_roles": list(item.required_layer_roles),
+                    "required_cell_roles": list(item.required_cell_roles),
+                    "required_material_roles": list(item.required_material_roles),
+                    "last_qualification_issues": fs.qualification_issues,
+                    "prior_failures": prior_failures[-5:],
+                },
             }]
             session.failed_fragment_issues[item_id] = fs.issues
             _save_session(state, session)
@@ -1058,8 +1088,11 @@ def generate_universes_patch(
                     ),
                     "metadata": {
                         "universe_id": item_id,
+                        "required_layer_roles": list(item.required_layer_roles),
+                        "required_cell_roles": list(item.required_cell_roles),
+                        "required_material_roles": list(item.required_material_roles),
                         "last_qualification_issues": fs.qualification_issues,
-                        "prior_failures": prior_failures[-3:],
+                        "prior_failures": prior_failures[-5:],
                     },
                 }],
             )
@@ -1164,6 +1197,8 @@ def generate_universes_patch(
             u_meta["geometry_profile_id"] = m_item.base_path_component_profile_id
         if m_item.source_requirement_ids:
             u_meta["source_requirement_ids"] = list(m_item.source_requirement_ids)
+        if m_item.required_layer_roles:
+            u_meta["required_layer_roles"] = list(m_item.required_layer_roles)
         for mk in ("component_kind", "profile_kind", "fuel_variant_id"):
             if mk in m_item.metadata:
                 u_meta[mk] = m_item.metadata[mk]

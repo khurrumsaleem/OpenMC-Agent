@@ -6,7 +6,7 @@ Covers:
    reproduction).
 2. Inventory-driven requirement conversion: no implicit:* requirements,
    correct kind/cell-role/material-role mapping.
-3. Role → material_id binding in fragment prompt.
+3. Role → material_id binding and radial layer contracts in fragment prompt.
 4. Schema-repair prompt on second attempt.
 5. Legacy path (no inventory set) still produces implicit:* requirements.
 """
@@ -27,6 +27,7 @@ from openmc_agent.plan_builder.patches import (
 from openmc_agent.plan_builder.state import PlanBuildState, PlanPatchEnvelope
 from openmc_agent.plan_builder.universe_fragment_generation import (
     UniverseGenerationRequirementSet,
+    build_manifest_from_requirements,
     convert_inventory_to_generation_requirements,
     extract_universe_requirements,
 )
@@ -277,6 +278,42 @@ class TestInventoryConversion:
         gen_set = convert_inventory_to_generation_requirements(inv_set)
         assert gen_set.metadata.get("requirement_source") == "inventory"
 
+    def test_required_layer_roles_preserved_from_inventory(self):
+        inv_set = _inventory_set([
+            InventoryUniverseRequirement(
+                requirement_id="ureq_insert",
+                geometry_profile_id="localized_insert_profile",
+                profile_kind="pyrex_rod",
+                component_kind="pyrex_rod",
+                required_cell_roles=("poison",),
+                required_material_roles=("poison",),
+                required_layer_roles=(
+                    "center_gas",
+                    "inner_tube",
+                    "inner_gap",
+                    "poison",
+                    "outer_gap",
+                    "outer_clad",
+                    "outer_coolant",
+                ),
+                source_claim_ids=("claim_insert",),
+            ),
+        ])
+        gen_set = convert_inventory_to_generation_requirements(inv_set)
+        assert gen_set.requirements[0].required_layer_roles == [
+            "center_gas",
+            "inner_tube",
+            "inner_gap",
+            "poison",
+            "outer_gap",
+            "outer_clad",
+            "outer_coolant",
+        ]
+
+        manifest = build_manifest_from_requirements(gen_set)
+        assert manifest.items[0].required_layer_roles == gen_set.requirements[0].required_layer_roles
+        assert manifest.items[0].contract_hash
+
     def test_distinct_input_hash_from_legacy(self):
         """Inventory-driven requirements have a different input hash from legacy."""
         inv_set = _inventory_set()
@@ -334,6 +371,31 @@ class TestRoleBindingPrompt:
         )
         assert "Role → material bindings" in prompt
         assert "fuel → m_fuel" in prompt
+
+    def test_fragment_prompt_includes_required_layer_roles(self):
+        item = UniverseManifestItem(
+            universe_id="localized_insert_profile",
+            kind="pyrex_rod",
+            required_material_roles=["poison"],
+            required_layer_roles=[
+                "center_gas",
+                "inner_tube",
+                "inner_gap",
+                "poison",
+                "outer_gap",
+                "outer_clad",
+                "outer_coolant",
+            ],
+        )
+        prompt = _build_fragment_prompt(
+            item,
+            requirement="source says annular insert with gaps",
+            material_summary="  - m_poison (role=poison)",
+            role_binding={"poison": ["m_poison"]},
+        )
+        assert "Required radial/structural layer roles in source order" in prompt
+        assert "center_gas, inner_tube, inner_gap, poison, outer_gap, outer_clad, outer_coolant" in prompt
+        assert "Create one cell per required layer role" in prompt
 
     def test_fragment_prompt_includes_fuel_variant_material_constraint(self):
         item = UniverseManifestItem(
@@ -395,6 +457,23 @@ class TestSchemaRepairPrompt:
             role_binding={"fuel": ["m_fuel"]},
         )
         assert "fuel → m_fuel" in prompt
+
+    def test_repair_prompt_includes_required_layer_roles(self):
+        item = UniverseManifestItem(
+            universe_id="localized_insert_profile",
+            kind="pyrex_rod",
+            required_material_roles=["poison"],
+            required_layer_roles=["center_gas", "poison", "outer_gap"],
+        )
+        prompt = _build_schema_repair_prompt(
+            item,
+            requirement="source says annular insert with gaps",
+            material_summary="  - m_poison",
+            role_binding={"poison": ["m_poison"]},
+            prior_failures=["patch.universes.pyrex_annular_poison_missing"],
+        )
+        assert "each MUST be represented by a separate cell" in prompt
+        assert "Do NOT collapse hollow centers" in prompt
 
     def test_repair_prompt_includes_json_schema(self):
         item = UniverseManifestItem(
@@ -468,6 +547,76 @@ class TestInventoryDrivenPipeline:
         assert not result.ok
         codes = [i["code"] for i in result.issues]
         assert "patch_generation.unavailable_material_role" in codes
+
+    def test_fragment_failure_reports_layer_contract_and_qualification_codes(self):
+        """A failed annular insert fragment keeps enough metadata for offline diagnosis."""
+        facts = _facts_with_axial()
+        materials = _materials_with(["poison"])
+        state = _state_with_accepted(facts, materials)
+
+        inv_set = _inventory_set([
+            InventoryUniverseRequirement(
+                requirement_id="ureq_insert",
+                geometry_profile_id="localized_insert_profile",
+                profile_kind="pyrex_rod",
+                component_kind="pyrex_rod",
+                required_material_roles=("poison",),
+                required_layer_roles=(
+                    "center_gas",
+                    "inner_tube",
+                    "inner_gap",
+                    "poison",
+                    "outer_gap",
+                    "outer_clad",
+                    "outer_coolant",
+                ),
+                source_claim_ids=("claim_insert",),
+            ),
+        ])
+
+        class _SolidInsertLLM:
+            def __call__(self, prompt: str) -> str:
+                return json.dumps({
+                    "patch_type": "universes",
+                    "universes": [{
+                        "universe_id": "localized_insert_profile",
+                        "kind": "pyrex_rod",
+                        "cells": [{
+                            "id": "solid_poison",
+                            "role": "pyrex",
+                            "material_id": "m_poison",
+                            "region_kind": "cylinder",
+                            "r_min_cm": 0.0,
+                            "r_max_cm": 0.4,
+                        }],
+                    }],
+                })
+
+        result = generate_universes_patch(
+            requirement="test",
+            state=state,
+            llm_client=_SolidInsertLLM(),
+            mode="fragmented",
+            inventory_universe_requirement_set=inv_set,
+        )
+
+        assert not result.ok
+        issue = result.issues[0]
+        assert issue["code"] == "patch_generation.fragment_failed"
+        assert issue["metadata"]["required_layer_roles"] == [
+            "center_gas",
+            "inner_tube",
+            "inner_gap",
+            "poison",
+            "outer_gap",
+            "outer_clad",
+            "outer_coolant",
+        ]
+        qual_codes = {
+            q["code"]
+            for q in issue["metadata"]["last_qualification_issues"]
+        }
+        assert "patch.universes.pyrex_annular_poison_missing" in qual_codes
 
 
 # ---------------------------------------------------------------------------

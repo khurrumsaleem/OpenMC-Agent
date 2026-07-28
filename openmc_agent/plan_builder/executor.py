@@ -109,6 +109,7 @@ class IncrementalExecutionIssue(AgentBaseModel):
     patch_type: str | None = None
     patch_id: str | None = None
     path: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class IncrementalExecutionResult(AgentBaseModel):
@@ -3046,6 +3047,7 @@ def run_incremental_planning(
         attempt_count: int,
         *,
         no_progress: bool = False,
+        generation_issues: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         valid_types = sorted({
             e.patch_type for e in state.patches.values() if e.status == "valid"
@@ -3061,6 +3063,7 @@ def run_incremental_planning(
             "failed_stage": "patch_generation",
             "attempt_count": attempt_count,
             "issue_codes": error_codes,
+            "generation_issues": generation_issues or [],
             "valid_patch_types": valid_types,
             "invalid_patch_types": invalid_types,
             "next_recommended_action": (
@@ -5236,6 +5239,9 @@ def run_incremental_planning(
                 severity="error",
                 message=f"{patch_type} generation failed: {error_codes}",
                 patch_type=patch_type,
+                metadata={
+                    "generation_issues": result.issues,
+                },
             ))
             state.add_event(
                 event_type=EVENT_INCREMENTAL_EXECUTION_FAILED,
@@ -5268,6 +5274,7 @@ def run_incremental_planning(
                     error_codes,
                     attempt_count,
                     no_progress=no_progress,
+                    generation_issues=result.issues,
                 ),
                 plan_loop_outcome=_write_advisory_artifacts(),
             )
