@@ -4,6 +4,10 @@
 
 ### 2026-07-28
 
+- **Phase 8C Step 3L Assembled seed skeleton grid materialization closure**：Assembled seed v2 已越过 `axial_overlays.material_missing`，但 assembly 阶段把 skeleton spacer grid 仍送入 concrete grid decoration，触发 `fullcore.grid_density_missing` 与空 `fill_id` schema error。现 materializer/assembler 只对非 skeleton 且具备 material_id 的 spacer grid 执行实体 grid decoration；skeleton overlay 保留在 plan 中供 Assembled Gate 审查，不参与可执行几何物化。
+- **验证结果**：v2 `plan_build_state.json` 本地重放 assembly 成功，issue `0`，8 个 skeleton overlay 保留，decorated grid universe `0`。focused tests `125 passed`；全量非 OpenMC/非 LLM pytest `3747 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21` 通过；baseline diff 因 baseline 缺失跳过。
+- **风险/边界**：本修复只解决 skeleton overlay 被误物化的问题，不补造缺失 grid material；下一次 Assembled target run 可能进入 reviewer 并将 skeleton grid/source-material gap 作为 blocking finding 分类。
+
 - **Phase 8C Step 3L Assembled seed axial-overlay material normalization**：Assembled seed v1 未进入 Assembled reviewer，失败在补齐 `axial_overlays` 的 patch validation：LLM 生成了 `zircaloy4`/`inconel718`，但 accepted Materials 只含 hashed material IDs，且 Zircaloy-4 有多个候选、Inconel-718 不存在。现新增通用材料 alias 推断（仅唯一匹配才解析）与 axial overlay 生成期 normalization；未知/歧义材料不伪造，降级为 skeleton overlay + human confirmation。
 - **验证结果**：新增回归覆盖唯一材料名 alias、歧义 alias fail-closed、生成阶段 unresolved material skeleton 化；focused tests `120 passed`。全量非 OpenMC/非 LLM pytest `3745 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21` 通过；baseline diff 因 `data/evals/workflow/baseline/evaluation_report.json` 不存在跳过。
 - **风险/边界**：本修复不补造缺失的 Inconel 材料，也不声明 Assembled Gate accepted；下一次真实验收应使用新 output dir 重跑 `--stop-after-gate assembled_plan`，观察 reviewer 是否将 skeleton overlay 作为 source/material blocker。

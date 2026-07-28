@@ -1703,6 +1703,8 @@ def assemble_simulation_plan_from_patches(
                 _grid_overlays = [
                     ov for ov in axial_overlays_patch.overlays
                     if ov.overlay_kind == "spacer_grid"
+                    and ov.geometry_mode != "skeleton"
+                    and ov.material_id
                 ]
                 # Build density lookup from material catalog
                 _grid_density_lookup = {}

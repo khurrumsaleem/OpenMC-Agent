@@ -111,6 +111,8 @@ class TestGridSegmentDetection:
         ov = AxialOverlayPatchItem(
             overlay_id="grid_1", overlay_kind="spacer_grid",
             z_min_cm=73.0, z_max_cm=77.0,
+            material_id="grid_mat",
+            geometry_mode="mass_conserving_outer_frame",
         )
         seg = AxialSegment(segment_id="s0", z_min_cm=74.0, z_max_cm=76.0)
         active = _get_active_grids_for_segment(seg, [ov])
@@ -126,8 +128,46 @@ class TestGridSegmentDetection:
         active = _get_active_grids_for_segment(seg, [ov])
         assert len(active) == 0
 
+    def test_skeleton_grid_is_not_active_for_materialization(self):
+        ov = AxialOverlayPatchItem(
+            overlay_id="grid_skeleton",
+            overlay_kind="spacer_grid",
+            z_min_cm=0.0,
+            z_max_cm=10.0,
+            geometry_mode="skeleton",
+            material_id=None,
+            requires_human_confirmation=True,
+        )
+        seg = AxialSegment(segment_id="s0", z_min_cm=1.0, z_max_cm=2.0)
+        active = _get_active_grids_for_segment(seg, [ov])
+        assert active == []
+
 
 class TestGridMaterializerIntegration:
+    def test_skeleton_grid_does_not_require_density_or_decorate_universe(self):
+        grids = [
+            AxialOverlayPatchItem(
+                overlay_id="grid_skeleton",
+                overlay_kind="spacer_grid",
+                z_min_cm=0.0,
+                z_max_cm=10.0,
+                geometry_mode="skeleton",
+                material_id=None,
+                requires_human_confirmation=True,
+            ),
+        ]
+        segments = [
+            AxialSegment(segment_id="s0", z_min_cm=0.0, z_max_cm=5.0, fill_mode="detailed_core"),
+        ]
+        result = materialize_concrete_axial_states(
+            _catalog(), _layout(), segments, _base_lats(), _base_uvs(),
+            grid_overlays=grids,
+            grid_density_lookup={},
+        )
+        assert not result.has_errors
+        assert result.grid_decorated_universe_patches == []
+        assert "s0" not in result.grid_states
+
     def test_grid_state_tracked_in_result(self):
         """Materializer should track grid state for segments with active grids."""
         grids = [
@@ -135,6 +175,7 @@ class TestGridMaterializerIntegration:
                 overlay_id="grid_test", overlay_kind="spacer_grid",
                 z_min_cm=0.0, z_max_cm=10.0,
                 material_id="inconel718",
+                geometry_mode="mass_conserving_outer_frame",
                 total_mass_g=500.0, cell_count=289, pitch_cm=1.26,
             ),
         ]
@@ -158,7 +199,8 @@ class TestGridMaterializerIntegration:
             AxialOverlayPatchItem(
                 overlay_id="grid_1", overlay_kind="spacer_grid",
                 z_min_cm=0.0, z_max_cm=10.0,
-                material_id="m", total_mass_g=500.0, cell_count=289, pitch_cm=1.26,
+                material_id="m", geometry_mode="mass_conserving_outer_frame",
+                total_mass_g=500.0, cell_count=289, pitch_cm=1.26,
             ),
         ]
         segments = [

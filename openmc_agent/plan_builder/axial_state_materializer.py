@@ -270,6 +270,8 @@ def _get_active_grids_for_segment(
         return []
     active: list[AxialOverlayPatchItem] = []
     for ov in grid_overlays:
+        if ov.geometry_mode == "skeleton" or not ov.material_id:
+            continue
         ov_zmin = ov.z_min_cm if ov.z_min_cm is not None else float("-inf")
         ov_zmax = ov.z_max_cm if ov.z_max_cm is not None else float("inf")
         if (
