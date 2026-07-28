@@ -1,16 +1,44 @@
 {
-  "source": "data/runs/phase8c_step3m_vera4_render_detail_v1/workflow/plots",
-  "copied_png_count": 24,
-  "contact_sheet": "deliverables/vera4_plots/vera4_render_contact_sheet.png",
-  "selected": [
-    "full_core_xy_active_fuel_material.png",
-    "full_core_xy_localized_insert_material.png",
-    "center_assembly_xy_localized_insert_cell.png",
-    "full_core_xy_grid_mid_cell.png",
+  "source_run": "data/runs/phase8c_step3n_vera4_redraw_v1/workflow",
+  "plot_count": 24,
+  "plots": [
     "center_assembly_xy_grid_mid_cell.png",
+    "center_assembly_xy_grid_mid_material.png",
+    "center_assembly_xy_localized_insert_cell.png",
+    "center_assembly_xy_localized_insert_material.png",
     "center_assembly_xz_full_height_cell.png",
+    "center_assembly_xz_full_height_material.png",
     "center_assembly_xz_lower_interface_cell.png",
+    "center_assembly_xz_lower_interface_material.png",
     "center_assembly_xz_upper_interface_cell.png",
-    "full_core_xz_cell.png"
-  ]
+    "center_assembly_xz_upper_interface_material.png",
+    "full_core_xy_active_fuel_cell.png",
+    "full_core_xy_active_fuel_material.png",
+    "full_core_xy_grid_mid_cell.png",
+    "full_core_xy_grid_mid_material.png",
+    "full_core_xy_localized_insert_cell.png",
+    "full_core_xy_localized_insert_material.png",
+    "full_core_xy_lower_struct_cell.png",
+    "full_core_xy_lower_struct_material.png",
+    "full_core_xy_upper_struct_cell.png",
+    "full_core_xy_upper_struct_material.png",
+    "full_core_xz_cell.png",
+    "full_core_xz_material.png",
+    "verification_xz_cell.png",
+    "verification_xz_material.png"
+  ],
+  "plan_summary": {
+    "materials": 15,
+    "universes": 86,
+    "lattices": 69,
+    "boundary": "mixed",
+    "boundary_conditions": {
+      "xmin": "reflective",
+      "xmax": "reflective",
+      "ymin": "reflective",
+      "ymax": "reflective",
+      "zmin": "vacuum",
+      "zmax": "vacuum"
+    }
+  }
 }

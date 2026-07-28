@@ -46,6 +46,7 @@ from openmc_agent.plan_builder.patches import (
     ScopedExpectedCount,
     CoordinateConvention,
 )
+from openmc_agent.schemas import CoreBoundarySpec
 
 
 # ---------------------------------------------------------------------------
@@ -752,6 +753,14 @@ def build_vera4_core_layout() -> CoreLayoutPatch:
             ["corner", "edge", "corner"],
         ],
         boundary="reflective",
+        boundary_conditions=CoreBoundarySpec(
+            xmin="reflective",
+            xmax="reflective",
+            ymin="reflective",
+            ymax="reflective",
+            zmin="vacuum",
+            zmax="vacuum",
+        ),
         expected_assembly_type_counts={"corner": 4, "edge": 4, "center_rcca": 1},
         symmetry_description="1/8 symmetric 3x3 core",
     )
