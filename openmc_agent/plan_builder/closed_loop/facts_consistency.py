@@ -31,7 +31,10 @@ def run_facts_consistency_preflight(*, feature_contract: PlanningFeatureContract
     requirements = facts_patch.get("localized_insert_requirements", []) or []
     if feature_contract.has_localized_insert and not requirements:
         issues.append(_issue("facts.localized_insert_contract_missing", "/localized_insert_requirements"))
-    if feature_contract.has_multi_segment_localized_insert and not any(isinstance(x, dict) and x.get("required_profile_id") for x in requirements):
+    if feature_contract.has_multi_segment_localized_insert and not any(
+        isinstance(x, dict) and (x.get("required_profile_id") or x.get("required_segment_roles"))
+        for x in requirements
+    ):
         issues.append(_issue("facts.localized_insert_profile_contract_missing", "/localized_insert_requirements"))
     if feature_contract.has_control_state and requirements and not any(
         isinstance(x, dict)

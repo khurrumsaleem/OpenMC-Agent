@@ -2,6 +2,11 @@
 
 维护日期：2026-07-28
 
+### 2026-07-29
+
+- **Phase 8C Step 3P Facts multi-segment insert profile contract relaxation**：v14（VERA3B）重跑又现 `planning.facts_revision.incomplete_closure`，根因与 v1 不同：LLM 生成的 FactsPatch 把 `localized_insert_requirements[].required_profile_id` 留空（`required_segment_roles` 已声明），deterministic preflight 据此发 `facts.localized_insert_profile_contract_missing` blocking，reviewer 在 rereview 把该 consistency flag 原样 echo 成 `schema_or_format` error，revision 循环 4 轮无法让 LLM 稳定回填该 forward-reference id。现 preflight 接受 `required_segment_roles` 作为 multi-segment profile contract 的等价满足（`required_profile_id` 是可选的下游 cross-reference）。这是安全的：所有下游消费者（`required_placement_validator` check 14/15、`placement_reachability`、`placement_evidence.needs_profile`）均对 `required_profile_id is not None` 做守卫，None 时跳过匹配；反之若强行合成一个 id 而 LLM 下游 pin_map 用了不同 profile id，反而会触发 `localized_insert.required_profile_unused`。
+- **验证结果**：v14 真实 feature_contract+facts 离线复核 preflight `issues=[]`；新增 preflight relaxation tests `2 passed`；全量非 OpenMC/非 LLM pytest `3842 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过；baseline diff 因 baseline 文件缺失跳过。
+
 ### 2026-07-28
 
 - **Phase 8C Step 3P Patch JSON dropped-object-opener repair**：v3 重跑确认 Facts whole-source reconciliation 已让 VERA4 base 越过 Facts gate（`valid_patch_types=['facts']`），但 materials 生成在 2 轮内 `json_parse_error`：attempt 1 把某个 mixture 对象的 `{"material_id":` 丢弃成 `,"<id>","name":`，attempt 2 把输出碎片成多段 prose-separated JSON。现 `parse_llm_patch_json` 增加最后兜底结构修复：当所有常规提取失败时，从合法 sibling 对象学习 `(second_key→first_key)` 形状，对数组上下文中 `,"<value>","<key2>":` 形式的 orphan value 重新插入 `{"<key1>":"<value>","<key2>":` 开符，并校验修复后 JSON 合法。reactor-neutral、保守（仅兜底、结果必须通过 json.loads）。

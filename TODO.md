@@ -1,9 +1,9 @@
 # OpenMC-Agent TODO Roadmap
 
-维护日期：2026-07-28
+维护日期：2026-07-29
 
-当前基线：`main`，最近确认生产修复：MaterialsPatch source-declared coolant boron normalization；Pyrex annular poison / upper helium plenum deterministic validation；selected benchmark state fuel-variant scope；Facts reviewer normalization firewall；Facts source-note schema-boundary closure；Facts downstream-detail owner boundary；Facts required-coverage revision path closure；Facts JSON Patch/schema/schema-out metadata adapter hardening；Facts whole-source evidence reconciliation（chunk-local unsupported finding 降级）；localized-insert 详细几何 downstream-owner 路由；确定性 annular-insert universe oracle（pyrex_rod LLM 失败回退）；localized-insert gas-plenum alias materialization（absorber→gas 变换）；patch JSON dropped-object-opener 兜底修复（LLM 丢 `{"key":` 时从 sibling 学习形状重建）
-全量测试：非 OpenMC/非 LLM `3840 passed, 2 skipped, 393 deselected`；`compileall` 通过；fake workflow benchmark `21/21`；baseline diff 因 baseline 文件缺失跳过
+当前基线：`main`，最近确认生产修复：MaterialsPatch source-declared coolant boron normalization；Pyrex annular poison / upper helium plenum deterministic validation；selected benchmark state fuel-variant scope；Facts reviewer normalization firewall；Facts source-note schema-boundary closure；Facts downstream-detail owner boundary；Facts required-coverage revision path closure；Facts JSON Patch/schema/schema-out metadata adapter hardening；Facts whole-source evidence reconciliation（chunk-local unsupported finding 降级）；localized-insert 详细几何 downstream-owner 路由；确定性 annular-insert universe oracle（pyrex_rod LLM 失败回退）；localized-insert gas-plenum alias materialization（absorber→gas 变换）；patch JSON dropped-object-opener 兜底修复（LLM 丢 `{"key":` 时从 sibling 学习形状重建）；Facts multi-segment insert profile contract 放宽（`required_segment_roles` 等价满足，避免对 LLM 不稳定的 forward-reference id 强阻塞）
+全量测试：非 OpenMC/非 LLM `3842 passed, 2 skipped, 393 deselected`；`compileall` 通过；fake workflow benchmark `21/21`；baseline diff 因 baseline 文件缺失跳过
 
 本文档用于维护仓库级主线、已完成能力、近期任务和长期方向。  
 它不是单次运行生成的 skeleton `TODO.md`，也不应记录一次性调试日志。

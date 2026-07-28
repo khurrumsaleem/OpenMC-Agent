@@ -47,3 +47,47 @@ def test_blank_control_state_id_satisfies_source_control_state_contract():
     assert "facts.control_state_contract_missing" not in {
         item["code"] for item in result.issues
     }
+
+
+def test_segment_roles_satisfy_multi_segment_profile_contract():
+    """A multi-segment insert that declares required_segment_roles satisfies the
+    profile contract even when the optional required_profile_id forward-reference
+    is absent. Downstream consumers gracefully skip profile-id matching when it
+    is None, and a synthesized id would risk mismatching the LLM's downstream
+    pin_map profile id (localized_insert.required_profile_unused)."""
+    contract = planning_feature_contract({"feature_summary": {"has_localized_insert": True, "has_multi_segment_localized_insert": True}})
+    result = run_facts_consistency_preflight(
+        feature_contract=contract,
+        facts_patch={
+            "patch_type": "facts",
+            "localized_insert_requirements": [
+                {
+                    "requirement_id": "pyrex_3B",
+                    "insert_kind": "pyrex_rod",
+                    "required_profile_id": None,
+                    "required_segment_roles": ["pyrex_poison", "helium_plenum"],
+                },
+            ],
+        },
+    )
+    assert "facts.localized_insert_profile_contract_missing" not in {
+        item["code"] for item in result.issues
+    }
+
+
+def test_multi_segment_insert_with_neither_profile_id_nor_roles_still_blocks():
+    """When a multi-segment insert declares neither required_profile_id nor
+    required_segment_roles, the profile contract is genuinely missing."""
+    contract = planning_feature_contract({"feature_summary": {"has_localized_insert": True, "has_multi_segment_localized_insert": True}})
+    result = run_facts_consistency_preflight(
+        feature_contract=contract,
+        facts_patch={
+            "patch_type": "facts",
+            "localized_insert_requirements": [
+                {"requirement_id": "pyrex_3B", "insert_kind": "pyrex_rod"},
+            ],
+        },
+    )
+    assert "facts.localized_insert_profile_contract_missing" in {
+        item["code"] for item in result.issues
+    }
