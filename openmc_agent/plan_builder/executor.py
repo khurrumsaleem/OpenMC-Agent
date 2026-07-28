@@ -4848,7 +4848,7 @@ def run_incremental_planning(
         # P0-LARGE-STRUCTURED-PATCH: for universes and materials, use the
         # fragmented pipeline which auto-decides monolithic vs fragmented
         # based on estimated size and truncation history.
-        if patch_type == "materials" and getattr(state, 'metadata', {}).get("planning_material_requirement_set"):
+        if patch_type == "materials":
             from .materials_patch_pipeline import generate_materials_patch
             result = generate_materials_patch(
                 requirement=requirement,

@@ -30,6 +30,7 @@ __all__ = [
     "MaterialGenerationRequirement",
     "MaterialGenerationRequirementSet",
     "extract_material_requirements_from_inventory",
+    "extract_material_requirements_from_facts",
     "validate_materials_against_requirement_set",
     "MaterialValidationReport",
 ]
@@ -200,6 +201,79 @@ def _augment_with_facts(
         if req.source_variant_id and req.source_variant_id in variant_by_id:
             variant = variant_by_id[req.source_variant_id]
             req.preferred_name = getattr(variant, "source_label", None) or req.preferred_name
+
+
+def extract_material_requirements_from_facts(
+    accepted_facts: Any,
+) -> MaterialGenerationRequirementSet:
+    """Derive a MaterialGenerationRequirementSet directly from accepted Facts.
+
+    This is the fallback path used when the geometry-component inventory was
+    not compiled (so ``planning_material_requirement_set`` is absent), allowing
+    the materials fragmented-generation pipeline to activate on the basis of
+    the FactsPatch's declared ``material_roles`` and ``fuel_variant_requirements``
+    — mirroring how the universes pipeline derives its requirements from facts.
+
+    Each fuel variant yields one ``fuel`` requirement; every other declared
+    material role yields one requirement.  The result is a deterministic,
+    source-backed manifest that drives per-material fragment generation and
+    qualification, avoiding monolithic-truncation failures on large catalogs.
+    """
+
+    requirements: list[MaterialGenerationRequirement] = []
+    seen_keys: set[tuple[str, str]] = set()
+
+    fuel_variants = list(getattr(accepted_facts, "fuel_variant_requirements", []) or [])
+    for variant in fuel_variants:
+        variant_id = str(getattr(variant, "variant_id", "") or "")
+        key = ("fuel", variant_id)
+        if key in seen_keys or not variant_id:
+            continue
+        seen_keys.add(key)
+        requirements.append(MaterialGenerationRequirement(
+            requirement_id=short_id("mreq", {"role": "fuel_UO2", "variant": variant_id}),
+            role="fuel_UO2",
+            source_variant_id=variant_id,
+            preferred_name=getattr(variant, "source_label", None),
+            density_required=True,
+            composition_required=True,
+        ))
+
+    material_roles = list(getattr(accepted_facts, "material_roles", []) or [])
+    fuel_covered = bool(fuel_variants)
+    for role in material_roles:
+        if not isinstance(role, str) or not role.strip():
+            continue
+        role_norm = role.strip()
+        role_lower = role_norm.lower()
+        # If fuel variants were declared, skip any role that represents fuel
+        # (matched by "fuel", "uo2", or an enrichment/wt pattern) so fuel is
+        # not double-counted alongside the per-variant fuel requirements.
+        if fuel_covered and (
+            role_lower.startswith("fuel")
+            or "fuel" in role_lower
+            or "uo2" in role_lower
+        ):
+            continue
+        key = ("role", role_norm)
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        requirements.append(MaterialGenerationRequirement(
+            requirement_id=short_id("mreq", {"role": role_norm}),
+            role=role_norm,
+            density_required=True,
+            composition_required=True,
+        ))
+
+    return MaterialGenerationRequirementSet(
+        requirements=tuple(requirements),
+        inventory_hash="facts-derived",
+        metadata={
+            "source": "facts_fallback",
+            "role_count": len(requirements),
+        },
+    )
 
 
 # ---------------------------------------------------------------------------

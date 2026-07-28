@@ -48,7 +48,10 @@ from .materials_fragment_generation import (
     validate_material_manifest,
     verify_accepted_material_fragment,
 )
-from .material_requirements import MaterialGenerationRequirementSet
+from .material_requirements import (
+    MaterialGenerationRequirementSet,
+    extract_material_requirements_from_facts,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -414,7 +417,14 @@ def generate_materials_patch(
     if material_requirement_set is None:
         material_requirement_set = _load_requirement_set(state)
     if material_requirement_set is None or not material_requirement_set.requirements:
-        # No requirements → fall back to monolithic.
+        # Fallback: derive from accepted Facts when the inventory-compilation
+        # path did not populate a requirement set.  This mirrors how the
+        # universes pipeline derives its requirements from facts and lets
+        # fragmentation activate for large catalogs instead of monolithic
+        # truncation.
+        material_requirement_set = _derive_requirement_set_from_facts(state)
+    if material_requirement_set is None or not material_requirement_set.requirements:
+        # No requirements derivable → fall back to monolithic.
         return generate_patch(
             patch_type=patch_type, requirement=requirement, state=state,
             llm_client=llm_client, max_attempts=2, max_tokens=effective_max,
@@ -442,6 +452,12 @@ def generate_materials_patch(
     )
 
     material_count = len(material_requirement_set.requirements)
+    # Strategy decision.  In ``auto`` mode we attempt the monolithic path first
+    # (one LLM call) and only fall back to fragmentation on
+    # truncation/parse/validation failure — this lets callers that feed a full
+    # materials patch (tests, small catalogs) succeed, while large catalogs
+    # that truncate still get fragmented.  Only explicit ``fragmented`` mode or
+    # a known truncation history skips the monolithic attempt outright.
     do_fragment, fragment_reason = should_fragment_materials(
         mode=mode,
         material_count=material_count,
@@ -449,14 +465,24 @@ def generate_materials_patch(
         history_json_truncated=history_truncated,
         safe_output_ratio=safe_output_ratio,
     )
+    skip_monolithic = mode == "fragmented" or history_truncated
+    do_fragment = skip_monolithic
+    if skip_monolithic:
+        session.strategy_transitions.append(
+            {"from": "none", "to": "fragmented", "reason": fragment_reason}
+        )
 
-    if not do_fragment:
-        session.strategy_transitions.append({"from": "none", "to": "monolithic", "reason": fragment_reason})
+    if not skip_monolithic:
+        session.strategy_transitions.append({"from": "none", "to": "monolithic", "reason": "auto_try_monolithic_first"})
         _save_session(state, session)
         result = generate_patch(
             patch_type=patch_type, requirement=requirement, state=state,
             llm_client=llm_client, max_attempts=2, max_tokens=effective_max,
         )
+        if mode == "monolithic":
+            session.completed = True
+            _save_session(state, session)
+            return result
         for attempt in result.attempts:
             if any(i.get("code") == "patch_generation.json_truncated" for i in attempt.issues):
                 session.strategy_transitions.append({"from": "monolithic", "to": "fragmented", "reason": "json_truncated"})
@@ -468,6 +494,13 @@ def generate_materials_patch(
                 session.llm_call_count += len(result.attempts)
                 do_fragment = True
                 break
+        # A monolithic result that parsed but failed validation (e.g. a
+        # composition/contract error on a large catalog) should also fall back
+        # to fragmentation rather than fail the whole gate.
+        if not do_fragment and not result.ok:
+            session.strategy_transitions.append({"from": "monolithic", "to": "fragmented", "reason": "monolithic_failed"})
+            session.llm_call_count += len(result.attempts)
+            do_fragment = True
         if not do_fragment:
             session.completed = True
             _save_session(state, session)
@@ -794,3 +827,30 @@ def _load_requirement_set(state: PlanBuildState) -> MaterialGenerationRequiremen
     if isinstance(raw, dict):
         return MaterialGenerationRequirementSet.model_validate(raw)
     return None
+
+
+def _derive_requirement_set_from_facts(state: PlanBuildState) -> MaterialGenerationRequirementSet | None:
+    """Fallback: derive a material requirement set from the accepted FactsPatch.
+
+    Used when the geometry-component inventory path did not populate
+    ``planning_material_requirement_set``.  This lets the fragmented pipeline
+    activate (one fragment per material role / fuel variant) so a large
+    materials catalog does not hit a monolithic truncation failure.
+    """
+
+    from .patches import parse_patch_content
+
+    facts_env = next(
+        (e for e in state.patches.values() if e.patch_type == "facts" and e.status == "valid"),
+        None,
+    )
+    if facts_env is None:
+        return None
+    try:
+        facts_patch = parse_patch_content("facts", facts_env.content)
+    except Exception:
+        return None
+    requirement_set = extract_material_requirements_from_facts(facts_patch)
+    if not requirement_set.requirements:
+        return None
+    return requirement_set

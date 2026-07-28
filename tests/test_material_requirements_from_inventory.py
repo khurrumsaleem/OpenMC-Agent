@@ -8,6 +8,7 @@ from openmc_agent.plan_builder.material_requirements import (
     MaterialGenerationRequirement,
     MaterialGenerationRequirementSet,
     MaterialValidationReport,
+    extract_material_requirements_from_facts,
     extract_material_requirements_from_inventory,
     validate_materials_against_requirement_set,
 )
@@ -187,3 +188,69 @@ def test_homogenized_material_without_evidence_is_needs_confirmation() -> None:
     assert req_set.requirements[0].resolution_status == "needs_library"
     # Assumptions are NOT allowed for unresolved materials.
     assert req_set.requirements[0].assumptions_allowed is False
+
+
+# ---------------------------------------------------------------------------
+# Facts-fallback extractor
+# ---------------------------------------------------------------------------
+
+
+class _Variant:
+    def __init__(self, variant_id, source_label=None):
+        self.variant_id = variant_id
+        self.source_label = source_label
+
+
+class _Facts:
+    def __init__(self, *, fuel_variants=None, material_roles=None):
+        self.fuel_variant_requirements = fuel_variants or []
+        self.material_roles = material_roles or []
+
+
+def test_facts_fallback_one_requirement_per_fuel_variant_and_role() -> None:
+    facts = _Facts(
+        fuel_variants=[
+            _Variant("region1_2.11", "Region 1 UO2"),
+            _Variant("region2_2.619", "Region 2 UO2"),
+        ],
+        material_roles=["Zircaloy-4_cladding", "SS304_structural", "helium"],
+    )
+    req_set = extract_material_requirements_from_facts(facts)
+
+    roles = [r.role for r in req_set.requirements]
+    # Two fuel requirements (one per variant) + three non-fuel roles.
+    assert roles.count("fuel_UO2") == 2
+    assert "Zircaloy-4_cladding" in roles
+    assert "SS304_structural" in roles
+    assert "helium" in roles
+    fuel = [r for r in req_set.requirements if r.role == "fuel_UO2"]
+    assert {r.source_variant_id for r in fuel} == {"region1_2.11", "region2_2.619"}
+    assert req_set.metadata["source"] == "facts_fallback"
+
+
+def test_facts_fallback_skips_fuel_roles_when_variants_declared() -> None:
+    """When fuel variants are declared, generic/UO2 material roles that
+    represent fuel must not double-count alongside the per-variant fuel
+    requirements."""
+    facts = _Facts(
+        fuel_variants=[_Variant("3B_uo2")],
+        material_roles=["UO2_fuel_3B", "fuel_UO2", "Zircaloy-4_cladding", "borated_water"],
+    )
+    req_set = extract_material_requirements_from_facts(facts)
+    roles = [r.role for r in req_set.requirements]
+    assert roles.count("fuel_UO2") == 1
+    assert "UO2_fuel_3B" not in roles
+    assert "Zircaloy-4_cladding" in roles
+
+
+def test_facts_fallback_keeps_single_fuel_role_when_no_variants() -> None:
+    facts = _Facts(material_roles=["fuel_UO2", "Zircaloy-4_cladding"])
+    req_set = extract_material_requirements_from_facts(facts)
+    roles = [r.role for r in req_set.requirements]
+    assert "fuel_UO2" in roles
+    assert "Zircaloy-4_cladding" in roles
+
+
+def test_facts_fallback_empty_when_nothing_declared() -> None:
+    req_set = extract_material_requirements_from_facts(_Facts())
+    assert req_set.requirements == ()

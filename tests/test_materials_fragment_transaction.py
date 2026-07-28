@@ -682,6 +682,42 @@ class TestGenerateMaterialsPatchIntegration:
         assert result.ok
         assert len(result.parsed_patch["materials"]) == 1
 
+    def test_falls_back_to_facts_derived_requirements_without_inventory_set(self):
+        """When no planning_material_requirement_set is present, the pipeline
+        derives a requirement set from the accepted FactsPatch so fragmentation
+        can activate (mirrors the universes pipeline) instead of falling through
+        to monolithic generation that truncates on large catalogs."""
+        from openmc_agent.plan_builder.materials_patch_pipeline import (
+            _derive_requirement_set_from_facts,
+        )
+        from openmc_agent.plan_builder.state import PlanPatchEnvelope
+
+        facts = {
+            "patch_type": "facts",
+            "model_scope": "single_assembly",
+            "material_roles": ["clad_Zircaloy-4", "coolant_borated_water", "helium"],
+            "fuel_variant_requirements": [
+                {"variant_id": "v1", "density_g_cm3": 10.257, "enrichment_wt_percent": 3.1, "source_label": "Region 1 UO2"},
+            ],
+        }
+        state = PlanBuildState(state_id="s", requirement_text="test")
+        # NOTE: planning_material_requirement_set is deliberately NOT set.
+        state.add_patch(PlanPatchEnvelope(
+            patch_id="facts", patch_type="facts", content=facts, status="valid",
+        ))
+
+        rs = _derive_requirement_set_from_facts(state)
+
+        assert rs is not None
+        assert rs.metadata["source"] == "facts_fallback"
+        roles = [r.role for r in rs.requirements]
+        assert "fuel_UO2" in roles
+        assert "clad_Zircaloy-4" in roles
+        assert "coolant_borated_water" in roles
+        assert "helium" in roles
+        # Fuel appears once per variant, not duplicated by a generic fuel role.
+        assert roles.count("fuel_UO2") == 1
+
     def test_cot_prose_before_json_extracted(self):
         """LLM response with chain-of-thought before JSON should still parse."""
         from openmc_agent.plan_builder.materials_patch_pipeline import generate_materials_patch
