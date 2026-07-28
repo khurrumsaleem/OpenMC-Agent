@@ -4,6 +4,9 @@
 
 ### 2026-07-28
 
+- **Phase 8C Step 3P Patch JSON dropped-object-opener repair**：v3 重跑确认 Facts whole-source reconciliation 已让 VERA4 base 越过 Facts gate（`valid_patch_types=['facts']`），但 materials 生成在 2 轮内 `json_parse_error`：attempt 1 把某个 mixture 对象的 `{"material_id":` 丢弃成 `,"<id>","name":`，attempt 2 把输出碎片成多段 prose-separated JSON。现 `parse_llm_patch_json` 增加最后兜底结构修复：当所有常规提取失败时，从合法 sibling 对象学习 `(second_key→first_key)` 形状，对数组上下文中 `,"<value>","<key2>":` 形式的 orphan value 重新插入 `{"<key1>":"<value>","<key2>":` 开符，并校验修复后 JSON 合法。reactor-neutral、保守（仅兜底、结果必须通过 json.loads）。
+- **验证结果**：v3 真实 `materials_attempt_1_raw.txt` 离线复核从 parse fail 变为 `materials=14` 全部解析；新增 dropped-opener 修复 tests `2 passed`；parser-related tests `112 passed`；全量非 OpenMC/非 LLM pytest `3840 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过；baseline diff 因 baseline 文件缺失跳过。注：attempt 2 的 prose-fragmented 输出是另一种 LLM 行为，本修复不覆盖，需重跑或后续碎片化生成路径。
+
 - **Phase 8C Step 3P Pyrex plenum alias materialization + oracle clad binding**：v13 重跑确认 annular-insert oracle 已救回 Pyrex poison 片段，但暴露下一步阻塞：`materialize_localized_insert_universe_aliases` 把单一 poison universe deepcopy 成 `pyrex_plenum_segment` 别名，导致 plenum 仍含 Pyrex 毒物被 `pyrex_plenum_contains_poison` 拒绝。现 alias 物化对 upper-gas-plenum 期望 id 做确定性变换：保留结构管/包壳/导向管壁，把 absorber cell 替换为源 universe 的 gas 材料（reactor-neutral，适用于任意 annular absorber insert 的上部气腔段）。同时修复 oracle 的材料绑定：移除过宽的 `ss` hint（曾把 "SS304 外包壳" 与 "pyrex_gla**ss**" 混淆，使外包壳误绑 zircaloy/pyrex）。
 - **验证结果**：离线用 v13 facts/materials 复核 oracle→alias→`validate_patch` 全链 `errors=0`（plenum 无 Pyrex、保留中心氦气）；oracle clad 绑定 + alias 变换 tests `5 passed`；全量非 OpenMC/非 LLM pytest `3838 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过；baseline diff 因 baseline 文件缺失跳过。
 

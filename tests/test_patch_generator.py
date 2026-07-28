@@ -255,6 +255,36 @@ def test_no_false_recovery_from_cot_examples() -> None:
         pass
 
 
+def test_json_repaired_when_object_opener_dropped_in_array() -> None:
+    # Some LLMs drop `{"material_id":` for one or more entries in a homogeneous
+    # array, emitting `,"<value>","name":` instead of `},{"material_id":"<value>","name":`.
+    # The parser must learn the shape from a valid sibling and re-insert the opener.
+    raw = (
+        '{"patch_type":"materials","materials":['
+        '{"material_id":"fuel","name":"Fuel","density_g_cm3":10.257},'
+        '"coolant","name":"Water","density_g_cm3":0.743},'
+        '{"material_id":"helium","name":"Helium","density_g_cm3":0.0001785}'
+        ']}'
+    )
+    obj = parse_llm_patch_json(raw, "materials")
+    ids = [m["material_id"] for m in obj["materials"]]
+    assert ids == ["fuel", "coolant", "helium"]
+    assert obj["materials"][1]["name"] == "Water"
+
+
+def test_dropped_opener_repair_does_not_touch_valid_json() -> None:
+    # A valid materials patch must round-trip unchanged.
+    raw = json.dumps({
+        "patch_type": "materials",
+        "materials": [
+            {"material_id": "fuel", "name": "Fuel", "density_g_cm3": 10.257},
+            {"material_id": "coolant", "name": "Water", "density_g_cm3": 0.743},
+        ],
+    })
+    obj = parse_llm_patch_json(raw, "materials")
+    assert [m["material_id"] for m in obj["materials"]] == ["fuel", "coolant"]
+
+
 # ---------------------------------------------------------------------------
 # 6. Validation failure max attempts exceeded
 # ---------------------------------------------------------------------------

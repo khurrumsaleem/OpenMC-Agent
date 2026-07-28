@@ -567,11 +567,87 @@ def parse_llm_patch_json(raw_text: str, patch_type: str) -> dict[str, Any]:
         except json.JSONDecodeError:
             pass
 
+    # Last-resort structural repair: some LLMs drop an object opener inside a
+    # homogeneous array, emitting `,"<value>","<key2>":` where they meant
+    # `},{"<key1>":"<value>","<key2>":`. Learn key1 from a valid sibling and
+    # re-insert the opener.
+    for candidate_text in _dropped_opener_repair_candidates(text, raw_text):
+        repaired = _repair_dropped_object_openers(candidate_text)
+        if repaired is None:
+            continue
+        try:
+            obj = json.loads(repaired)
+            if isinstance(obj, dict):
+                return _maybe_inject_patch_type(obj, patch_type)
+        except json.JSONDecodeError:
+            continue
+
     raise PatchParseError(
         patch_type,
         f"could not extract valid JSON from LLM response",
         details=raw_text[:200],
     )
+
+
+def _dropped_opener_repair_candidates(text: str, raw_text: str) -> list[str]:
+    """Text candidates to try the dropped-opener repair on, best first."""
+
+    candidates = [text]
+    match = _JSON_OBJECT_RE.search(raw_text)
+    if match:
+        candidates.append(match.group(0))
+    # Deduplicate while preserving order.
+    seen: set[str] = set()
+    unique: list[str] = []
+    for item in candidates:
+        if item not in seen:
+            seen.add(item)
+            unique.append(item)
+    return unique
+
+
+def _repair_dropped_object_openers(text: str) -> str | None:
+    """Repair LLM JSON that dropped object openers in a homogeneous array.
+
+    When an LLM emits an array of similar objects it sometimes drops the
+    opening ``{`` and first key for one or more entries, producing
+    ``,"<value>","<key2>":`` (after the previous object's ``}``) instead of
+    ``},{"<key1>":"<value>","<key2>":``. This learns the ``key2 -> key1``
+    mapping from a valid sibling object and re-inserts the opener.
+
+    Conservative: it only re-inserts an opener when the broken entry sits in
+    an array context (immediately after ``}`` or ``]``) and the result parses
+    as valid JSON. Returns the repaired text or ``None``.
+    """
+
+    if not text:
+        return None
+    # Learn (first_key, second_key) shapes from valid object openers.
+    shapes = re.findall(
+        r'\{\s*"([A-Za-z_][A-Za-z0-9_]*)"\s*:\s*"[^"]*"\s*,\s*"([A-Za-z_][A-Za-z0-9_]*)"\s*:',
+        text,
+    )
+    if not shapes:
+        return None
+    second_to_first: dict[str, str] = {}
+    for first_key, second_key in shapes:
+        second_to_first.setdefault(second_key, first_key)
+    # Broken entry: after } or ] (array of objects), `,"<value>","<key2>":`.
+    broken_re = re.compile(
+        r'([}\]])\s*,\s*"([^",{}]+)"\s*,\s*"([A-Za-z_][A-Za-z0-9_]*)"\s*:'
+    )
+
+    def _repl(match: re.Match[str]) -> str:
+        prev_close, value, second_key = match.group(1), match.group(2), match.group(3)
+        first_key = second_to_first.get(second_key)
+        if not first_key:
+            return match.group(0)
+        return f'{prev_close},{{"{first_key}":"{value}","{second_key}":'
+
+    repaired, count = broken_re.subn(_repl, text)
+    if count == 0:
+        return None
+    return repaired
 
 
 def _looks_truncated(raw_text: str) -> bool:
