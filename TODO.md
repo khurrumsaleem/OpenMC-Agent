@@ -1,8 +1,9 @@
 # OpenMC-Agent TODO Roadmap
 
-维护日期：2026-07-12  
-当前基线：`main`，最近确认提交 `c983752`（Fix 8 outdated OpenMC test fixtures）  
-全量测试：1377 collected — 非-OpenMC `994 passed, 1 skipped`；OpenMC `380 passed, 2 skipped`；零失败
+维护日期：2026-07-28
+
+当前基线：`main`，最近确认生产修复：MaterialsPatch source-declared coolant boron normalization
+全量测试：非 OpenMC/非 LLM `3782 passed, 2 skipped, 393 deselected`；`compileall` 通过；fake workflow benchmark `21/21`；baseline diff 因 baseline 文件缺失跳过
 
 本文档用于维护仓库级主线、已完成能力、近期任务和长期方向。  
 它不是单次运行生成的 skeleton `TODO.md`，也不应记录一次性调试日志。
@@ -11,22 +12,22 @@
 
 ## 0. 当前阶段判断
 
-项目已完成从"LLM 一次性生成大计划"到"分层规划、语义审查、受限修复、受控路由、确定性渲染和回归评估"的主要架构升级，并已建立确定性结构修复闭环（pin-map / shoulder-gap / grid-loading 三级 oracle）。
+项目已完成从"LLM 一次性生成大计划"到"分层规划、语义审查、受限修复、受控路由、确定性渲染和回归评估"的主要架构升级。Phase 8C 已将 VERA4 主线推进到五 Gate target-seed 通过、render/openmc-smoke 可复用 accepted seed 执行，并把最近暴露的 coolant boron ppm/质量份额单位问题前移到生产 MaterialsPatch 写入层做确定性修复。
 
 当前重心：
 
 ```text
-过去：复杂模型能否生成并运行
-现在：生成的模型是否具有可信的几何、材料和 benchmark fidelity
+过去：逐个 Gate 真实 canary 中定位 wiring / reviewer / deterministic preflight bug
+现在：用已通过 seed 做低成本生产路径回归，然后只跑一次从头真实 VERA4 里程碑验收
 ```
 
 近期主线不再是继续增加新的 Agent 模块，而是：
 
-1. 把 VERA3 3A/3B 打磨为可信的 geometry gold model；
-2. 完成材料和等效结构 fidelity；
-3. 建立几何与数值双重 benchmark acceptance；
-4. 再进行真实 LLM unseen-path 重建；
-5. 最后才把通过验收的知识写入 benchmark memory 和匿名 few-shot。
+1. 确认生产 materials normalization 在真实 LLM path、fragmented materials path、retry path 都生效；
+2. 复用已通过五 Gate seed 重跑 render/openmc-smoke，确认 no-LLM 渲染路径和 keff sanity；
+3. 只在上述低成本验证通过后，启动一次从头真实 LLM VERA4 建模里程碑；
+4. 若从头真实 run 失败，导出脱敏 artifact/replay fixture 离线修复，禁止连续盲目重跑 canary；
+5. 完整通过后再整理 deliverables、更新验收报告，并考虑将 reactor-neutral 模式抽象进 few-shot/memory 候选。
 
 ### 状态总览
 
@@ -53,6 +54,10 @@
 | VERA3 benchmark-accurate materials | 🚧 未完成 |
 | VERA3 keff / power acceptance | ⬜ 未开始正式验收 |
 | VERA3 gold memory / few-shot 发布 | ⬜ 禁止在验收前进行 |
+| VERA4 Facts/MU/Placement/Axial/Assembled target gates | ✅ 已通过 seed/target 里程碑 |
+| VERA4 render/openmc-smoke seed path | ✅ 可从五 Gate seed 执行 |
+| VERA4 production material-unit normalization | ✅ 已接入 MaterialsPatch 写入层 |
+| VERA4 从头真实 LLM 建模验收 | 🚧 下一主线里程碑 |
 
 ---
 
@@ -285,20 +290,17 @@ audit → repair proposal → deterministic validation → targeted patch retry 
 
 ## 9. 推荐推进顺序
 
-### 当前一条主线
+### 当前一条主线：VERA4 从 seed 到从头真实验收
 
-1. ~~重新运行最新 VERA3 3A/3B rendered acceptance~~ ✅ smoke 已通过（runnable, model.py 生成）
-2. **修复 fuel helium gap 与 plenum 半径**（P0-V1）
-3. **实现 Pyrex upper-gas profile 与完整 axial composition**（P0-V2）
-4. **实现 mass-conserving spacer-grid outer frame**（P0-V3）
-5. **实现 nozzle/core-plate variant-specific mixtures**（P0-V4）
-6. **完成可信材料 composition**（P0-V5）
-7. **冻结 geometry gold acceptance**（P0-V6）
-8. **运行 keff / power numerical acceptance**（P0-V7）
-9. **真实 LLM `reference_policy=off` 重建 3A/3B**
-10. **发布 benchmark-specific memory**
-11. **提取匿名 reactor-neutral few-shot**
-12. 再推进 Evidence Synthesizer、Task Decomposer 和新 renderer
+1. **生产路径离线回归**：用 tests 覆盖 MaterialsPatch 写入层 normalization，确认真实 LLM 若再次输出低硼 coolant atom fractions，会被 deterministic repair 修正而不是进入 reviewer/renderer。
+2. **复用五 Gate seed 做 no-LLM render/openmc-smoke**：从已通过 Assembled `plan_build_state.json` 进入 render/openmc-smoke，确认 renderer、XML、plot、keff sanity 不依赖重新跑上游 Gate。
+3. **运行一次从头真实 LLM VERA4 milestone**：不使用 `--accepted-plan-build-state`，从 Facts→Materials→Universes→Placement→Axial→Assembled→render/openmc-smoke 全链路验证生产流程。
+4. **失败处理规则**：若从头 run 未通过，立即停止重复 canary；抽取脱敏 fixture/replay bundle，按 failed stage 分流到 deterministic preflight、production normalizer、prompt/schema 或 reviewer normalization，再离线闭合。
+5. **通过后整理 deliverables 与报告**：更新 plots、smoke result、accepted gate chain、material normalization provenance、truth violation summary。
+
+### VERA3 gold model 主线（暂停为次优先级）
+
+VERA3 geometry/material/numerical gold roadmap 保留，但当前优先级低于 VERA4 从头真实生产验收。恢复 VERA3 前，应先确认 VERA4 full production path 不再依赖 seed-only 修复。
 
 ### 近期不应并行扩张的方向
 
@@ -315,6 +317,8 @@ audit → repair proposal → deterministic validation → targeted patch retry 
 ## 10. 当前不建议做的事
 
 - 不要把 VERA/C5G7 benchmark facts 写死进 production prompt、validator、renderer 或 guard。
+- 不要在 seed/render 路径尚未离线通过前直接反复跑从头真实 LLM canary。
+- 不要把 production normalizer 缺口交给 reviewer 消耗真实 LLM 调用；能确定性修复的单位/表达问题必须在 patch 写入或 deterministic preflight 前处理。
 - 不要让 RAG/GraphRAG/few-shot 自动确认 density、composition、benchmark constants、loading map 或 nuclear-data path。
 - 不要把旧 VERA3 smoke keff 当作 benchmark reference。
 - 不要继续使用固定 axial layer count 作为验收指标。
