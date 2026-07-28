@@ -248,6 +248,28 @@
 <tr><td>真实性等级</td><td>处于 T5（pilot）向 T6 推进中；五 Gate 流水线尚未端到端跑通。</td></tr>
 <tr><td>已知 gap</td><td>Assembled gate 未通过；所有 $k_{eff}$ 为 smoke 级；<strong>未与 VERA4 benchmark reference 对标</strong>。</td></tr>
 </table>
+<div style="display:flex; gap:8px; flex-wrap:wrap; margin:1em 0;">
+<div style="flex:1; min-width:240px; text-align:center;">
+<img src="assets/vera4_xy_material.png" alt="VERA4 xy material" style="width:100%;"/>
+<div><em>(a) material 视图</em></div>
+</div>
+<div style="flex:1; min-width:240px; text-align:center;">
+<img src="assets/vera4_xy_cell.png" alt="VERA4 xy cell" style="width:100%;"/>
+<div><em>(b) cell 视图</em></div>
+</div>
+</div>
+<p><strong>图：</strong> VERA4 3×3 全堆芯 xy 切面（活性燃料中平面，由 OpenMC <code>openmc -p</code> 在 <code>data/runs/phase8c_step3n_vera4_redraw_v1/</code> 渲染）。9 个组件（center / edge / corner 三类）位置与装载符合 VERA4 几何契约；center 组件中的 RCCA 局部插入段亦清晰可见。本运行使用 deterministic source-backed fixture 离线组装（不调 LLM），<code>renderability=runnable</code>，XML export 成功。</p>
+<div style="display:flex; gap:8px; flex-wrap:wrap; margin:1em 0;">
+<div style="flex:1; min-width:240px; text-align:center;">
+<img src="assets/vera4_xz_material.png" alt="VERA4 xz material" style="width:100%;"/>
+<div><em>(a) material 视图</em></div>
+</div>
+<div style="flex:1; min-width:240px; text-align:center;">
+<img src="assets/vera4_xz_cell.png" alt="VERA4 xz cell" style="width:100%;"/>
+<div><em>(b) cell 视图</em></div>
+</div>
+</div>
+<p><strong>图：</strong> VERA4 3×3 全堆芯 xz 轴向切面（由 OpenMC <code>openmc -p</code> 渲染）。轴向可见活性燃料段、气腔、端塞与上/下结构界面；本 plan 显式使用径向 reflective、轴向 vacuum 六面边界（与 VERA4 benchmark 物理边界一致）。本运行同上 xy 图，为 deterministic fixture 离线组装的渲染结果。</p>
 <p><strong>精确表述边界</strong>。上述 VERA3B 与 VERA4 数据支持"工程闭环可信基础"的结论，但<strong>不等价于物理保真度已闭合</strong>：两者均未与 VERA benchmark reference $k_{eff}$ 对标，VERA4 transport 仍为 smoke 级，VERA4 Assembled gate 仍卡在 infrastructure failure。后续 P0/P1 验收（见下一节）将专门闭合这些 gap。</p>
 <h3>必须保留的边界</h3>
 <blockquote><p><strong>限制：可运行性与物理可信度必须分开</strong></p></blockquote>
