@@ -4,6 +4,10 @@
 
 ### 2026-07-28
 
+- **Phase 8C Step 3M render-compile seed handoff closure**：已通过五 Gate 的 Assembled seed v5 可直接进入 render-compile，且不再被 planning `--stop-after-gate assembled_plan` fast-stop 截断。修复 render/openmc stage 的 stop barrier 传递、render-compile final disposition 判定，以及 region expression parser 对 input-derived dotted/percent surface IDs（如 `surf_u_fuel_region_1_2.11pct_fuel_inner`）的支持。
+- **验证结果**：focused tests `34 passed`；基于 v5 `plan_build_state.json` 的本地 render-compile seed smoke 通过：`RENDER_COMPILE_CANARY_PASSED`、`renderability=runnable`、`export_backend=real_python_export`、`xml_exported=true`、`llm_call_count=0`。全量非 OpenMC/非 LLM pytest `3757 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21` 通过；baseline diff 因 baseline 缺失跳过。
+- **风险/边界**：本修复不重跑真实 LLM gates，不改变物理合同；后续 openmc-smoke 可继续复用同一五 Gate seed，若失败应归类为 OpenMC runtime/geometry smoke 问题而非 Gate 问题。
+
 - **Phase 8C Step 3L Assembled reachability preflight closure**：Assembled seed v4 已完成 assembly 并实际调用 reviewer，但 deterministic preflight 将所有未从 selected root 达到的 alternate/segment-specific 对象都写入 `unreachable_required_ids`，产生 457 个 root reachability blocking 假阳性，并诱发 reviewer schema invalid。现 `unreachable_required_ids` 只包含 `ReachabilityRecord.required=True` 且 unreachable 的对象；其他 unreachable 对象进入 `optional_orphan_ids` 审计，不阻断。
 - **验证结果**：v4 state 离线重放 Assembled preflight：`ok=True`、blocking `0`、object graph nodes `512`、edges `10348`、renderer `core/runnable`。Assembled focused tests `27 passed`；全量非 OpenMC/非 LLM pytest `3749 passed, 2 skipped, 392 deselected`，`compileall`、fake benchmark `21/21` 通过；baseline diff 因 baseline 缺失跳过。
 - **风险/边界**：本修复关闭 deterministic reachability 假阳性，不忽略真实 required-object reachability；下一次 target run 应直接进入 Assembled reviewer 的真实 finding/accepted 判定。

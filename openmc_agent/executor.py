@@ -1603,7 +1603,7 @@ def _region_expression_to_python(
     composite_surface_ids: set[str] | None = None,
 ) -> str:
     composite_surface_ids = composite_surface_ids or set()
-    token_pattern = re.compile(r"\s*([()+\-&|~]|[A-Za-z_][A-Za-z0-9_\-]*)")
+    token_pattern = re.compile(r"\s*([()+\-&|~]|[A-Za-z0-9_][A-Za-z0-9_.%\-]*)")
     tokens: list[str] = []
     index = 0
     pending_sign = ""

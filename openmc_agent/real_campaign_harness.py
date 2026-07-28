@@ -1011,6 +1011,10 @@ _OPENMC_SMOKE_STAGE = "openmc-smoke"
 _VALID_STAGES = (_PLANNING_STAGE, _RENDER_COMPILE_STAGE, _OPENMC_SMOKE_STAGE)
 
 
+def _render_compile_passed(renderability: str) -> bool:
+    return renderability in {"exportable", "runnable"}
+
+
 def _validate_stage(stage: str) -> str:
     if stage not in _VALID_STAGES:
         raise ValueError(
@@ -1359,7 +1363,7 @@ def run_real_canary_once(
             elif config.planning_stage == _RENDER_COMPILE_STAGE:
                 result.final_disposition = (
                     "RENDER_COMPILE_CANARY_PASSED"
-                    if result.renderability == "supported"
+                    if _render_compile_passed(result.renderability)
                     else "RENDER_COMPILE_INCOMPLETE"
                 )
             elif config.planning_stage == _OPENMC_SMOKE_STAGE:
@@ -1721,6 +1725,11 @@ def run_real_canary_campaign(
     # at placement enables facts + material_universe + placement; etc.
     # This prevents a downstream gate from running without its upstream
     # barriers.
+    effective_stop_after_gate = (
+        campaign.stop_after_gate
+        if campaign.planning_stage == _PLANNING_STAGE
+        else None
+    )
     if getattr(campaign, "stop_after_gate", None):
         from openmc_agent.plan_builder.closed_loop.policy import enabled_gates_through
         cumulative_gates = enabled_gates_through(campaign.stop_after_gate)
@@ -1729,7 +1738,7 @@ def run_real_canary_campaign(
             max_review_rounds_per_gate=campaign.plan_loop_max_review_rounds,
             max_repair_rounds_per_gate=campaign.plan_loop_max_repair_rounds,
             max_total_additional_llm_calls=campaign.plan_loop_max_additional_llm_calls,
-            stop_after_gate=campaign.stop_after_gate,
+            stop_after_gate=effective_stop_after_gate,
         )
     else:
         policy = make_five_gate_controlled_policy(
@@ -1933,7 +1942,7 @@ def run_real_canary_campaign(
             max_llm_calls=effective_max_calls,
             expected_patch_count=campaign.expected_patch_count,
             expected_universe_count=campaign.expected_universe_count,
-            stop_after_gate=campaign.stop_after_gate,
+            stop_after_gate=effective_stop_after_gate,
             human_answers=dict(campaign.human_answers),
             human_answer_hash=campaign.human_answer_hash,
             acceptance_callback=campaign.acceptance_callback,

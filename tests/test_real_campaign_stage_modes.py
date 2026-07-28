@@ -7,6 +7,7 @@ from openmc_agent.real_campaign_harness import (
     ProviderEnvironmentStatus,
     RealCampaignRunResult,
     RealCampaignCaseSpec,
+    _render_compile_passed,
     run_real_canary_campaign,
     _validate_stage,
 )
@@ -34,6 +35,22 @@ def test_validate_stage_accepts_openmc_smoke():
 def test_validate_stage_rejects_unknown():
     with pytest.raises(ValueError):
         _validate_stage("unknown-stage")
+
+
+@pytest.mark.parametrize(
+    ("renderability", "expected"),
+    [
+        ("exportable", True),
+        ("runnable", True),
+        ("skeleton", False),
+        ("none", False),
+        ("supported", False),
+    ],
+)
+def test_render_compile_passed_uses_current_renderability_contract(
+    renderability: str, expected: bool
+) -> None:
+    assert _render_compile_passed(renderability) is expected
 
 
 def test_canary_campaign_config_default_stage_is_planning():
@@ -231,3 +248,84 @@ def test_campaign_metadata_propagates_to_run_config(tmp_path, monkeypatch):
     assert captured["metadata"]["accepted_plan_build_state"] == {"state_id": "seed"}
     assert captured["metadata"]["accepted_plan_build_state_path"] == "seed.json"
     assert "llm_budget" in captured["metadata"]
+
+
+def test_render_compile_seed_does_not_stop_after_gate(tmp_path, monkeypatch):
+    import openmc_agent.real_campaign_harness as harness
+
+    input_path = tmp_path / "input.md"
+    input_path.write_text("Build a 17x17 lattice with axial layers.\n", encoding="utf-8")
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        harness,
+        "detect_provider_environment",
+        lambda _model: ProviderEnvironmentStatus(
+            provider="zhipu",
+            model="zhipu:test",
+            api_key_env="ZHIPUAI_API_KEY",
+            api_key_present=True,
+            openmc_library_present=True,
+            openmc_cross_sections_present=True,
+            openmc_cross_sections_path="/tmp/cross_sections.xml",
+            openmc_version="0.0",
+            endpoint="https://example.invalid",
+        ),
+    )
+    monkeypatch.setattr(harness, "_git_sha", lambda: "git")
+
+    def capture_once(config, *_args, **_kwargs):
+        from openmc_agent.plan_builder.closed_loop.policy import enabled_gates
+
+        captured["run_stop_after_gate"] = config.stop_after_gate
+        captured["policy_stop_after_gate"] = getattr(config.policy, "stop_after_gate", None)
+        captured["enabled_gate_ids"] = [g.value for g in enabled_gates(config.policy)]
+        return RealCampaignRunResult(
+            run_id=config.run_id,
+            status="completed",
+            final_disposition="RENDER_COMPILE_INCOMPLETE",
+            started_at="2026-07-28T00:00:00+00:00",
+            completed_at="2026-07-28T00:00:01+00:00",
+            duration_s=1.0,
+            git_sha="git",
+            input_sha="",
+            configuration_hash="cfg",
+            provider="zhipu",
+            model="zhipu:test",
+            real_llm_verified=True,
+            real_openmc_verified=False,
+            llm_call_count=0,
+        )
+
+    monkeypatch.setattr(harness, "run_real_canary_once", capture_once)
+
+    campaign = CanaryCampaignConfig(
+        case=RealCampaignCaseSpec(
+            case_id="x",
+            input_path=str(input_path),
+            operating_state="",
+            benchmark_label="X",
+            model="zhipu:test",
+            output_dir=str(tmp_path / "out"),
+            planning_stage="render-compile",
+        ),
+        runs=1,
+        model="zhipu:test",
+        planning_stage="render-compile",
+        stop_after_gate="assembled_plan",
+        metadata={
+            "accepted_plan_build_state": {"state_id": "seed"},
+            "accepted_plan_build_state_path": "seed.json",
+        },
+    )
+    run_real_canary_campaign(tmp_path / "out", campaign)
+
+    assert captured["run_stop_after_gate"] is None
+    assert captured["policy_stop_after_gate"] is None
+    assert captured["enabled_gate_ids"] == [
+        "facts",
+        "material_universe",
+        "placement",
+        "axial_geometry",
+        "assembled_plan",
+    ]
