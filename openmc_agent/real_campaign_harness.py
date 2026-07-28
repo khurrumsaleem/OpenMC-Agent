@@ -1033,7 +1033,11 @@ def _campaign_run_passed(result: dict[str, Any]) -> bool:
     """
 
     disposition = str(result.get("final_disposition", ""))
-    return "PASSED" in disposition and "FAIL" not in disposition
+    if "FAIL" in disposition:
+        return False
+    if "PASSED" in disposition:
+        return True
+    return disposition in {"FIRST_PASS_SUCCESS", "RECOVERED_SUCCESS"}
 
 
 def _resumable_campaign_results(results: list[dict[str, Any]]) -> list[dict[str, Any]]:

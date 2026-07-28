@@ -7,6 +7,7 @@ from openmc_agent.real_campaign_harness import (
     ProviderEnvironmentStatus,
     RealCampaignRunResult,
     RealCampaignCaseSpec,
+    _campaign_run_passed,
     _render_compile_passed,
     run_real_canary_campaign,
     _validate_stage,
@@ -51,6 +52,35 @@ def test_render_compile_passed_uses_current_renderability_contract(
     renderability: str, expected: bool
 ) -> None:
     assert _render_compile_passed(renderability) is expected
+
+
+@pytest.mark.parametrize(
+    "disposition",
+    [
+        "PLANNING_CANARY_PASSED",
+        "RENDER_COMPILE_CANARY_PASSED",
+        "STOP_AFTER_GATE_PASSED:assembled_plan",
+        "FIRST_PASS_SUCCESS",
+        "RECOVERED_SUCCESS",
+    ],
+)
+def test_campaign_run_passed_accepts_all_success_dispositions(disposition: str) -> None:
+    assert _campaign_run_passed({"final_disposition": disposition}) is True
+
+
+@pytest.mark.parametrize(
+    "disposition",
+    [
+        "CAMPAIGN_FAILED",
+        "PLANNING_FAILURE",
+        "SMOKE_FAILURE",
+        "RENDER_COMPILE_INCOMPLETE",
+        "BLOCKED_BY_GATE:assembled_plan",
+        "",
+    ],
+)
+def test_campaign_run_passed_rejects_non_success_dispositions(disposition: str) -> None:
+    assert _campaign_run_passed({"final_disposition": disposition}) is False
 
 
 def test_canary_campaign_config_default_stage_is_planning():
