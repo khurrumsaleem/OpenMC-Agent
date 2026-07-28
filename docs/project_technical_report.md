@@ -4,6 +4,9 @@
 
 ### 2026-07-28
 
+- **Phase 8C Step 3O Facts required-coverage revision path closure**：真实用户 CLI 的 VERA3B v5 run 已越过 `unresolved_requires_human`，但第一轮 Facts revision 被 evaluator 拒绝为 `facts_revision.path_out_of_scope`。根因是 prompt/coverage checker 要求补 `/assembly_type_counts`，而 edit-path 白名单没有包含 required coverage slots。现白名单与 required coverage 合同对齐，仍只允许 FactsPatch 内的 reactor-neutral coverage 字段。
+- **验证结果**：v5 真实 `facts_revision_proposal_000.json` 离线复核从 path-out-of-scope 变为 `accepted=True`；focused Facts revision/reviewer tests `30 passed`。全量非 OpenMC/非 LLM pytest `3791 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过；baseline diff 因 baseline 文件缺失跳过。
+
 - **Phase 8C Step 3O Facts split-review human-blocker closure**：真实用户 CLI 的 VERA3B v4 run 不再卡在 Facts 内容本身，而是 split rereview 的第一个 evidence pack 把“本片段未包含 §12.2/§13”误升为 whole-source `unsupported_inference` + `requires_human`，虽然第二个 pack 已覆盖这些事实。现 Facts normalization 拒收这类 chunk-local unsupported-inference 作为全局人工 blocker，并保留真正 repairable coverage error 进入自动 revision。
 - **验证结果**：v4 artifact 离线复核 `requires_human` 从 4 个误报降为 `0`，剩余 `source_coverage.pyrex_plenum_truncation` 为可自动修复 coverage gap；focused Facts reviewer tests `22 passed`。全量非 OpenMC/非 LLM pytest `3790 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过；baseline diff 因 baseline 文件缺失跳过。
 

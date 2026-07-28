@@ -43,6 +43,34 @@ def _extract_evidence_hash(prompt: str) -> str:
 class TestComputeAllowedActionsCoverageIncomplete:
     """Unit tests for compute_allowed_actions with coverage_incomplete."""
 
+    def test_required_coverage_paths_are_allowed_revision_targets(self):
+        from openmc_agent.plan_builder.closed_loop.facts_revision import allowed_paths_for_findings
+        from openmc_agent.plan_builder.closed_loop.models import (
+            PlanFindingCategory,
+            PlanFindingSeverity,
+            PlanGateId,
+            PlanReviewFinding,
+        )
+
+        finding = PlanReviewFinding(
+            gate_id=PlanGateId.FACTS,
+            code="SOURCE_COVERAGE.PYREX_PLENUM_TRUNCATION",
+            severity=PlanFindingSeverity.ERROR,
+            category=PlanFindingCategory.SOURCE_COVERAGE,
+            message="repairable source coverage gap",
+            affected_patch_types=["facts"],
+            affected_json_paths=["/source_notes"],
+            repairable_by_llm=True,
+            requires_human=False,
+            confidence=0.9,
+        )
+
+        allowed = allowed_paths_for_findings([finding])
+
+        assert "/assembly_type_counts" in allowed
+        assert "/fuel_variant_requirements" in allowed
+        assert "/localized_insert_requirements" in allowed
+
     def test_repairable_error_findings_yield_revise(self):
         """Error findings with repairable_by_llm → REVISE_CURRENT_PATCH."""
         from openmc_agent.plan_builder.closed_loop.models import (

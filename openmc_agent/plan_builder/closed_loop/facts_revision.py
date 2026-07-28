@@ -133,7 +133,12 @@ def _confirmed_records(confirmed_facts: dict[str, Any]) -> list[tuple[str, Any]]
 
 
 def allowed_paths_for_findings(findings: list[PlanReviewFinding]) -> list[str]:
-    paths = {"/missing_facts", "/assumptions", "/source_notes"}
+    paths = {
+        "/missing_facts",
+        "/assumptions",
+        "/source_notes",
+        *REQUIRED_COVERAGE_PATHS,
+    }
     contract_paths = {
         "facts.model_scope_conflicts_with_planning_features": {"/model_scope", "/assembly_count", "/core_lattice_size", "/assembly_type_counts"},
         "facts.multi_assembly_contract_incomplete": {"/model_scope", "/assembly_count", "/core_lattice_size", "/assembly_type_counts"},
