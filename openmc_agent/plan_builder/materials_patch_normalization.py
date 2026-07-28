@@ -168,6 +168,16 @@ def _normalize_material_schema_surface(material: dict[str, Any]) -> list[dict[st
     if isinstance(components, list):
         retained: list[Any] = []
         moved_any = False
+        composition = material.setdefault("composition", {})
+        if not isinstance(composition, dict):
+            composition = {}
+            material["composition"] = composition
+        # Species the LLM already declared directly in `composition`. A
+        # compound component restating one of these is redundant; adding it
+        # would double the fraction. Species not originally in `composition`
+        # are moved in and may still accumulate across multiple compound
+        # components of the same species.
+        original_species: set[str] = set(composition.keys())
         for component in components:
             if not isinstance(component, dict):
                 retained.append(component)
@@ -182,11 +192,19 @@ def _normalize_material_schema_surface(material: dict[str, Any]) -> list[dict[st
             except (TypeError, ValueError):
                 retained.append(component)
                 continue
-            composition = material.setdefault("composition", {})
-            if not isinstance(composition, dict):
-                retained.append(component)
-                continue
             species_name = canonical_nuclide_name(formula) if kind == "nuclide" else formula
+            if species_name in original_species:
+                # Redundant restatement of a species already in `composition`;
+                # drop the compound component instead of adding (which would
+                # double the fraction, e.g. AIC summing to 2.0).
+                moved_any = True
+                operations.append({
+                    "operation": "compound_element_component_redundant_dropped",
+                    "material_id": material_id,
+                    "species": species_name,
+                    "species_kind": kind,
+                })
+                continue
             composition[species_name] = float(composition.get(species_name, 0.0)) + fraction
             component_basis = component.get("fraction_basis")
             if (

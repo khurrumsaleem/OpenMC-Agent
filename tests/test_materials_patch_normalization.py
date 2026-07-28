@@ -123,6 +123,67 @@ def test_repairs_schema_surface_enum_and_element_component_drift() -> None:
     parse_patch_content("materials", result.content)
 
 
+def test_redundant_compound_component_does_not_double_composition() -> None:
+    """When the LLM declares an element in BOTH composition and compound_components
+    (a common redundancy), the compound component must be dropped, not added —
+    otherwise the fraction doubles (e.g. AIC 0.80+0.15+0.05 summing to 2.0)."""
+    patch = {
+        "patch_type": "materials",
+        "materials": [
+            {
+                "material_id": "aic",
+                "name": "AIC",
+                "role": "poison",
+                "density_g_cm3": 10.2,
+                "composition_basis": "weight_frac",
+                "composition": {"Ag": 0.8, "In": 0.15, "Cd": 0.05},
+                "compound_components": [
+                    {"formula": "Ag", "fraction": 0.8, "fraction_basis": "weight_frac"},
+                    {"formula": "In", "fraction": 0.15, "fraction_basis": "weight_frac"},
+                    {"formula": "Cd", "fraction": 0.05, "fraction_basis": "weight_frac"},
+                ],
+            },
+        ],
+    }
+
+    result = normalize_materials_patch_content(patch, requirement_text="plain materials")
+
+    aic = result.content["materials"][0]
+    # Composition unchanged (not doubled).
+    assert aic["composition"] == {"Ag": 0.8, "In": 0.15, "Cd": 0.05}
+    # Redundant compound components dropped.
+    assert aic["compound_components"] == []
+    ops = [op["operation"] for op in result.operations]
+    assert ops.count("compound_element_component_redundant_dropped") == 3
+    assert "compound_element_component_to_composition_repair" not in ops
+    parse_patch_content("materials", result.content)
+
+
+def test_multiple_compound_components_same_species_still_accumulate() -> None:
+    """Two compound components contributing to the same species (with no prior
+    composition entry) must still accumulate; only pre-existing composition
+    entries suppress the move."""
+    patch = {
+        "patch_type": "materials",
+        "materials": [
+            {
+                "material_id": "mix",
+                "name": "mix",
+                "role": "structural",
+                "density_g_cm3": 8.0,
+                "compound_components": [
+                    {"formula": "Fe", "fraction": 0.40, "fraction_basis": "weight_frac"},
+                    {"formula": "Fe", "fraction": 0.30, "fraction_basis": "weight_frac"},
+                ],
+            },
+        ],
+    }
+
+    result = normalize_materials_patch_content(patch, requirement_text="plain materials")
+    mix = result.content["materials"][0]
+    assert mix["composition"] == {"Fe": 0.70}
+
+
 def test_normalizes_existing_assembled_plan_materials_in_seed_state() -> None:
     state = PlanBuildState(
         state_id="seed",
