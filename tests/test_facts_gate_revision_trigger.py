@@ -565,6 +565,76 @@ class TestExecutorRevisionClosure:
             "terminal_reason": "candidate_committed_and_accepted",
         }
 
+    def test_facts_revision_closure_uses_policy_repair_round_limit(self, monkeypatch) -> None:
+        monkeypatch.setattr(executor, "default_patch_task_order", lambda _: ["facts"])
+        monkeypatch.setattr(executor, "required_patch_types_for_state", lambda _: ["facts"])
+        monkeypatch.setattr(executor, "assemble_state_if_ready", lambda state, **_: state.model_copy(update={"assembled_plan": {"ok": True}}))
+        facts = {
+            "patch_type": "facts",
+            "model_scope": "single_assembly",
+            "assembly_count": 1,
+            "assembly_type_counts": {"a": 1},
+            "fuel_variant_requirements": [{"variant_id": "fuel"}],
+            "localized_insert_requirements": [{"requirement_id": "insert", "insert_kind": "pyrex_rod"}],
+            "has_spacer_grids": False,
+            "source_notes": [],
+        }
+        patch_llm = FakePatchLLM([json.dumps(facts)])
+        repair_llm = FakePatchLLM([
+            json.dumps({
+                "proposal_id": f"repair_{idx}",
+                "confidence": 0.9,
+                "rationale": f"repair finding {idx}",
+                "operations": [{"op": "add", "path": "/source_notes/-", "value": f"source-backed detail {idx}"}],
+                "resolved_finding_ids": [],
+            })
+            for idx in range(4)
+        ])
+        calls = {"count": 0}
+
+        def reviewer(prompt: str) -> str:
+            calls["count"] += 1
+            payload = json.loads(prompt.split("INPUT:\n", 1)[1])
+            excerpts = payload.get("source_excerpts", [])
+            evidence_hash = excerpts[0]["evidence_hash"] if excerpts else ""
+            # Initial review plus the first three rereviews expose the next
+            # source-backed detail.  The fourth repair clears the gate.
+            if calls["count"] <= 4:
+                finding = {
+                    "code": f"MISSING_DETAIL_{calls['count']}",
+                    "severity": "error",
+                    "category": "source_coverage",
+                    "message": "missing source-backed detail",
+                    "evidence_hashes": [evidence_hash] if evidence_hash else [],
+                    "affected_json_paths": ["/source_notes"],
+                    "repairable_by_llm": True,
+                    "requires_human": False,
+                    "confidence": 0.9,
+                }
+                findings = [finding]
+            else:
+                findings = []
+            return json.dumps({
+                "review_status": "complete_with_gaps" if findings else "complete",
+                "reviewed_evidence_hashes": [evidence_hash] if evidence_hash else [],
+                "coverage_summary": {},
+                "findings": findings,
+            })
+
+        result = run_incremental_planning(
+            requirement="small source",
+            state=PlanBuildState(state_id="closure-four", requirement_text="small source"),
+            llm_client=patch_llm,
+            plan_loop_policy={"mode": "controlled", "max_repair_rounds_per_gate": 4},
+            plan_reviewer_client=reviewer,
+            plan_repair_client=repair_llm,
+        )
+
+        assert result.ok
+        stage = result.state.plan_loop_stages["plan_gate_facts"]
+        assert stage.status is PlanStageStatus.ACCEPTED
+        assert stage.metadata["facts_revision_closure"]["rounds"] == 4
+
     def test_blocked_closure_metadata_uses_latest_rereview_findings(self, monkeypatch) -> None:
         monkeypatch.setattr(executor, "default_patch_task_order", lambda _: ["facts"])
         monkeypatch.setattr(executor, "required_patch_types_for_state", lambda _: ["facts"])
@@ -641,7 +711,11 @@ class TestExecutorRevisionClosure:
         assert stage.status is PlanStageStatus.BLOCKED
         closure = stage.metadata["facts_revision_closure"]
         assert closure["failure_code"] == "planning.facts_revision.unresolved_requires_human"
+        assert closure["unresolved_finding_codes"] == ["NEW_PHYSICAL_AMBIGUITY"]
         unresolved_ids = closure["unresolved_finding_ids"]
         assert len(unresolved_ids) == 1
         unresolved = result.state.plan_review_findings[unresolved_ids[0]]
         assert unresolved.code == "NEW_PHYSICAL_AMBIGUITY"
+        assert result.summary["generation_issues"][0]["metadata"]["unresolved_finding_codes"] == [
+            "NEW_PHYSICAL_AMBIGUITY"
+        ]

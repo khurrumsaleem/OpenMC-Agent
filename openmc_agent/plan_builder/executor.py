@@ -2608,8 +2608,12 @@ def run_incremental_planning(
             latest_unresolved_findings = list(closure_findings)
             closure_failure_code = "planning.facts_revision.incomplete_closure"
             closure_rounds_completed = 0
+            closure_round_limit = max(
+                MAX_FACTS_REVISION_CLOSURE_ROUNDS,
+                int(policy.max_repair_rounds_per_gate or 0),
+            )
 
-            for closure_round in range(MAX_FACTS_REVISION_CLOSURE_ROUNDS):
+            for closure_round in range(closure_round_limit):
                 if closure_round:
                     transition_stage(stage, PlanStageStatus.REPAIRING)
                 stage.repair_count += 1
@@ -2942,8 +2946,13 @@ def run_incremental_planning(
             transition_stage(stage, PlanStageStatus.BLOCKED)
             stage.metadata["facts_revision_closure"] = {
                 "rounds": closure_rounds_completed,
+                "round_limit": closure_round_limit,
                 "failure_code": closure_failure_code,
                 "unresolved_finding_ids": [item.finding_id for item in latest_unresolved_findings],
+                "unresolved_finding_codes": [item.code for item in latest_unresolved_findings],
+                "unresolved_affected_paths": [
+                    list(item.affected_json_paths) for item in latest_unresolved_findings
+                ],
             }
             state.add_event(
                 "planning.facts_revision_closure_blocked",
@@ -2956,6 +2965,20 @@ def run_incremental_planning(
                 severity="error",
                 message="facts revision closure did not pass clone/review acceptance",
                 patch_type="facts",
+                metadata={
+                    "rounds": closure_rounds_completed,
+                    "round_limit": closure_round_limit,
+                    "unresolved_finding_ids": [
+                        item.finding_id for item in latest_unresolved_findings
+                    ],
+                    "unresolved_finding_codes": [
+                        item.code for item in latest_unresolved_findings
+                    ],
+                    "unresolved_affected_paths": [
+                        list(item.affected_json_paths)
+                        for item in latest_unresolved_findings
+                    ],
+                },
             )
         transition_stage(stage, PlanStageStatus.BLOCKED)
         state.add_event("planning.facts_gate_blocked", "facts gate blocked by deterministic policy", {"action": action.value})
@@ -4371,7 +4394,19 @@ def run_incremental_planning(
                 ok=False,
                 state=state,
                 issues=issues,
-                summary=_build_failure_summary("facts", [facts_barrier_issue.code], 0),
+                summary=_build_failure_summary(
+                    "facts",
+                    [facts_barrier_issue.code],
+                    0,
+                    generation_issues=[
+                        {
+                            "code": facts_barrier_issue.code,
+                            "severity": facts_barrier_issue.severity,
+                            "message": facts_barrier_issue.message,
+                            "metadata": facts_barrier_issue.metadata,
+                        }
+                    ],
+                ),
                 plan_loop_outcome={
                     "status": status,
                     "active_gate_id": "facts",
@@ -4927,7 +4962,19 @@ def run_incremental_planning(
                     )
                     return IncrementalExecutionResult(
                         ok=False, state=state, issues=issues,
-                        summary=_build_failure_summary("facts", [facts_gate_issue.code], len(result.attempts)),
+                        summary=_build_failure_summary(
+                            "facts",
+                            [facts_gate_issue.code],
+                            len(result.attempts),
+                            generation_issues=[
+                                {
+                                    "code": facts_gate_issue.code,
+                                    "severity": facts_gate_issue.severity,
+                                    "message": facts_gate_issue.message,
+                                    "metadata": facts_gate_issue.metadata,
+                                }
+                            ],
+                        ),
                         plan_loop_outcome={
                             "status": "awaiting_human" if facts_gate_issue.code == "planning.facts_awaiting_human" else "blocked",
                             "active_gate_id": "facts",
