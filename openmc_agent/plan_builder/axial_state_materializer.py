@@ -406,6 +406,8 @@ def _resolve_base_path_bindings(
 def _apply_base_path_state(
     pattern: list[list[str]],
     bindings: list[BasePathStateBindingPatchItem],
+    *,
+    preserve_positions_by_role: dict[str, set[tuple[int, int]]] | None = None,
 ) -> tuple[list[list[str]], list[str]]:
     """Apply base path state bindings to a pin lattice pattern.
 
@@ -416,13 +418,38 @@ def _apply_base_path_state(
     modified = [row[:] for row in pattern]
     applied: set[str] = set()
     for binding in bindings:
+        preserved_positions: set[tuple[int, int]] = set()
+        if preserve_positions_by_role:
+            for role in binding.preserve_path_roles:
+                preserved_positions.update(preserve_positions_by_role.get(role, set()))
         for r in range(len(modified)):
             for c in range(len(modified[r])):
+                if (r, c) in preserved_positions:
+                    continue
                 uv = modified[r][c]
                 if uv in binding.source_universe_ids:
                     modified[r][c] = binding.replacement_universe_id
                     applied.add(binding.replacement_universe_id)
     return modified, sorted(applied)
+
+
+def _preserve_positions_for_pin_map(
+    pin_map: AssemblyPinMapPatchItem | None,
+) -> dict[str, set[tuple[int, int]]]:
+    """Return 0-based lattice positions that base-path bindings must preserve."""
+    if pin_map is None:
+        return {}
+
+    def _normalize(coords: list[tuple[int, int]]) -> set[tuple[int, int]]:
+        base = pin_map.coordinate_convention.index_base
+        if base == 0:
+            return set(coords)
+        return {(r - base, c - base) for r, c in coords}
+
+    return {
+        "guide_tube": _normalize(list(pin_map.guide_tube_coords)),
+        "instrument_tube": _normalize(list(pin_map.instrument_tube_coords)),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -778,6 +805,7 @@ def materialize_concrete_axial_states(
 
         # Build core lattice universe_pattern for this segment
         core_pattern: list[list[str]] = []
+        segment_uses_derived_assemblies = False
         for row in layout.assembly_pattern:
             pattern_row: list[str] = []
             for type_id in row:
@@ -797,6 +825,8 @@ def materialize_concrete_axial_states(
                 needs_derived = bool(acts) or bool(bpath_bindings) or (
                     bool(active_grids) and bool(universe_patches_by_id)
                 )
+                if needs_derived:
+                    segment_uses_derived_assemblies = True
 
                 if needs_derived:
                     base_pattern = base_pin_lattices[type_id].universe_pattern
@@ -804,7 +834,11 @@ def materialize_concrete_axial_states(
 
                     # Step 1: Apply base path state (fuel-path switching)
                     derived_pattern, bpath_ids = _apply_base_path_state(
-                        derived_pattern, bpath_bindings,
+                        derived_pattern,
+                        bpath_bindings,
+                        preserve_positions_by_role=_preserve_positions_for_pin_map(
+                            atype_obj.pin_map if atype_obj else None
+                        ),
                     )
 
                     # Step 2: Apply localized inserts
@@ -925,7 +959,7 @@ def materialize_concrete_axial_states(
             core_pattern.append(pattern_row)
 
         # Core lattice dedup by content hash
-        if not active_map and not grid_state.active_overlay_ids:
+        if not segment_uses_derived_assemblies:
             seg_core_id_final = core_lattice_id_base
         else:
             core_hash = _compute_core_state_hash(core_pattern, core_lattice_id_base)
@@ -971,7 +1005,7 @@ def materialize_concrete_axial_states(
             "core_lattice_id": seg_core_id_final,
             "active_types": list(active_map.keys()),
             "state_signature": state_sig,
-            "has_derived_lattices": bool(active_map),
+            "has_derived_lattices": segment_uses_derived_assemblies,
             "grid_overlay_ids": list(grid_state.active_overlay_ids),
         })
 

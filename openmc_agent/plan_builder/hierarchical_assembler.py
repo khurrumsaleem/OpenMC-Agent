@@ -688,12 +688,15 @@ def build_hierarchical_core_plan(
     result.core_lattices = [core_lattice]
 
     boundary = layout.boundary if layout.boundary in ("reflective", "vacuum", "periodic") else "reflective"
+    if layout.boundary_conditions is not None:
+        boundary = "mixed"
     core_spec = CoreSpec(
         id="core_1",
         name="hierarchical core",
         lattice_id=layout.core_lattice_id,
         assembly_ids=[a.id for a in assembly_specs],
         boundary=boundary,
+        boundary_conditions=layout.boundary_conditions,
         purpose="Assembled from hierarchical core patches (P2-FULLCORE-2B)",
     )
     result.core_spec = core_spec
@@ -715,6 +718,11 @@ def build_hierarchical_core_plan(
         "moderator_universe_id": moderator_universe_id,
         "core_lattice_count": len(result.core_lattices),
         "core_boundary": boundary,
+        "core_boundary_conditions": (
+            layout.boundary_conditions.model_dump(exclude_none=True)
+            if layout.boundary_conditions is not None
+            else None
+        ),
         "internal_assembly_boundary": "transmission",
         "core_total_fuel": aggregation.core_total_for_role("fuel_pin"),
         "core_total_guide_tube": aggregation.core_total_for_role("guide_tube"),

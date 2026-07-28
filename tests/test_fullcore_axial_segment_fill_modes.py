@@ -12,6 +12,8 @@ from openmc_agent.plan_builder.patches import (
     AssemblyTypePatchItem,
     AxialLayerPatchItem,
     AxialLayersPatch,
+    BasePathAxialProfilePatchItem,
+    BasePathStateBindingPatchItem,
     CoreLayoutPatch,
     FactsPatch,
 )
@@ -262,6 +264,95 @@ class TestMaterializerWholePlane:
         assert result.axial_layers[0].fill.type == "lattice"
         # No active inserts → reuse base core lattice
         assert result.axial_layers[0].fill.id == "core_lattice"
+
+    def test_base_path_state_generates_segment_core_lattice(self):
+        """Fuel-path state changes must not be dropped when no insert/grid is active."""
+        catalog = _make_simple_catalog()
+        catalog.assembly_types[0].base_path_profile_id = "fuel_path"
+        layout = _make_simple_layout()
+        segments = [
+            AxialSegment(
+                segment_id="s0",
+                z_min_cm=10.0,
+                z_max_cm=20.0,
+                fill_mode="detailed_core",
+                base_role="upper_plenum",
+            ),
+        ]
+        base_lats = _make_base_pin_lattice()
+        base_uvs = {"fuel_a": "assembly_universe__fuel_a"}
+        profiles = {
+            "fuel_path": BasePathAxialProfilePatchItem(
+                profile_id="fuel_path",
+                state_bindings=[
+                    BasePathStateBindingPatchItem(
+                        axial_role="upper_plenum",
+                        source_universe_ids=["fuel_pin"],
+                        replacement_universe_id="fuel_plenum",
+                        preserve_path_roles=["guide_tube", "instrument_tube"],
+                    )
+                ],
+            )
+        }
+
+        result = materialize_concrete_axial_states(
+            catalog,
+            layout,
+            segments,
+            base_lats,
+            base_uvs,
+            base_path_profiles=profiles,
+        )
+
+        assert result.axial_layers[0].fill.type == "lattice"
+        assert result.axial_layers[0].fill.id != "core_lattice"
+        assert len(result.segment_core_lattices) == 1
+        assert len(result.derived_pin_lattices) == 1
+        assert result.derived_pin_lattices[0].universe_pattern == [
+            ["fuel_plenum", "fuel_plenum", "fuel_plenum"],
+            ["fuel_plenum", "guide_tube", "fuel_plenum"],
+            ["fuel_plenum", "fuel_plenum", "fuel_plenum"],
+        ]
+        assert result.segment_index[0]["has_derived_lattices"] is True
+
+    def test_base_path_preserves_guide_tube_positions_even_if_source_ids_include_them(self):
+        """Preserve roles protect guide tubes from accidental fuel-path replacement."""
+        catalog = _make_simple_catalog()
+        catalog.assembly_types[0].base_path_profile_id = "fuel_path"
+        layout = _make_simple_layout()
+        segments = [
+            AxialSegment(
+                segment_id="s0",
+                z_min_cm=20.0,
+                z_max_cm=30.0,
+                fill_mode="detailed_core",
+                base_role="upper_plenum",
+            ),
+        ]
+        profiles = {
+            "fuel_path": BasePathAxialProfilePatchItem(
+                profile_id="fuel_path",
+                state_bindings=[
+                    BasePathStateBindingPatchItem(
+                        axial_role="upper_plenum",
+                        source_universe_ids=["fuel_pin", "guide_tube"],
+                        replacement_universe_id="fuel_plenum",
+                        preserve_path_roles=["guide_tube"],
+                    )
+                ],
+            )
+        }
+
+        result = materialize_concrete_axial_states(
+            catalog,
+            layout,
+            segments,
+            _make_base_pin_lattice(),
+            {"fuel_a": "assembly_universe__fuel_a"},
+            base_path_profiles=profiles,
+        )
+
+        assert result.derived_pin_lattices[0].universe_pattern[1][1] == "guide_tube"
 
     def test_mixed_whole_plane_and_detailed(self):
         """A mix of whole-plane and detailed segments should work."""

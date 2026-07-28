@@ -145,10 +145,21 @@ def run_smoke_test(
             ),
         )
 
+    plan = _refresh_executable_capability(plan)
+
     path = Path(run_dir)
     path.mkdir(parents=True, exist_ok=True)
     smoke_model_path = path / "smoke_model.py"
-    smoke_model_path.write_text(render_openmc_smoke_test_script(plan), encoding="utf-8")
+    try:
+        smoke_script = render_openmc_smoke_test_script(plan)
+    except ValueError as exc:
+        return ToolResult(
+            name="run_smoke_test",
+            ok=False,
+            returncode=None,
+            error=str(exc),
+        )
+    smoke_model_path.write_text(smoke_script, encoding="utf-8")
 
     export_command = [sys.executable, smoke_model_path.name]
     export_result = subprocess.run(
@@ -209,6 +220,29 @@ def run_smoke_test(
         artifacts=[str(smoke_model_path), *_existing_xml_artifacts(path), *_statepoint_artifacts(path)],
         error="" if run_result.returncode == 0 else (run_result.stderr or run_result.stdout).strip(),
     )
+
+
+def _refresh_executable_capability(plan: SimulationPlan) -> SimulationPlan:
+    """Return ``plan`` with a registry-derived executable capability when needed.
+
+    Legacy pin-cell plans do not use ``complex_model`` and remain unchanged.
+    Newer assembly/core/TRISO plans may carry a stale or placeholder capability
+    report from deterministic assembly.  The renderer registry is the canonical
+    source for whether those plans can produce XML-ready OpenMC scripts.
+    """
+    if plan.model_spec is not None or plan.complex_model is None:
+        return plan
+    if (
+        plan.capability_report.is_executable
+        and plan.capability_report.supported_renderer != "none"
+    ):
+        return plan
+    from openmc_agent.renderers import choose_renderer
+
+    _renderer, capability = choose_renderer(plan)
+    if capability.is_executable and capability.supported_renderer != "none":
+        return plan.model_copy(update={"capability_report": capability})
+    return plan
 
 
 def run_geometry_debug(

@@ -20,7 +20,7 @@ from typing import Any, Literal, get_origin
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from openmc_agent.schemas import AgentBaseModel
+from openmc_agent.schemas import AgentBaseModel, CoreBoundarySpec
 from openmc_agent.plan_builder.control_state_normalization import (
     canonicalize_control_state_id,
 )
@@ -915,6 +915,14 @@ class CoreLayoutPatch(_PatchBase):
     assembly_pattern: list[list[str]]
     outer_assembly_type_id: str | None = None
     boundary: str = "vacuum"
+    boundary_conditions: CoreBoundarySpec | None = Field(
+        default=None,
+        description=(
+            "Optional explicit six-face core boundary conditions. Use this when "
+            "radial and axial boundaries differ, e.g. radial reflective with "
+            "axial vacuum."
+        ),
+    )
     expected_assembly_type_counts: dict[str, int] = Field(default_factory=dict)
     symmetry_description: str | None = None
     assumptions: list[str] = Field(default_factory=list)

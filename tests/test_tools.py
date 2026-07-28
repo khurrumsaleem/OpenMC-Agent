@@ -8,15 +8,23 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from openmc_agent.schemas import (
+    AxialLayerSpec,
+    CellSpec,
+    ComplexMaterialSpec,
+    ComplexModelSpec,
+    CoreSpec,
     ExecutionCheckSpec,
     GeometrySpec,
+    LatticeSpec,
     MaterialSpec,
     NuclideSpec,
     PinCellSpec,
     PlotSpec,
+    RenderCapabilityReport,
     RunSettingsSpec,
     SimulationPlan,
     SimulationSpec,
+    UniverseSpec,
 )
 from openmc_agent.tools import (
     export_xml,
@@ -229,6 +237,76 @@ def test_run_smoke_test_writes_smoke_script_and_runs_openmc(tmp_path: Path, monk
         encoding="utf-8"
     )
     assert "k-effective" in result.stdout
+
+
+def test_run_smoke_test_refreshes_core_renderer_capability(tmp_path: Path, monkeypatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        if command[-1] == "smoke_model.py":
+            return SimpleNamespace(returncode=0, stdout="xml ok", stderr="")
+        return SimpleNamespace(returncode=0, stdout="Combined k-effective = 1.000 +/- 0.010", stderr="")
+
+    monkeypatch.setattr("openmc_agent.tools.subprocess.run", fake_run)
+
+    plan = SimulationPlan(
+        schema_version="simulation_plan.v2",
+        complex_model=ComplexModelSpec(
+            name="core smoke test",
+            kind="core",
+            materials=[
+                ComplexMaterialSpec(
+                    id="fuel",
+                    name="fuel",
+                    density_unit="g/cm3",
+                    density_value=10.0,
+                    chemical_formula="UO2",
+                    enrichment_percent=3.3,
+                )
+            ],
+            cells=[CellSpec(id="pin_cell", name="pin", fill_type="material", fill_id="fuel")],
+            universes=[UniverseSpec(id="pin", name="pin", cell_ids=["pin_cell"])],
+            lattices=[
+                LatticeSpec(
+                    id="core_lattice",
+                    name="core lattice",
+                    kind="rect",
+                    pitch_cm=(1.26, 1.26),
+                    universe_pattern=[["pin"]],
+                )
+            ],
+            core=CoreSpec(
+                id="core",
+                name="core",
+                lattice_id="core_lattice",
+                axial_layers=[
+                    AxialLayerSpec(
+                        id="active",
+                        name="active",
+                        z_min_cm=0.0,
+                        z_max_cm=10.0,
+                        fill={"type": "lattice", "id": "core_lattice"},
+                    )
+                ],
+            ),
+        ),
+        capability_report=RenderCapabilityReport(is_executable=False, supported_renderer="none"),
+        plot_specs=[PlotSpec(basis="xy", width_cm=(1.26, 1.26), filename="core_xy.png")],
+        execution_check=ExecutionCheckSpec(
+            settings=RunSettingsSpec(batches=6, inactive=1, particles=120)
+        ),
+    )
+
+    result = run_smoke_test(tmp_path, plan)
+
+    assert result.ok is True
+    assert calls[0][-1] == "smoke_model.py"
+    assert calls[1] == ["openmc"]
+    script = (tmp_path / "smoke_model.py").read_text(encoding="utf-8")
+    assert "openmc.RectLattice" in script
+    assert "settings.particles = 120" in script
+    assert "Combined k-effective" in result.stdout
 
 
 def test_parse_openmc_output_extracts_common_diagnostics() -> None:

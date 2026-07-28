@@ -9,6 +9,7 @@ from openmc_agent.plan_builder.closed_loop.axial_geometry_binding import build_a
 from openmc_agent.plan_builder.closed_loop.axial_geometry_evidence import build_axial_geometry_contract_matrix
 from openmc_agent.plan_builder.closed_loop.axial_geometry_preflight import run_axial_geometry_preflight
 from openmc_agent.plan_builder.closed_loop.models import PlanClosedLoopPolicy
+from openmc_agent.plan_builder.state import PlanPatchEnvelope
 
 
 def test_matrix_has_all_nine_row_kinds():
@@ -99,4 +100,28 @@ def test_preflight_blocks_bare_component_profile_lattice_layer():
     )
     codes = {issue["code"] for issue in result.issues}
     assert "axial.base_path_profile_missing" in codes
+    assert result.ok is False
+
+
+def test_preflight_blocks_ambiguous_reflective_core_boundary_for_finite_axial_core():
+    state = state_with_axial_patches()
+    state.add_patch(PlanPatchEnvelope(
+        patch_id="core_layout_1",
+        patch_type="core_layout",
+        content={
+            "patch_type": "core_layout",
+            "shape": [1, 1],
+            "assembly_pattern": [["type_a"]],
+            "boundary": "reflective",
+        },
+        status="valid",
+    ))
+
+    result = run_axial_geometry_preflight(
+        state=state,
+        policy=PlanClosedLoopPolicy(mode="controlled", axial_geometry_review_mode="controlled"),
+    )
+
+    codes = {issue["code"] for issue in result.issues}
+    assert "axial.core_boundary_conditions_missing" in codes
     assert result.ok is False

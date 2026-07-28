@@ -616,6 +616,7 @@ Schema: {{"patch_type": "core_layout",
   "assembly_pattern": [["type_id", ...], ...],
   "outer_assembly_type_id": "type_id_or_null",
   "boundary": "reflective|vacuum|periodic",
+  "boundary_conditions": {{"xmin": "reflective|vacuum|periodic|white|transmission", "xmax": "...", "ymin": "...", "ymax": "...", "zmin": "...", "zmax": "..."}},
   "expected_assembly_type_counts": {{"type_id": count}},
   "symmetry_description": "optional",
   "requires_human_confirmation": false}}
@@ -628,6 +629,9 @@ Rules:
 - All rows MUST have the same length.
 - Expected type multiplicities MUST match the pattern counts.
 - Use the boundary from the requirement document.
+- If radial and axial boundaries differ, set boundary_conditions explicitly for
+  all six faces. Do not collapse radial reflective + axial vacuum into a single
+  reflective boundary.
 - Do NOT fill missing positions with guesses.
 
 Reactor-neutral example (2x2 heterogeneous):
@@ -637,7 +641,8 @@ Reactor-neutral example (2x2 heterogeneous):
   "assembly_pitch_cm": 21.5,
   "assembly_pattern": [["type_a", "type_b"], ["type_b", "type_a"]],
   "expected_assembly_type_counts": {{"type_a": 2, "type_b": 2}},
-  "boundary": "reflective"}}""",
+  "boundary": "reflective",
+  "boundary_conditions": {{"xmin": "reflective", "xmax": "reflective", "ymin": "reflective", "ymax": "reflective", "zmin": "vacuum", "zmax": "vacuum"}}}}""",
 }
 
 

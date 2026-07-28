@@ -266,6 +266,34 @@ def _collect_fill_reference_issues(view: AxialGeometryBindingView, state: Any) -
     return issues
 
 
+def _collect_core_boundary_issues(view: AxialGeometryBindingView, state: Any) -> list[dict[str, Any]]:
+    """Fail closed on ambiguous finite-axial core boundary declarations."""
+    issues: list[dict[str, Any]] = []
+    if not view.axial_domain_cm:
+        return issues
+    core_env = _valid(state, "core_layout")
+    if core_env is None:
+        return issues
+    core_content = core_env.content
+    if isinstance(core_content, dict):
+        core_content = parse_patch_content("core_layout", core_content)
+    boundary = str(getattr(core_content, "boundary", "") or "")
+    boundary_conditions = getattr(core_content, "boundary_conditions", None)
+    if boundary == "reflective" and boundary_conditions is None:
+        issues.append(_issue(
+            "axial.core_boundary_conditions_missing",
+            (
+                "finite axial core uses boundary='reflective' without explicit "
+                "six-face boundary_conditions; this would make zmin/zmax reflective "
+                "unless the core_layout patch states otherwise"
+            ),
+            row_kind="source_domain_coverage",
+            row_key="core_boundary",
+            owner_patch_type="core_layout",
+        ))
+    return issues
+
+
 def _collect_overlay_issues(view: AxialGeometryBindingView, state: Any) -> list[dict[str, Any]]:
     issues: list[dict[str, Any]] = []
     domain = view.axial_domain_cm
@@ -463,6 +491,7 @@ def run_axial_geometry_preflight(*, state: Any, policy: PlanClosedLoopPolicy) ->
     issues.extend(_collect_local_validation_issues(state, ("base_path_axial_profiles", "axial_layers", "axial_overlays")))
     issues.extend(_collect_domain_issues(view))
     issues.extend(_collect_fill_reference_issues(view, state))
+    issues.extend(_collect_core_boundary_issues(view, state))
     issues.extend(_collect_overlay_issues(view, state))
     issues.extend(_collect_through_path_issues(view))
     issues.extend(_collect_localized_insert_issues(view))

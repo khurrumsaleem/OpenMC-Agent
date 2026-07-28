@@ -13,6 +13,7 @@ from openmc_agent.plan_builder.hierarchical_assembler import (
     assemble_assembly_templates,
     assemble_core_lattice,
 )
+from openmc_agent.schemas import CoreBoundarySpec
 
 
 def _make_catalog():
@@ -164,6 +165,39 @@ def test_core_lattice_assembly_universe_ids():
     core_lat = assemble_core_lattice(layout, assembly_uvs)
     assert core_lat.universe_pattern[0][0] == "universe_a"
     assert core_lat.universe_pattern[0][1] == "universe_b"
+
+
+def test_core_layout_boundary_conditions_are_carried_to_core_spec():
+    catalog = _make_catalog()
+    layout = CoreLayoutPatch(
+        shape=(2, 2),
+        assembly_pitch_cm=21.5,
+        assembly_pattern=[["type_a", "type_b"], ["type_b", "type_a"]],
+        boundary="reflective",
+        boundary_conditions=CoreBoundarySpec(
+            xmin="reflective",
+            xmax="reflective",
+            ymin="reflective",
+            ymax="reflective",
+            zmin="vacuum",
+            zmax="vacuum",
+        ),
+    )
+
+    result = build_hierarchical_core_plan(catalog, layout, facts=None)
+
+    assert result.core_spec is not None
+    assert result.core_spec.boundary == "mixed"
+    assert result.core_spec.boundary_conditions is not None
+    assert result.core_spec.boundary_conditions.zmax == "vacuum"
+    assert result.summary["core_boundary_conditions"] == {
+        "xmin": "reflective",
+        "xmax": "reflective",
+        "ymin": "reflective",
+        "ymax": "reflective",
+        "zmin": "vacuum",
+        "zmax": "vacuum",
+    }
 
 
 def test_base_lattice_no_localized_inserts():

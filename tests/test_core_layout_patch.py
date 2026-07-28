@@ -6,6 +6,7 @@ from openmc_agent.plan_builder.patches import (
     CoreLayoutPatch,
     parse_patch_content,
 )
+from openmc_agent.schemas import CoreBoundarySpec
 
 
 def test_core_layout_basic():
@@ -47,6 +48,25 @@ def test_parse_patch_content_core_layout():
     assert isinstance(patch, CoreLayoutPatch)
     assert patch.shape == (2, 2)
     assert patch.assembly_pattern[0] == ["a", "b"]
+
+
+def test_core_layout_accepts_explicit_mixed_boundary_conditions():
+    layout = CoreLayoutPatch(
+        shape=(1, 1),
+        assembly_pattern=[["type_a"]],
+        boundary="reflective",
+        boundary_conditions=CoreBoundarySpec(
+            xmin="reflective",
+            xmax="reflective",
+            ymin="reflective",
+            ymax="reflective",
+            zmin="vacuum",
+            zmax="vacuum",
+        ),
+    )
+
+    assert layout.boundary_conditions is not None
+    assert layout.boundary_conditions.zmin == "vacuum"
 
 
 def test_core_layout_outer_assembly_type():
