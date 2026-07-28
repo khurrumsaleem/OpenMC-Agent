@@ -72,6 +72,21 @@ _SOURCE_NOTE_FACT_CODES: frozenset[str] = frozenset({
     "facts.missing_operating_conditions",
 })
 
+_DOWNSTREAM_DETAIL_FACT_CODES: frozenset[str] = frozenset({
+    "missing_axial_layers",
+    "facts.missing_axial_layers",
+    "missing_standard_pin_radii",
+    "facts.missing_standard_pin_radii",
+    "missing_nozzle_core_plate_compositions",
+    "facts.missing_nozzle_core_plate_compositions",
+    "missing_spacer_grid_equivalent_geometry",
+    "facts.missing_spacer_grid_equivalent_geometry",
+    "missing_axial_overlaps",
+    "facts.missing_axial_overlaps",
+    "pyrex_bottom_plug_ambiguity",
+    "facts.pyrex_bottom_plug_ambiguity",
+})
+
 
 def _normalized_text(value: Any) -> str:
     return re.sub(r"[^a-z0-9.+-]+", " ", str(value).lower()).strip()
@@ -120,6 +135,25 @@ def _number_tokens(text: str) -> set[str]:
         if "." in normalized:
             tokens.add(normalized.rstrip("0").rstrip("."))
     return {token for token in tokens if token not in {"0", "1"}}
+
+
+def _format_float_token(value: float) -> str:
+    return f"{value:.12g}".rstrip("0").rstrip(".")
+
+
+def _number_token_covered(token: str, haystack: str) -> bool:
+    if token in haystack:
+        return True
+    try:
+        value = float(token)
+    except ValueError:
+        return False
+    equivalents = {
+        _format_float_token(value),
+        _format_float_token(value * 100.0),
+        _format_float_token(value / 100.0),
+    }
+    return any(item and item in haystack for item in equivalents)
 
 
 def _source_note_schema_boundary_covered(
@@ -175,7 +209,7 @@ def _source_note_schema_boundary_covered(
     if not note_text:
         return draft, None
     required_numbers = _number_tokens(message)
-    if required_numbers and not all(token in note_text for token in required_numbers):
+    if required_numbers and not all(_number_token_covered(token, note_text) for token in required_numbers):
         return draft, None
     topic_markers = {
         "density": ("density", "densities", "g cm3", "g/cc"),
@@ -206,6 +240,118 @@ def _source_note_schema_boundary_covered(
         "severity": PlanFindingSeverity.WARNING,
         "repairable_by_llm": False,
         "requires_human": False,
+    }), original
+
+
+def _normalize_downstream_detail_scope_classification(
+    draft: FactsReviewFindingDraft,
+) -> tuple[FactsReviewFindingDraft, dict[str, Any] | None]:
+    """Keep schema-unrepresentable detailed geometry/material facts advisory.
+
+    FactsPatch records high-level source contracts.  Detailed pin radii,
+    spacer-grid equivalent geometry, full axial layer tables, nozzle/core-plate
+    homogenization, and overlap semantics are represented in downstream patch
+    families.  A Facts reviewer may flag them while reading the source; that
+    finding is useful routing information but must not block Facts acceptance
+    unless it points to a required FactsPatch contract field that is actually
+    missing (scope, counts, variants, feature flags, or insert requirement
+    existence).
+    """
+
+    if draft.severity is not PlanFindingSeverity.ERROR:
+        return draft, None
+    code = draft.code.strip().lower()
+    message = _normalized_text(" ".join([
+        draft.code,
+        draft.message,
+        str(draft.expected_value or ""),
+        str(draft.current_value or ""),
+    ]))
+    downstream_markers = (
+        "pin radi",
+        "pellet radius",
+        "clad outer",
+        "guide tube wall",
+        "instrument tube wall",
+        "axial layer",
+        "z range",
+        "z ranges",
+        "z-ranges",
+        "plenum",
+        "end plug",
+        "bottom plug",
+        "top plug",
+        "nozzle",
+        "core plate",
+        "spacer grid",
+        "equivalent geometry",
+        "homogenized",
+        "overlap",
+        "downstream critical",
+    )
+    if code not in _DOWNSTREAM_DETAIL_FACT_CODES and not any(marker in message for marker in downstream_markers):
+        return draft, None
+
+    # Keep true FactsPatch contract omissions blocking.  The markers below are
+    # the fields FactsPatch owns structurally; downstream-detail findings that
+    # mention these only as already-present context should not block.
+    hard_contract_markers = (
+        "model_scope",
+        "assembly_count",
+        "core_lattice_size",
+        "assembly_type_counts",
+        "fuel_variant_requirements",
+        "localized_insert_requirements",
+        "has_spacer_grids",
+        "expected_spacer_grid_count",
+    )
+    missing_contract_markers = (
+        "missing model_scope",
+        "missing assembly_count",
+        "missing core_lattice_size",
+        "missing assembly_type_counts",
+        "missing fuel_variant_requirements",
+        "missing localized_insert_requirements",
+        "missing has_spacer_grids",
+        "missing expected_spacer_grid_count",
+        "omits model_scope",
+        "omits assembly_count",
+        "omits core_lattice_size",
+        "omits assembly_type_counts",
+        "omits fuel_variant_requirements",
+        "omits localized_insert_requirements",
+        "omits has_spacer_grids",
+        "omits expected_spacer_grid_count",
+    )
+    if any(marker in message for marker in missing_contract_markers):
+        return draft, None
+    if code == "facts_patch_incomplete":
+        # A generic incompleteness finding is only demoted when the prose is
+        # exclusively about downstream-detail topics, not when it identifies a
+        # missing hard FactsPatch contract field.
+        mentions_hard_contract = any(marker in message for marker in hard_contract_markers)
+        if mentions_hard_contract and not any(marker in message for marker in downstream_markers):
+            return draft, None
+
+    downstream_impact = list(dict.fromkeys([
+        *draft.downstream_impact,
+        "materials_contract",
+        "universes_contract",
+        "axial_geometry_contract",
+        "assembled_plan_contract",
+    ]))
+    original = {
+        "reason": "facts_downstream_detail_scope",
+        "owner_route": "downstream_patch_family",
+        "original_severity": draft.severity.value,
+        "original_repairable_by_llm": draft.repairable_by_llm,
+        "original_requires_human": draft.requires_human,
+    }
+    return draft.model_copy(update={
+        "severity": PlanFindingSeverity.WARNING,
+        "repairable_by_llm": False,
+        "requires_human": False,
+        "downstream_impact": downstream_impact,
     }), original
 
 
@@ -479,6 +625,7 @@ def normalize_facts_review_finding(
 
     classification_override = None
     for normalizer in (
+        _normalize_downstream_detail_scope_classification,
         _normalize_recording_metadata_classification,
         _normalize_confirmation_not_error_classification,
         _normalize_downstream_material_scope_classification,

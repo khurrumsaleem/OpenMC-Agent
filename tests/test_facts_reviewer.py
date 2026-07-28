@@ -165,6 +165,7 @@ def test_reviewer_rejects_source_note_schema_boundary_false_positive() -> None:
             "severity": "error",
             "category": "source_coverage",
             "message": "B10 0.712, B11 3.170, O16 55.217, and Si 40.901 are only recorded in source_notes, not dedicated structured fields.",
+            "expected_value": {"B-10": 0.00712, "B-11": 0.0317, "O-16": 0.55217, "Si": 0.40901},
             "evidence_hashes": [evidence],
             "affected_json_paths": ["/"],
             "repairable_by_llm": True,
@@ -234,3 +235,135 @@ def test_reviewer_keeps_uncovered_source_note_boundary_gap_blocking() -> None:
     assert result.ok
     assert not result.coverage_complete
     assert [finding.code for finding in result.findings] == ["MISSING_MATERIAL_DENSITIES"]
+
+
+def test_reviewer_downgrades_schema_unrepresentable_downstream_detail_gaps() -> None:
+    policy = PlanClosedLoopPolicy()
+    facts = {
+        "patch_type": "facts",
+        "model_scope": "single_assembly",
+        "assembly_count": 1,
+        "fuel_variant_requirements": [{"variant_id": "fuel"}],
+        "has_spacer_grids": True,
+        "has_axial_geometry": True,
+        "active_fuel_region_cm": [11.951, 377.711],
+        "axial_domain_cm": [-55.0, 463.937],
+        "missing_facts": [],
+        "assumptions": [],
+        "source_notes": [],
+    }
+    packs = build_facts_evidence_packs(
+        requirement_text="Source includes pin radii, axial layer z ranges, and spacer grid geometry.",
+        facts_patch=facts,
+        confirmed_facts={},
+        planning_metadata={},
+        policy=policy,
+    )
+    evidence = packs[0].source_excerpts[0].evidence_hash
+    payload = {
+        "review_status": "complete_with_gaps",
+        "reviewed_evidence_hashes": [evidence],
+        "coverage_summary": {},
+        "findings": [
+            {
+                "code": "MISSING_STANDARD_PIN_RADII",
+                "severity": "error",
+                "category": "source_coverage",
+                "message": "The facts patch omits standard pin radii such as pellet radius and clad outer radius.",
+                "evidence_hashes": [evidence],
+                "affected_json_paths": ["/"],
+                "repairable_by_llm": True,
+                "requires_human": False,
+                "confidence": 0.9,
+            },
+            {
+                "code": "MISSING_AXIAL_LAYERS",
+                "severity": "error",
+                "category": "source_coverage",
+                "message": "has_axial_geometry is true and active_fuel_region_cm is present, but detailed axial layer z-ranges for nozzles, core plates, plenums, and spacer grids are omitted.",
+                "evidence_hashes": [evidence],
+                "affected_json_paths": ["/has_axial_geometry", "/active_fuel_region_cm", "/axial_domain_cm"],
+                "repairable_by_llm": True,
+                "requires_human": False,
+                "confidence": 0.9,
+            },
+            {
+                "code": "FACTS_PATCH_INCOMPLETE",
+                "severity": "error",
+                "category": "source_coverage",
+                "message": "The missing_facts array is empty, but downstream-critical details such as axial z-ranges, standard pin radii, and spacer grid properties are omitted.",
+                "evidence_hashes": [evidence],
+                "affected_json_paths": ["/missing_facts"],
+                "repairable_by_llm": True,
+                "requires_human": False,
+                "confidence": 0.9,
+            },
+        ],
+    }
+
+    result = run_facts_review(
+        evidence_packs=packs,
+        reviewer_client=lambda _: json.dumps(payload),
+        state=PlanBuildState(state_id="s", requirement_text="r"),
+        policy=policy,
+    )
+
+    assert result.ok
+    assert result.coverage_complete
+    assert {finding.code for finding in result.findings} == {
+        "MISSING_STANDARD_PIN_RADII",
+        "MISSING_AXIAL_LAYERS",
+        "FACTS_PATCH_INCOMPLETE",
+    }
+    assert all(finding.severity.value == "warning" for finding in result.findings)
+    assert all(finding.repairable_by_llm is False for finding in result.findings)
+    assert {
+        finding.metadata["classification_override"]["reason"]
+        for finding in result.findings
+    } == {"facts_downstream_detail_scope"}
+
+
+def test_reviewer_keeps_hard_facts_contract_gap_blocking() -> None:
+    policy = PlanClosedLoopPolicy()
+    facts = {
+        "patch_type": "facts",
+        "model_scope": "unknown",
+        "missing_facts": [],
+        "assumptions": [],
+        "source_notes": [],
+    }
+    packs = build_facts_evidence_packs(
+        requirement_text="Source declares a multi-assembly benchmark with spacer grids.",
+        facts_patch=facts,
+        confirmed_facts={},
+        planning_metadata={},
+        policy=policy,
+    )
+    evidence = packs[0].source_excerpts[0].evidence_hash
+    payload = {
+        "review_status": "complete_with_gaps",
+        "reviewed_evidence_hashes": [evidence],
+        "coverage_summary": {},
+        "findings": [{
+            "code": "FACTS_PATCH_INCOMPLETE",
+            "severity": "error",
+            "category": "source_coverage",
+            "message": "The facts patch is incomplete because it omits model_scope and assembly_count.",
+            "evidence_hashes": [evidence],
+            "affected_json_paths": ["/model_scope", "/assembly_count"],
+            "repairable_by_llm": True,
+            "requires_human": False,
+            "confidence": 0.9,
+        }],
+    }
+
+    result = run_facts_review(
+        evidence_packs=packs,
+        reviewer_client=lambda _: json.dumps(payload),
+        state=PlanBuildState(state_id="s", requirement_text="r"),
+        policy=policy,
+    )
+
+    assert result.ok
+    assert not result.coverage_complete
+    assert result.findings[0].severity.value == "error"
