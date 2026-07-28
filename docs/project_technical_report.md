@@ -4,6 +4,9 @@
 
 ### 2026-07-28
 
+- **Phase 8C Step 3O Pyrex annular-profile hardening**：VERA4 base fixture now models source-backed Pyrex as helium center + SS304 inner tube + helium gap + annular Pyrex + helium gap + SS304 outer clad + water gap + guide-tube wall; upper Pyrex plenum now keeps helium center/plenum and SS304 tubes without poison glass. UniversesPatch validation now fails deterministic for solid Pyrex, missing helium center/gaps, or Pyrex material in an upper plenum.
+- **验证结果**：focused VERA4/Pyrex tests `104 passed`；全量非 OpenMC/非 LLM pytest `3787 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过；baseline diff 因 baseline 文件缺失跳过。下一步先用 no-LLM seed 重跑 VERA3B/VERA4 base plots/smoke，再启动从头真实 LLM milestone。
+
 - **Phase 8C Step 3O accepted-seed material normalization closure**：`--accepted-plan-build-state` 和 graph accepted-state handoff 现在复用 production material normalizer，并同步修正 seed 中已有 `assembled_plan.complex_model.materials`，避免旧五 Gate seed 的 1300 ppm / H-O-only coolant 绕过 MaterialsPatch 写入层直接进入 renderer。Assembled-plan runtime material schema 不再写入 patch-only `warnings/source_note`，provenance 保留在 state/patch metadata。
 - **验证结果**：focused material/seed tests `16 passed`；seed openmc-smoke v5 在本地导出 runnable XML/plots 后仍因 UCX `getifaddrs Operation not permitted` 环境问题失败，但导出的所有 coolant/water materials 已归一化到约 `1360 ppm`。全量非 OpenMC/非 LLM pytest `3784 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过；baseline diff 因 baseline 文件缺失跳过。
 

@@ -327,6 +327,21 @@ class TestFragmentPipelineMetadataStamping:
                         density_g_cm3=2.0, composition={"B10": 0.2, "O16": 0.8},
                         composition_basis="atom_frac", composition_status="approximate",
                     ),
+                    MaterialSpecPatch(
+                        material_id="m_helium", name="helium", role="gas",
+                        density_g_cm3=0.001, composition={"He4": 1.0},
+                        composition_basis="atom_frac", composition_status="approximate",
+                    ),
+                    MaterialSpecPatch(
+                        material_id="m_ss304", name="SS304", role="structural",
+                        density_g_cm3=8.0, composition={"Fe56": 1.0},
+                        composition_basis="atom_frac", composition_status="approximate",
+                    ),
+                    MaterialSpecPatch(
+                        material_id="m_water", name="water", role="moderator",
+                        density_g_cm3=0.743, composition={"H1": 0.667, "O16": 0.333},
+                        composition_basis="atom_frac", composition_status="approximate",
+                    ),
                 ],
             ).model_dump(mode="json"),
             source="fixture", status="valid",
@@ -356,8 +371,22 @@ class TestFragmentPipelineMetadataStamping:
                     "universes": [{
                         "universe_id": "profile_insert",
                         "kind": "pyrex_rod",
-                        "cells": [{"id": "poison", "role": "poison", "material_id": "m_poison",
-                                   "region_kind": "cylinder", "r_min_cm": 0.0, "r_max_cm": 0.4}],
+                        "cells": [
+                            {"id": "inner_helium", "role": "gas_gap", "material_id": "m_helium",
+                             "region_kind": "cylinder", "r_min_cm": 0.0, "r_max_cm": 0.2},
+                            {"id": "inner_tube", "role": "cladding", "material_id": "m_ss304",
+                             "region_kind": "annulus", "r_min_cm": 0.2, "r_max_cm": 0.22},
+                            {"id": "inner_gap", "role": "gas_gap", "material_id": "m_helium",
+                             "region_kind": "annulus", "r_min_cm": 0.22, "r_max_cm": 0.24},
+                            {"id": "poison", "role": "poison", "material_id": "m_poison",
+                             "region_kind": "annulus", "r_min_cm": 0.24, "r_max_cm": 0.42},
+                            {"id": "outer_gap", "role": "gas_gap", "material_id": "m_helium",
+                             "region_kind": "annulus", "r_min_cm": 0.42, "r_max_cm": 0.44},
+                            {"id": "outer_clad", "role": "cladding", "material_id": "m_ss304",
+                             "region_kind": "annulus", "r_min_cm": 0.44, "r_max_cm": 0.48},
+                            {"id": "water_gap", "role": "inner_flow", "material_id": "m_water",
+                             "region_kind": "annulus", "r_min_cm": 0.48, "r_max_cm": 0.56},
+                        ],
                     }],
                 })
 

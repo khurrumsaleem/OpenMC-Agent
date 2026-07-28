@@ -142,10 +142,13 @@ def test_vera4_complex_pyrex_universe():
         "universe_id": "u_pyrex",
         "kind": "pyrex_rod",
         "cells": [
-            {"id": "c1", "role": "gap", "material_id": "m_he", "region_kind": "cylinder", "r_min_cm": 0.0, "r_max_cm": 0.3},
-            {"id": "c2", "role": "poison", "material_id": "m_pyrex", "region_kind": "annulus", "r_min_cm": 0.3, "r_max_cm": 0.5},
-            {"id": "c3", "role": "gap", "material_id": "m_water", "region_kind": "annulus", "r_min_cm": 0.5, "r_max_cm": 0.6},
-            {"id": "c4", "role": "wall", "material_id": "m_clad", "region_kind": "annulus", "r_min_cm": 0.6, "r_max_cm": 0.7},
+            {"id": "c1", "role": "gas_gap", "material_id": "m_he", "region_kind": "cylinder", "r_min_cm": 0.0, "r_max_cm": 0.2},
+            {"id": "c2", "role": "cladding", "material_id": "m_clad", "region_kind": "annulus", "r_min_cm": 0.2, "r_max_cm": 0.22},
+            {"id": "c3", "role": "gas_gap", "material_id": "m_he", "region_kind": "annulus", "r_min_cm": 0.22, "r_max_cm": 0.24},
+            {"id": "c4", "role": "poison", "material_id": "m_pyrex", "region_kind": "annulus", "r_min_cm": 0.24, "r_max_cm": 0.42},
+            {"id": "c5", "role": "gas_gap", "material_id": "m_he", "region_kind": "annulus", "r_min_cm": 0.42, "r_max_cm": 0.44},
+            {"id": "c6", "role": "cladding", "material_id": "m_clad", "region_kind": "annulus", "r_min_cm": 0.44, "r_max_cm": 0.48},
+            {"id": "c7", "role": "inner_flow", "material_id": "m_water", "region_kind": "annulus", "r_min_cm": 0.48, "r_max_cm": 0.56},
         ],
     }
     manifest = UniverseManifest(

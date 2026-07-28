@@ -12,6 +12,7 @@ from openmc_agent.plan_builder.host_path_validation import (
     validate_all_replacements,
     HostEquivalenceReport,
 )
+from openmc_agent.plan_builder.validators import PatchValidationContext, validate_patch
 from openmc_agent.plan_builder.patches import (
     CellLayerPatch,
     UniverseSpecPatch,
@@ -126,6 +127,69 @@ class TestVERA4HostEquivalence:
         issues = validate_replacement_host_equivalence(pyrex, host)
         errors = [i for i in issues if i.severity == "error"]
         assert len(errors) == 0
+
+    def test_vera4_pyrex_poison_is_annular_with_helium_center_and_gaps(self):
+        """VERA4 Pyrex poison follows the input radial contract, not a solid rod."""
+        from vera4_base_fixture import build_vera4_universes
+        uvs = build_vera4_universes()
+        pyrex = next(u for u in uvs.universes if u.universe_id == "pyrex_poison")
+        result = validate_patch(uvs, PatchValidationContext())
+        assert result.ok, [i.code for i in result.issues]
+
+        cells = {c.id: c for c in pyrex.cells}
+        assert cells["inner_helium"].material_id == "helium"
+        assert cells["inner_helium"].r_min_cm == 0.0
+        assert cells["inner_helium"].r_max_cm == 0.214
+        assert cells["inner_tube"].material_id == "ss304"
+        assert cells["inner_tube"].r_min_cm == 0.214
+        assert cells["inner_gap"].material_id == "helium"
+        assert cells["pyrex"].material_id == "pyrex_glass"
+        assert cells["pyrex"].region_kind == "annulus"
+        assert cells["pyrex"].r_min_cm == 0.241
+        assert cells["pyrex"].r_max_cm == 0.427
+        assert cells["outer_gap"].material_id == "helium"
+        assert cells["outer_clad"].material_id == "ss304"
+        assert cells["water_gap"].material_id == "water"
+
+    def test_vera4_pyrex_upper_plenum_is_helium_not_pyrex_or_water_center(self):
+        """The Pyrex upper gas cavity preserves SS304 tubes and does not contain poison glass."""
+        from vera4_base_fixture import build_vera4_universes
+        uvs = build_vera4_universes()
+        plenum = next(u for u in uvs.universes if u.universe_id == "pyrex_plenum")
+        result = validate_patch(uvs, PatchValidationContext())
+        assert result.ok, [i.code for i in result.issues]
+
+        cells = {c.id: c for c in plenum.cells}
+        assert cells["inner_helium"].material_id == "helium"
+        assert cells["upper_plenum_helium"].material_id == "helium"
+        assert cells["upper_plenum_helium"].r_min_cm == 0.231
+        assert cells["upper_plenum_helium"].r_max_cm == 0.437
+        assert cells["inner_tube"].material_id == "ss304"
+        assert cells["outer_clad"].material_id == "ss304"
+        assert cells["water_gap"].material_id == "water"
+        assert not any(c.material_id == "pyrex_glass" for c in plenum.cells)
+
+    def test_solid_pyrex_rod_fails_deterministic_validation(self):
+        """Regression: future LLM output must not pass with solid Pyrex or water-filled center."""
+        bad = UniversesPatch(universes=[
+            UniverseSpecPatch(
+                universe_id="bad_pyrex", kind="pyrex_rod",
+                cells=[
+                    CellLayerPatch(id="pyrex", role="poison", material_id="pyrex_glass",
+                                   region_kind="cylinder", r_min_cm=0.0, r_max_cm=0.427),
+                    CellLayerPatch(id="water_gap", role="inner_flow", material_id="water",
+                                   region_kind="annulus", r_min_cm=0.427, r_max_cm=0.561),
+                    CellLayerPatch(id="wall", role="cladding", material_id="zircaloy4",
+                                   region_kind="annulus", r_min_cm=0.561, r_max_cm=0.602),
+                    CellLayerPatch(id="coolant", role="coolant", material_id="water",
+                                   region_kind="background"),
+                ],
+            ),
+        ])
+        result = validate_patch(bad, PatchValidationContext())
+        codes = {i.code for i in result.issues if i.severity == "error"}
+        assert "patch.universes.pyrex_annular_poison_missing" in codes
+        assert "patch.universes.pyrex_center_helium_missing" in codes
 
     def test_vera4_thimble_preserves_wall(self):
         from vera4_base_fixture import build_vera4_universes

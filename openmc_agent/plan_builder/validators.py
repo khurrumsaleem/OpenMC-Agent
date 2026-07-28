@@ -55,6 +55,21 @@ from .patches import (
 )
 
 
+def _is_helium_like_cell(cell: Any) -> bool:
+    """Return True when a cell is explicitly helium/gas, not moderator water."""
+    material = (getattr(cell, "material_id", None) or "").lower()
+    role = (getattr(cell, "role", "") or "").lower()
+    if "water" in material or "moderator" in material:
+        return False
+    return (
+        "helium" in material
+        or material in {"he", "m_he"}
+        or material.endswith("_he")
+        or "helium" in role
+        or "gas" in role
+    )
+
+
 # ---------------------------------------------------------------------------
 # Result models
 # ---------------------------------------------------------------------------
@@ -632,6 +647,72 @@ def _validate_universes(
                     ),
                     path=f"universes[{univ.universe_id}].cells",
                 ))
+            pyrex_cells = [
+                c for c in univ.cells
+                if "pyrex" in (c.material_id or "").lower()
+                or "pyrex" in c.role.lower()
+                or c.role.lower() == "poison"
+            ]
+            annular_pyrex = [
+                c for c in pyrex_cells
+                if c.region_kind == "annulus"
+                and c.r_min_cm is not None
+                and c.r_min_cm > 0.0
+                and c.r_max_cm is not None
+                and c.r_max_cm > c.r_min_cm
+            ]
+            if has_pyrex and not annular_pyrex:
+                issues.append(PatchValidationIssue(
+                    code="patch.universes.pyrex_annular_poison_missing",
+                    severity="error",
+                    message=(
+                        f"pyrex_rod universe {univ.universe_id!r} models Pyrex "
+                        "as a solid or non-annular region; Pyrex burnable "
+                        "poison must be an annulus around a non-poison center"
+                    ),
+                    path=f"universes[{univ.universe_id}].cells",
+                ))
+            first_pyrex_r_min = min(
+                (c.r_min_cm for c in annular_pyrex if c.r_min_cm is not None),
+                default=None,
+            )
+            center_cells = [
+                c for c in univ.cells
+                if c.region_kind == "cylinder"
+                and (c.r_min_cm in (None, 0.0))
+                and c.r_max_cm is not None
+                and (first_pyrex_r_min is None or c.r_max_cm <= first_pyrex_r_min)
+            ]
+            center_helium = any(
+                _is_helium_like_cell(c)
+                for c in center_cells
+            )
+            if has_pyrex and not center_helium:
+                issues.append(PatchValidationIssue(
+                    code="patch.universes.pyrex_center_helium_missing",
+                    severity="error",
+                    message=(
+                        f"pyrex_rod universe {univ.universe_id!r} has no helium "
+                        "center cavity before the Pyrex annulus"
+                    ),
+                    path=f"universes[{univ.universe_id}].cells",
+                ))
+            helium_gaps = [
+                c for c in univ.cells
+                if c.region_kind in {"cylinder", "annulus"}
+                and _is_helium_like_cell(c)
+            ]
+            if has_pyrex and len(helium_gaps) < 3:
+                issues.append(PatchValidationIssue(
+                    code="patch.universes.pyrex_helium_gaps_missing",
+                    severity="error",
+                    message=(
+                        f"pyrex_rod universe {univ.universe_id!r} does not "
+                        "show the helium center and radial helium gaps around "
+                        "the Pyrex annulus"
+                    ),
+                    path=f"universes[{univ.universe_id}].cells",
+                ))
             # A pyrex rod has concentric annuli with gas/water gaps between
             # solid layers. If there are only 3-4 cells (pyrex + clad + water)
             # the LLM likely merged gap layers into adjacent solids.
@@ -639,13 +720,47 @@ def _validate_universes(
             if len(non_background) <= 3:
                 issues.append(PatchValidationIssue(
                     code="patch.universes.pyrex_gaps_missing",
-                    severity="warning",
+                    severity="error",
                     message=(
                         f"pyrex_rod universe {univ.universe_id!r} has only "
                         f"{len(non_background)} non-background cells — a pyrex "
                         f"rod should have inner_tube, gap, pyrex, gap, outer_clad "
                         f"(5+ cells); thin gas/water gaps between solid layers "
                         f"are likely missing"
+                    ),
+                    path=f"universes[{univ.universe_id}].cells",
+                ))
+
+        if "pyrex" in univ.universe_id.lower() and "plenum" in univ.universe_id.lower():
+            pyrex_material_cells = [
+                c for c in univ.cells
+                if "pyrex" in (c.material_id or "").lower()
+            ]
+            if pyrex_material_cells:
+                issues.append(PatchValidationIssue(
+                    code="patch.universes.pyrex_plenum_contains_poison",
+                    severity="error",
+                    message=(
+                        f"Pyrex upper-plenum universe {univ.universe_id!r} "
+                        "contains Pyrex material; the upper gas plenum should "
+                        "replace poison glass with helium while preserving "
+                        "structural tubes/cladding"
+                    ),
+                    path=f"universes[{univ.universe_id}].cells",
+                ))
+            center_helium = any(
+                c.region_kind == "cylinder"
+                and (c.r_min_cm in (None, 0.0))
+                and _is_helium_like_cell(c)
+                for c in univ.cells
+            )
+            if not center_helium:
+                issues.append(PatchValidationIssue(
+                    code="patch.universes.pyrex_plenum_helium_missing",
+                    severity="error",
+                    message=(
+                        f"Pyrex upper-plenum universe {univ.universe_id!r} "
+                        "has no helium center/plenum region"
                     ),
                     path=f"universes[{univ.universe_id}].cells",
                 ))

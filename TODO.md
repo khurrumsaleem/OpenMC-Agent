@@ -2,8 +2,8 @@
 
 维护日期：2026-07-28
 
-当前基线：`main`，最近确认生产修复：MaterialsPatch source-declared coolant boron normalization
-全量测试：非 OpenMC/非 LLM `3782 passed, 2 skipped, 393 deselected`；`compileall` 通过；fake workflow benchmark `21/21`；baseline diff 因 baseline 文件缺失跳过
+当前基线：`main`，最近确认生产修复：MaterialsPatch source-declared coolant boron normalization；Pyrex annular poison / upper helium plenum deterministic validation
+全量测试：非 OpenMC/非 LLM `3787 passed, 2 skipped, 393 deselected`；`compileall` 通过；fake workflow benchmark `21/21`；baseline diff 因 baseline 文件缺失跳过
 
 本文档用于维护仓库级主线、已完成能力、近期任务和长期方向。  
 它不是单次运行生成的 skeleton `TODO.md`，也不应记录一次性调试日志。
@@ -12,7 +12,7 @@
 
 ## 0. 当前阶段判断
 
-项目已完成从"LLM 一次性生成大计划"到"分层规划、语义审查、受限修复、受控路由、确定性渲染和回归评估"的主要架构升级。Phase 8C 已将 VERA4 主线推进到五 Gate target-seed 通过、render/openmc-smoke 可复用 accepted seed 执行，并把最近暴露的 coolant boron ppm/质量份额单位问题前移到生产 MaterialsPatch 写入层做确定性修复。
+项目已完成从"LLM 一次性生成大计划"到"分层规划、语义审查、受限修复、受控路由、确定性渲染和回归评估"的主要架构升级。Phase 8C 已将 VERA4 主线推进到五 Gate target-seed 通过、render/openmc-smoke 可复用 accepted seed 执行，并把最近暴露的 coolant boron ppm/质量份额单位问题和 Pyrex 环形毒物棒/上部氦气腔结构问题前移到生产写入/Universe validation 层做确定性约束。
 
 当前重心：
 
@@ -23,9 +23,9 @@
 
 近期主线不再是继续增加新的 Agent 模块，而是：
 
-1. 确认生产 materials normalization 在真实 LLM path、fragmented materials path、retry path 都生效；
-2. 复用已通过五 Gate seed 重跑 render/openmc-smoke，确认 no-LLM 渲染路径和 keff sanity；
-3. 只在上述低成本验证通过后，启动一次从头真实 LLM VERA4 建模里程碑；
+1. 复用 deterministic fixture/accepted seed 重跑 VERA3B 与 VERA4 base render/openmc-smoke，确认 Pyrex 轴向连续性、环形毒物、helium center/plenum 和 keff sanity；
+2. 确认生产 materials normalization 与 Pyrex profile validation 在真实 LLM path、fragmented path、retry path 都生效；
+3. 只在上述低成本验证通过后，启动一次从头真实 LLM VERA3B / VERA4 base 建模里程碑；
 4. 若从头真实 run 失败，导出脱敏 artifact/replay fixture 离线修复，禁止连续盲目重跑 canary；
 5. 完整通过后再整理 deliverables、更新验收报告，并考虑将 reactor-neutral 模式抽象进 few-shot/memory 候选。
 
@@ -57,6 +57,7 @@
 | VERA4 Facts/MU/Placement/Axial/Assembled target gates | ✅ 已通过 seed/target 里程碑 |
 | VERA4 render/openmc-smoke seed path | ✅ 可从五 Gate seed 执行 |
 | VERA4 production material-unit normalization | ✅ 已接入 MaterialsPatch 写入层 |
+| VERA4 Pyrex annular poison / upper helium plenum validation | ✅ 已接入 UniversesPatch deterministic validation |
 | VERA4 从头真实 LLM 建模验收 | 🚧 下一主线里程碑 |
 
 ---
