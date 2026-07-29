@@ -2188,6 +2188,19 @@ def _reconcile_pixel_aspect(
     ratio = w1 / w2
     p2 = max(30, int(round((target_area / ratio) ** 0.5)))
     p1 = max(30, int(round(p2 * ratio)))
+    # Area preservation starves the smaller (usually radial) dimension on a
+    # slender xz/yz slice (e.g. 21 cm x 520 cm collapses to ~240 px radial,
+    # too coarse to resolve guide tubes / inserts). Enforce a minimum pixel
+    # count on the minor dimension and scale the major dimension by the true
+    # aspect ratio so the slice stays sharp enough to audit geometry.
+    min_minor = 600
+    if min(p1, p2) < min_minor:
+        if p1 <= p2:
+            p1 = min_minor
+            p2 = max(min_minor, int(round(p1 / ratio)))
+        else:
+            p2 = min_minor
+            p1 = max(min_minor, int(round(p2 * ratio)))
     return (p1, p2)
 
 
