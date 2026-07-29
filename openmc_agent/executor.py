@@ -3310,9 +3310,17 @@ def _render_axial_core_root(spec: ComplexModelSpec) -> str:
     z_max = max(layer.z_max_cm for layer in spec.core.axial_layers)
     boundaries = spec.core.boundary_conditions
     fallback_boundary = _root_boundary_type(spec.core.boundary)
-    # Core radial boundary comes from core.boundary (e.g. 'reflective'),
-    # NOT from individual assembly boundaries ('transmission' for internal).
-    radial_fallback = fallback_boundary
+    # Radial boundary: for a single-assembly model the (sole) assembly's
+    # boundary is the authoritative radial spec (e.g. 'reflective' for an
+    # infinite lattice of assemblies); a multi-assembly core uses core.boundary
+    # (assemblies are internal). The assembly boundary is read explicitly -- it
+    # is not defaulted, so a missing/invalid boundary surfaces rather than
+    # silently becoming a leaky vacuum box.
+    asms = getattr(spec, "assemblies", []) or []
+    if len(asms) == 1:
+        radial_fallback = _root_boundary_type(asms[0].boundary)
+    else:
+        radial_fallback = fallback_boundary
 
     lines = [
         f"assembly_x_min = {lower_left_x!r}",
