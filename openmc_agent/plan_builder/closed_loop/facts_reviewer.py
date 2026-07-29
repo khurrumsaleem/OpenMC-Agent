@@ -713,7 +713,19 @@ def normalize_facts_review_finding(
     if normalized_paths != draft.affected_json_paths:
         draft = draft.model_copy(update={"affected_json_paths": normalized_paths})
 
-    if any(not path.startswith("/") or path.startswith("/materials") or path.startswith("/universes") for path in draft.affected_json_paths):
+    if any(
+        not path.startswith("/")
+        or path.startswith("/materials")
+        or path.startswith("/universes")
+        # Evidence-pack / planning metadata paths are not FactsPatch fields.
+        # The Facts revision loop cannot act on them (they are produced by
+        # deterministic feature detection / planning-mode decisioning before
+        # review), so a finding on them deadlocks closure.
+        or path.startswith("/patch_summaries")
+        or path.startswith("/planning_feature_contract")
+        or path.startswith("/planning_mode_decision")
+        for path in draft.affected_json_paths
+    ):
         return FactsFindingNormalization(
             draft=draft,
             rejected={"code": "facts_review.path_out_of_scope", "finding_code": draft.code},

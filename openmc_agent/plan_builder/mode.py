@@ -80,7 +80,11 @@ _MULTI_UNIVERSE_TERMS: tuple[str, ...] = (
 )
 
 _LARGE_LATTICE_PATTERN: tuple[re.Pattern[str], ...] = (
-    re.compile(r"\b(\d{2,})\s*[x×]\s*(\d{2,})\b", re.IGNORECASE),
+    # Match "NNxNN" lattice dimensions, but NOT the fractional part of a
+    # decimal dimension like "21.50x21.50" (where "50x21" would otherwise be
+    # misread as a 50-dim lattice). The lookarounds require the matched digit
+    # groups to be bounded by non-digit, non-dot characters.
+    re.compile(r"(?<![0-9.])(\d{2,})\s*[x×]\s*(\d{2,})(?![0-9.])", re.IGNORECASE),
 )
 
 _LARGE_LATTICE_THRESHOLD: int = 20

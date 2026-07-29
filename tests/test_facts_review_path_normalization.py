@@ -139,6 +139,26 @@ class TestPathNormalization:
         assert len(findings) == 0
         assert any(r.get("code") == "facts_review.path_out_of_scope" for r in rejected)
 
+    def test_planning_metadata_paths_rejected_as_out_of_scope(self):
+        """Findings on evidence-pack / planning-metadata paths (feature
+        contract, planning-mode decision) are not FactsPatch fields and the
+        Facts revision loop cannot act on them, so they must be rejected
+        rather than deadlock closure."""
+        pack = _make_pack()
+        eh = pack.source_excerpts[0].evidence_hash
+        output = _make_output([
+            _make_draft_dict(
+                code="FR-001",
+                severity="error",
+                category="representation_error",
+                paths=["/patch_summaries/planning_mode_decision/feature_summary/large_lattice_dimension"],
+                evidence_hash=eh,
+            ),
+        ])
+        findings, rejected = _normalize(output, pack)
+        assert len(findings) == 0
+        assert any(r.get("code") == "facts_review.path_out_of_scope" for r in rejected)
+
     def test_multiple_paths_normalized(self):
         """Multiple paths in one finding are all normalized."""
         pack = _make_pack()

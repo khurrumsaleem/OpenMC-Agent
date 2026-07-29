@@ -193,6 +193,18 @@ def test_hyphenated_document_identifier_is_not_a_lattice_dimension() -> None:
     assert decision.feature_summary["large_lattice_dimension"] is None
 
 
+def test_decimal_dimension_not_misread_as_large_lattice() -> None:
+    """A decimal assembly cross-section like '21.50x21.50 cm^2' must not be
+    misread as a 50-dim lattice (the '50x21' substring inside the decimal).
+    Regression: VERA3 was wrongly tagged large_lattice_dimension=50 from its
+    21.50x21.50 assembly footprint."""
+    from openmc_agent.plan_builder.mode import _detect_large_lattice
+    assert _detect_large_lattice("nozzle uses the full 21.50x21.50 cm^2 footprint") is None
+    assert _detect_large_lattice("17x17 fuel assembly with 21.50x21.50 cm pitch") is None
+    # A genuine large lattice is still detected.
+    assert _detect_large_lattice("a 50x50 full-core lattice") == 50
+
+
 # ---------------------------------------------------------------------------
 # 10. Feature summary is populated correctly
 # ---------------------------------------------------------------------------
