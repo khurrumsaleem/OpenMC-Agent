@@ -178,6 +178,85 @@ def _find_background_material(
     return candidates[0][0]
 
 
+def _select_anchor_moderator(
+    material_info: dict[str, dict[str, Any]],
+    selected_variant: str | None,
+) -> str | None:
+    """Pick the lattice moderator for the active variant.
+
+    Prefers the coolant/moderator whose id references the selected variant
+    (e.g. ``borated_water_3A`` for variant ``3A``); falls back to the unique
+    coolant/moderator when there is exactly one. Returns ``None`` when no
+    unambiguous anchor exists (caller leaves backgrounds untouched).
+    """
+    coolant_mods = [
+        mid for mid, info in material_info.items()
+        if str(info.get("role", "")).lower() in ("coolant", "moderator")
+    ]
+    sv = str(selected_variant or "").strip().lower()
+    if sv:
+        for mid in coolant_mods:
+            if sv in mid.lower():
+                return mid
+    return coolant_mods[0] if len(coolant_mods) == 1 else None
+
+
+def canonicalize_background_materials(
+    content: dict[str, Any],
+    material_info: dict[str, dict[str, Any]],
+    selected_variant: str | None,
+) -> UniversesPatchNormalizationResult:
+    """Rewrite background cells to the active variant's moderator.
+
+    The LLM sometimes fills a guide/instrument-tube background with the
+    moderator of a different variant (e.g. ``borated_water_3B`` in a ``3A``
+    model) when it emitted materials for several variants. The fuel-region
+    background defines the lattice moderator for the modeled variant; rewrite
+    every coolant/moderator background cell to that anchor so the whole
+    lattice uses one consistent moderator. Reactor-neutral: driven by the
+    selected variant and material roles, no hardcoded ids.
+    """
+    universes = content.get("universes")
+    if not isinstance(universes, list):
+        return UniversesPatchNormalizationResult(content=content)
+    anchor = _select_anchor_moderator(material_info, selected_variant)
+    if not anchor:
+        return UniversesPatchNormalizationResult(content=content)
+    targets: list[tuple[int, int, str]] = []
+    for ui, u in enumerate(universes):
+        if not isinstance(u, dict):
+            continue
+        for ci, c in enumerate(u.get("cells", [])):
+            if not isinstance(c, dict) or c.get("region_kind") != "background":
+                continue
+            mat = c.get("material_id")
+            if (
+                mat and mat != anchor
+                and str(material_info.get(mat, {}).get("role", "")).lower()
+                in ("coolant", "moderator")
+            ):
+                targets.append((ui, ci, mat))
+    if not targets:
+        return UniversesPatchNormalizationResult(content=content)
+    new_content = copy.deepcopy(content)
+    new_universes = new_content["universes"]
+    for ui, ci, _ in targets:
+        new_universes[ui]["cells"][ci]["material_id"] = anchor
+    return UniversesPatchNormalizationResult(
+        content=new_content,
+        operations=[{
+            "operation": "background_material_canonicalized",
+            "anchor_material_id": anchor,
+            "rewritten_from": sorted({t[2] for t in targets}),
+            "count": len(targets),
+            "message": (
+                "rewrote background moderator cells to the active variant's "
+                f"moderator {anchor!r}"
+            ),
+        }],
+    )
+
+
 def _correct_cell_role(
     cell: dict[str, Any],
     material_roles: dict[str, str],
@@ -402,6 +481,15 @@ def normalize_universes_patch_content(
     if poison_strip.changed:
         content = poison_strip.content
         operations.extend(poison_strip.operations)
+
+    bg_canon = canonicalize_background_materials(
+        content,
+        _build_material_info_map(state),
+        getattr(state, "selected_variant", None),
+    )
+    if bg_canon.changed:
+        content = bg_canon.content
+        operations.extend(bg_canon.operations)
 
     universes = content.get("universes")
     if not isinstance(universes, list) or not universes:
