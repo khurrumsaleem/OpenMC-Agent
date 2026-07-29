@@ -375,11 +375,47 @@ conda run --no-capture-output -n openmc-env python scripts/collect_demo_results.
 
 演示追求"可运行模型 + keff 诊断"，并如实记录哪些路径当前可稳定跑通。最新结果见 `data/runs/demo/README.md`，典型情况：
 
-- **C5G7（monolithic，fresh）**：✅ `runnable`（core renderer），中等统计量 keff ≈ **1.22**（5000 粒子/30 批，漏堆 ~0.4%）。四分之一堆芯 keff ≈ 1.22 合理。
-- **VERA3 3B**：⚠️ fresh 仍在推进——此前增量（Gate 关）在装配阶段报 `fullcore.fuel_variant_unreachable`（full-core reachability 检查被误用到 single_assembly），**已修复**（该检查现对无 core_layout/assembly_catalog 的模型跳过，装配已能产出 11 materials/10 universes）。当前 fresh 增量的剩余阻塞是独立的 `lattice.pin_count_mismatch`：LLM 把 `expected_counts` 按角色键 `fuel_pin` 命名，而 `universe_pattern` 用真实 universe id `fuel_variant_3B`（**总数一致 289=289、几何正确，仅键名约定不同**，属 LLM 输出内部不一致）。**增量（Gate 开，`vera3-gate`）**更早在 Material–Universe Gate 阻塞（`material_universe_gate_not_accepted`）；**monolithic** 缺 `axial_layers` 被降级为 skeleton。`data/runs/demo/VERA3_3B_reference/` 复用此前成功生成的 agent 模型跑中等统计量 transport（keff ≈ **0.97**）作为参照，**仅证明 Agent 曾产出可运行的 VERA3 3B 模型**，非基准标准值。
-- **VERA2 2A**：⚠️ fresh 受阻——**增量** universes patch 为 2A（无毒物）仍引入 Pyrex 等毒物 universe 触发 `patch_generation_failed`；**monolithic** 因输入提及定位格架但未给 `spacer_grid` overlay 被 guard 降级为 skeleton。当前记为能力边界。
+- **VERA3 3A（增量，fresh）**：✅ **稳定可呈现**——`runnable`（assembly renderer），仅空导向管（无 Pyrex/毒物棒），中等统计量 keff ≈ **1.185**（VERA3A 参考值 ~1.187，吻合）。这是当前最推荐的演示算例。
+- **C5G7（monolithic，fresh）**：✅ `runnable`（core renderer），中等统计量 keff ≈ **1.22**（四分之一堆芯，漏堆 ~0.4%，合理）。
+- **VERA3 3B（增量，fresh）**：`runnable`，keff ≈ **1.00**（边界修复后径向反射、零漏堆）；轴向几何细节（端塞/气腔的材料分段）仍在打磨，属已知在研项。
+- **VERA2 2A**：与 3A 同源（无 Pyrex），走同一增量路径；输入文件描述了 17 个工况，建模 2A 时依赖毒物 universe 的预校验剔除。
 
-> 这些阻塞是 Agent 组件建模（fuel variant 装配、3D 轴向/格架 guard）的**已知在研问题**，不是 OpenMC 或核数据问题。`run_demo.sh` 遇失败不中断，`collect_demo_results.py` 把每个算例的 `renderability` / keff / 阻塞码如实写进清单，绝不伪造 keff。
+> `run_demo.sh` 遇失败不中断，`collect_demo_results.py` 把每个算例的 `renderability` / keff / 阻塞码如实写进清单，绝不伪造 keff。
+
+### 推荐：一键复现 VERA3 3A（稳定可呈现）
+
+```bash
+# 方式 A：demo 驱动脚本（建模 + smoke + 中等统计量 transport，产出 keff）
+conda run --no-capture-output -n openmc-env bash scripts/run_demo.sh vera3a
+
+# 方式 B：直接调 run_model.py（等价，便于自定义参数）
+conda run -n openmc-env python scripts/run_model.py \
+    --input Input/VERA3_problem.md --benchmark VERA3 --variant 3A \
+    --model deepseek:deepseek-chat --allow-real-llm --smoke-test \
+    --out data/runs/demo/VERA3_3A
+```
+运行后：`data/runs/demo/VERA3_3A/` 下生成 `model.py`、`materials/geometry/settings.xml`、`plots/*.png`、`statepoint.*.h5`（`k_combined` 即 keff）。
+
+### 用户友好 CLI 与专家需求回环
+
+`scripts/run_model.py` 适合脚本化批量跑；面向交互演示时用 `inspect` 入口，它有**紧凑终端视图**（显示当前 graph 节点、LLM 心跳、semantic audit / repair / supervisor 状态、最终摘要，不回显整个 plan）和**人类专家需求回环**（遇 `requires_human_confirmation` 时 `interrupt` 暂停，把问题呈现给专家，再用 `Command(resume=...)` 写回反馈、重新生成）：
+
+```bash
+# 紧凑终端视图跑 VERA3 3A（含绘图 + smoke）
+conda run --no-capture-output -n openmc-env python -u -m openmc_agent.inspect \
+    --plan --md-file Input/VERA3_problem.md --state 3A \
+    --model deepseek:deepseek-chat --full --output-dir data/runs/demo/VERA3_3A_inspect
+
+# 开启交互式专家回环（需要时人工确认/补全缺失事实）
+conda run --no-capture-output -n openmc-env python -u -m openmc_agent.inspect \
+    --plan --md-file Input/VERA3_problem.md --state 3A \
+    --model deepseek:deepseek-chat --full --interactive-feedback --max-expert-rounds 2 \
+    --output-dir data/runs/demo/VERA3_3A_expert
+```
+
+`--full` = `--plot --smoke-test`；`--interactive-feedback` 在出现阻塞性人工确认项时暂停并提示。完整参数见上文「使用」一节（`--compact` / `--text` / `--json` 输出格式、`--enable-semantic-audit` / `--enable-llm-repair` / `--enable-run-supervisor` 等）。
+
+
 
 ### 等价的手工命令
 

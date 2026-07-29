@@ -52,21 +52,58 @@
     "outcome": "skeleton（不可导出）：assembly3d.spacer_grid_overlay_required"
   },
   {
+    "case": "VERA3_3A",
+    "mode": "增量 + Gate 关",
+    "renderability": "runnable",
+    "supported_renderer": "assembly",
+    "workflow_status": "ok",
+    "blocker": [],
+    "model_exists": true,
+    "xml_ok": true,
+    "statepoint": "statepoint.40.h5",
+    "keff": [
+      1.1854692231835293,
+      0.0021673719606965813
+    ],
+    "plots_count": 6,
+    "dir": "data/runs/demo/VERA3_3A",
+    "outcome": "runnable（keff=1.18547±0.00217）"
+  },
+  {
     "case": "VERA3_3B",
     "mode": "增量 + Gate 关",
-    "renderability": "none",
-    "supported_renderer": null,
-    "workflow_status": "blocked_review_only",
-    "blocker": [
-      "lattice.pin_count_mismatch"
+    "renderability": "runnable",
+    "supported_renderer": "assembly",
+    "workflow_status": "ok",
+    "blocker": [],
+    "model_exists": true,
+    "xml_ok": true,
+    "statepoint": "statepoint.40.h5",
+    "keff": [
+      1.0003953802850862,
+      0.002245764038958922
     ],
-    "model_exists": false,
-    "xml_ok": false,
-    "statepoint": null,
-    "keff": null,
-    "plots_count": 0,
+    "plots_count": 6,
     "dir": "data/runs/demo/VERA3_3B",
-    "outcome": "未完成：lattice.pin_count_mismatch"
+    "outcome": "runnable（keff=1.00040±0.00225）"
+  },
+  {
+    "case": "VERA3_3B_boundarytest",
+    "mode": "增量 + Gate 关",
+    "renderability": null,
+    "supported_renderer": null,
+    "workflow_status": null,
+    "blocker": [],
+    "model_exists": false,
+    "xml_ok": true,
+    "statepoint": "statepoint.40.h5",
+    "keff": [
+      1.0013012284144824,
+      0.002303105703226967
+    ],
+    "plots_count": 0,
+    "dir": "data/runs/demo/VERA3_3B_boundarytest",
+    "outcome": "runnable（keff=1.00130±0.00230）"
   },
   {
     "case": "VERA3_3B_gate",

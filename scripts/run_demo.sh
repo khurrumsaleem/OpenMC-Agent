@@ -135,6 +135,10 @@ run_vera3() {  # 增量 + Gate 关（可能命中装配 bug）
   gates_off_run "Input/VERA3_problem.md" "VERA3" "3B" "$DEMO_ROOT/VERA3_3B"
   transport "$DEMO_ROOT/VERA3_3B" "$PARTICLES" "$BATCHES" "$INACTIVE"
 }
+run_vera3a() {  # VERA3 3A：无 Pyrex，仅空导向管（最稳定可呈现）
+  gates_off_run "Input/VERA3_problem.md" "VERA3" "3A" "$DEMO_ROOT/VERA3_3A"
+  transport "$DEMO_ROOT/VERA3_3A" "$PARTICLES" "$BATCHES" "$INACTIVE"
+}
 run_vera3_mono() {  # monolithic + Gate 关（推荐 fresh 路径）
   monolithic_run "Input/VERA3_problem.md" "VERA3" "3B" "$DEMO_ROOT/VERA3_3B_mono"
   transport "$DEMO_ROOT/VERA3_3B_mono" "$PARTICLES" "$BATCHES" "$INACTIVE"
@@ -161,18 +165,19 @@ case "$TARGET" in
   all)
     # C5G7 + VERA monolithic（最可能跑通）+ 增量 & Gate 探针（记录当前边界）
     run_c5g7
-    run_vera3_mono; run_vera3; run_vera3_gate
+    run_vera3a; run_vera3_mono; run_vera3; run_vera3_gate
     run_vera2_mono; run_vera2; run_vera2_gate
     ;;
   c5g7)        run_c5g7 ;;
   vera2)       run_vera2 ;;
   vera2-mono)  run_vera2_mono ;;
   vera2-gate)  run_vera2_gate ;;
+  vera3a)      run_vera3a ;;
   vera3)       run_vera3 ;;
   vera3-mono)  run_vera3_mono ;;
   vera3-gate)  run_vera3_gate ;;
   *) echo "未知 target: $TARGET"
-     echo "可用: all | c5g7 | vera2 | vera2-mono | vera2-gate | vera3 | vera3-mono | vera3-gate"
+     echo "可用: all | c5g7 | vera3a | vera3 | vera3-mono | vera3-gate | vera2 | vera2-mono | vera2-gate"
      exit 2 ;;
 esac
 
