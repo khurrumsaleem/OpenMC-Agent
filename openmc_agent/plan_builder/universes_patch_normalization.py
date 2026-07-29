@@ -287,7 +287,20 @@ def _inject_background_cells(
 
 # Poison universe kinds that are only legitimate when the variant's FactsPatch
 # explicitly declares a localized insert of that kind.
-_POISON_UNIVERSE_KINDS = {"pyrex_rod", "thimble_plug", "control_rod"}
+_POISON_UNIVERSE_KINDS = {
+    "pyrex_rod",
+    "thimble_plug",
+    "control_rod",
+    # Common LLM-invented poison/instrument universe kinds.  Facts uses the
+    # declared insert_kind contract as the authority, so these are removed
+    # only when that contract does not explicitly allow them.
+    "aic_rod",
+    "b4c_rod",
+    "waba_rod",
+    "ifba_pin",
+    "gadolinia_pin",
+    "instrument_thimble",
+}
 
 
 def _declared_localized_insert_kinds(state: Any) -> set[str] | None:
@@ -385,6 +398,11 @@ def normalize_universes_patch_content(
     The normalizer is idempotent.
     """
     operations: list[dict[str, Any]] = []
+    poison_strip = strip_spurious_poison_universes(content, state=state)
+    if poison_strip.changed:
+        content = poison_strip.content
+        operations.extend(poison_strip.operations)
+
     universes = content.get("universes")
     if not isinstance(universes, list) or not universes:
         return UniversesPatchNormalizationResult(content=content, operations=operations)

@@ -125,7 +125,10 @@ def _collect_materials_issues(materials_patch: Any, view: MaterialUniverseBindin
         variant = contract.get("expected_variant_id")
         if variant:
             # Fuel variant: check by source_variant_id.
-            found = any(m.source_variant_id == variant for m in materials_patch.materials)
+            found = any(
+                m.role == "fuel" and m.source_variant_id == variant
+                for m in materials_patch.materials
+            )
             if not found:
                 issues.append(_issue("material_universe.required_fuel_variant_material_missing", f"fuel variant {variant} has no material", row_kind="source_material_coverage", row_key=contract["requirement_id"], requirement_id=contract["requirement_id"]))
         elif role:
@@ -142,7 +145,7 @@ def _collect_materials_issues(materials_patch: Any, view: MaterialUniverseBindin
     # Duplicate fuel variant materials (two materials same source_variant_id).
     variant_counts: dict[str, int] = {}
     for m in materials_patch.materials:
-        if m.source_variant_id:
+        if m.role == "fuel" and m.source_variant_id:
             variant_counts[m.source_variant_id] = variant_counts.get(m.source_variant_id, 0) + 1
     for variant_id, count in variant_counts.items():
         if count > 1:
@@ -157,7 +160,7 @@ def _collect_universes_issues(universes_patch: Any, view: MaterialUniverseBindin
     material_variant_by_id = {
         m.material_id: m.source_variant_id
         for m in view.material_records
-        if m.source_variant_id
+        if m.role == "fuel" and m.source_variant_id
     }
     for universe in universes_patch.universes:
         uid = universe.universe_id

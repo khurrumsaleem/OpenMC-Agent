@@ -2,6 +2,13 @@
 
 维护日期：2026-07-29
 
+### 2026-07-29 (Late PM)
+
+- **Phase 8C Step 3P v20 MU fuel-variant 闭合**：v20 真实 VERA3B 首次让 Facts、Materials、Universes 三件套有效后，MU gate 因 `fuel_3b` 与 `coolant_3b` 同时带短标签 `source_variant_id="3B"` 而重试失败；Facts/Universe 的 canonical id 为 `3B_fuel`。修复：Materials normalizer 清除所有非 fuel material 的 stray `source_variant_id`；MU preflight 的 required/duplicate/mismatch variant 检查全部限定为 fuel role，与单 patch validator 语义一致。v20 保存三件套离线回放现为 `MU ok=True, 0 issues`（fuel `3B→3B_fuel`，coolant variant id 清除）。
+- **Facts 驱动毒物隔离补全**：复用既有 `strip_spurious_poison_universes`，将其纳入通用 Universes normalizer，覆盖 monolithic、fragmented 和 state 接收三条路径；扩展识别常见 LLM 幻觉类型（AIC/B4C/WABA/IFBA/gadolinia/instrument thimble）。Facts 未声明 insert 时剔除，3B 明确声明 Pyrex 时保留，故 `pyrex_annular_poison_missing` 直接 validator 安全测试仍有效。
+- **组件 profile loading 自动挂载**：assembler 对未挂载的 `replace_universe_family` loading，以 loading id/purpose/replacement-universe 的通用 component 语义（end_plug/plenum/gas_gap/shoulder_gap）唯一匹配 lattice axial layer；lower/upper 方向进一步消歧。可确定地防止端塞/气腔层退回基础 fuel lattice；语义不明时仍保留 `axial.loading_unattached` fail-closed。
+- **验证结果**：新增 Phase 8C 定向 regressions，包含 v20 fuel/coolant variant、Facts 未声明毒物全类型清理、声明 Pyrex 保留与 plenum loading 自动挂载；全量 `3890 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过。后续真实验证优先使用 SenseNova 托管 `ds:deepseek-v4-flash`。
+
 ### 2026-07-29 (PM)
 
 - **Phase 8C Step 3P MU gate 完全通过：MU ok=True, 0 issues**：在 implicit universe 归一化基础上，新增 background cell 自动注入，使 v19 MU preflight 从「1 warning」降为「0 issues」。UniversesPatch normalizer 新增能力：

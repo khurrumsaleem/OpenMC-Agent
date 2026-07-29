@@ -1479,12 +1479,12 @@ def generate_patch(
                 content = normalization.content
                 schema_normalizations = normalization.operations
         elif patch_type == "universes":
-            from .universes_patch_normalization import strip_spurious_poison_universes
+            from .universes_patch_normalization import normalize_universes_patch_content
 
-            poison_strip = strip_spurious_poison_universes(content, state=state)
-            if poison_strip.changed:
-                content = poison_strip.content
-                schema_normalizations = poison_strip.operations
+            normalization = normalize_universes_patch_content(content, state=state)
+            if normalization.changed:
+                content = normalization.content
+                schema_normalizations = normalization.operations
         elif patch_type == "axial_layers":
             schema_normalizations = _normalize_axial_schema_defaults(content)
         elif patch_type == "axial_overlays":

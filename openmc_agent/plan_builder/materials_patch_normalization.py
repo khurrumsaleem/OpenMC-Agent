@@ -106,6 +106,16 @@ def normalize_materials_patch_content(
             if op is not None:
                 operations.append(op)
 
+    # source_variant_id binds a fuel material to a Facts fuel variant.  LLMs
+    # sometimes copy that field onto variant-specific coolant or structural
+    # materials; leaving it there creates false duplicate-variant findings.
+    for material in normalized.get("materials", []) or []:
+        if not isinstance(material, dict):
+            continue
+        op = _strip_non_fuel_source_variant_id(material)
+        if op is not None:
+            operations.append(op)
+
     source_text = _collect_source_text(state=state, requirement_text=requirement_text)
     requirement = extract_soluble_boron_requirement(source_text)
     if requirement is None:
@@ -501,6 +511,23 @@ def _canonicalize_fuel_source_variant_id(
         "material_id": material.get("material_id"),
         "from": actual,
         "to": canonical,
+    }
+
+
+def _strip_non_fuel_source_variant_id(
+    material: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Remove a fuel-only variant binding copied onto another material role."""
+    role = str(material.get("role") or "").strip().lower()
+    actual = material.get("source_variant_id")
+    if role == "fuel" or actual is None:
+        return None
+    material["source_variant_id"] = None
+    return {
+        "operation": "non_fuel_source_variant_id_stripped",
+        "material_id": material.get("material_id"),
+        "role": role,
+        "from": actual,
     }
 
 

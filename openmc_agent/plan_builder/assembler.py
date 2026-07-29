@@ -1485,6 +1485,98 @@ def _assemble_axial_layers(
     return layers, loadings, issues, aliases_applied
 
 
+_COMPONENT_PROFILE_LOADING_TOKENS = (
+    "shoulder_gap",
+    "end_plug",
+    "plenum",
+    "gas_gap",
+)
+
+
+def _auto_attach_component_profile_loadings(
+    layers: list[AxialLayerSpec],
+    loadings: list[LatticeLoadingSpec],
+) -> tuple[list[AxialLayerSpec], list[PlanAssemblyIssue]]:
+    """Attach provably matching component-profile loadings to lattice layers.
+
+    Localized inserts are attached deterministically before assembly, but LLM
+    axial patches can declare an end-plug/plenum/shoulder loading and omit its
+    layer reference.  Leaving such a layer bare makes it render the base fuel
+    lattice.  Infer only generic component-role matches from the loading's
+    structured id/purpose/replacement ids; ambiguous loadings remain
+    unattached for the axial preflight to fail closed.
+    """
+    attached = {
+        loading_id
+        for layer in layers
+        for loading_id in ([layer.loading_id] if layer.loading_id else []) + list(layer.loading_ids)
+    }
+    issues: list[PlanAssemblyIssue] = []
+    result = list(layers)
+    for loading in loadings:
+        if loading.id in attached:
+            continue
+        if not any(
+            transform.operation_kind == "replace_universe_family"
+            for transform in loading.transformations
+        ):
+            continue
+        semantic_text = " ".join(
+            [loading.id, loading.purpose]
+            + [
+                transform.replacement_universe_id
+                for transform in loading.transformations
+                if transform.replacement_universe_id
+            ]
+        ).lower()
+        hints = [
+            token for token in _COMPONENT_PROFILE_LOADING_TOKENS
+            if token in semantic_text
+        ]
+        if len(hints) != 1:
+            continue
+        hint = hints[0]
+        direction = next(
+            (
+                token
+                for token in ("lower", "upper")
+                if f"{token}_" in semantic_text or f"_{token}" in semantic_text
+            ),
+            None,
+        )
+        candidates = [
+            index
+            for index, layer in enumerate(result)
+            if (
+                layer.fill.type == "lattice"
+                and hint in layer.name.lower()
+                and (direction is None or direction in layer.name.lower())
+            )
+        ]
+        if not candidates:
+            continue
+        for index in candidates:
+            layer = result[index]
+            loading_ids = list(layer.loading_ids)
+            if layer.loading_id and layer.loading_id not in loading_ids:
+                loading_ids.insert(0, layer.loading_id)
+            loading_ids.append(loading.id)
+            result[index] = layer.model_copy(update={
+                "loading_ids": list(dict.fromkeys(loading_ids)),
+            })
+        attached.add(loading.id)
+        issues.append(PlanAssemblyIssue(
+            code="assembly.component_profile_loading_auto_attached",
+            severity="info",
+            message=(
+                f"attached component-profile loading {loading.id!r} to "
+                f"{len(candidates)} {hint!r} lattice layer(s)"
+            ),
+            path=f"axial_layers.lattice_loadings[{loading.id}]",
+        ))
+    return result, issues
+
+
 def _layer_fill_ref(
     item: AxialLayerPatchItem,
     lattice_id: str,
@@ -2165,6 +2257,10 @@ def assemble_simulation_plan_from_patches(
         )
         issues.extend(al_issues)
         material_aliases_applied.update(axial_layer_aliases)
+        axial_layers, loading_attachment_issues = _auto_attach_component_profile_loadings(
+            axial_layers, lattice_loadings,
+        )
+        issues.extend(loading_attachment_issues)
     else:
         axial_layers = []
         lattice_loadings = []
