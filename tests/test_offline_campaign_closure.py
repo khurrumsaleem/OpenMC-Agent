@@ -537,3 +537,100 @@ def test_v19_mu_preflight_passes_after_implicit_normalization() -> None:
         f"MU gate should pass after implicit normalization; "
         f"errors: {[i for i in result.issues if i['severity'] == 'error']}"
     )
+
+
+# ---------------------------------------------------------------------------
+# F10: Background cell injection for pin-type universes
+# ---------------------------------------------------------------------------
+
+
+def test_background_cell_injected_into_fuel_pin() -> None:
+    """A fuel_pin universe without a ``region_kind="background"`` cell gets
+    one injected automatically, using the best moderator/coolant material
+    from the MaterialsPatch (excluding gases and already-used materials)."""
+    from openmc_agent.plan_builder.universes_patch_normalization import (
+        normalize_universes_patch_content,
+    )
+
+    universes_patch = {
+        "patch_type": "universes",
+        "universes": [
+            {
+                "universe_id": "fuel_pin",
+                "kind": "fuel_pin",
+                "cells": [
+                    {"id": "fuel", "role": "fuel", "material_id": "fuel_mat", "region_kind": "cylinder", "r_min_cm": 0.0, "r_max_cm": 0.4},
+                ],
+            },
+        ],
+    }
+    materials_patch = {
+        "patch_type": "materials",
+        "materials": [
+            {"material_id": "fuel_mat", "name": "fuel", "role": "fuel", "density_g_cm3": 10.0},
+            {"material_id": "he", "name": "He", "role": "gas", "density_g_cm3": 0.001},
+            {"material_id": "water", "name": "Water", "role": "coolant", "density_g_cm3": 1.0},
+        ],
+    }
+    state = PlanBuildState(state_id="s", requirement_text="r")
+    state.add_patch(PlanPatchEnvelope(
+        patch_id="materials", patch_type="materials",
+        content=materials_patch, status="valid",
+    ))
+
+    result = normalize_universes_patch_content(universes_patch, state=state)
+    ops = [op["operation"] for op in result.operations]
+    assert "background_cell_injected" in ops
+
+    fuel_pin = result.content["universes"][0]
+    bg_cells = [c for c in fuel_pin["cells"] if c.get("region_kind") == "background"]
+    assert len(bg_cells) == 1
+    assert bg_cells[0]["material_id"] == "water"
+    assert bg_cells[0]["r_min_cm"] == 0.4
+
+
+def test_background_cell_not_injected_when_already_present() -> None:
+    """Idempotency: a fuel_pin that already has a background cell does not
+    get a second one."""
+    from openmc_agent.plan_builder.universes_patch_normalization import (
+        normalize_universes_patch_content,
+    )
+
+    universes_patch = {
+        "patch_type": "universes",
+        "universes": [
+            {
+                "universe_id": "fuel_pin",
+                "kind": "fuel_pin",
+                "cells": [
+                    {"id": "fuel", "role": "fuel", "material_id": "f", "region_kind": "cylinder"},
+                    {"id": "bg", "role": "background", "material_id": "w", "region_kind": "background"},
+                ],
+            },
+        ],
+    }
+    result = normalize_universes_patch_content(universes_patch, state=None)
+    assert not result.changed
+
+
+def test_v19_mu_preflight_zero_issues_after_full_normalization() -> None:
+    """End-to-end: after implicit role correction + background injection,
+    the v19 MU preflight must have ZERO issues (no errors, no warnings)."""
+    from openmc_agent.plan_builder.closed_loop.material_universe_preflight import (
+        run_material_universe_preflight,
+    )
+    from openmc_agent.plan_builder.closed_loop.models import PlanClosedLoopPolicy
+
+    state = PlanBuildState(state_id="v19", requirement_text="r")
+    for patch_type in ("facts", "materials", "universes"):
+        content = json.loads((_V19_UPSTREAM_DIR / f"{patch_type}.json").read_text())
+        state.add_patch(PlanPatchEnvelope(
+            patch_id=patch_type, patch_type=patch_type,
+            content=content, status="valid",
+        ))
+
+    result = run_material_universe_preflight(state=state, policy=PlanClosedLoopPolicy())
+    assert result.ok
+    assert len(result.issues) == 0, (
+        f"Expected zero issues; got: {[i['code'] for i in result.issues]}"
+    )

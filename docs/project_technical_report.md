@@ -4,7 +4,10 @@
 
 ### 2026-07-29 (PM)
 
-- **Phase 8C Step 3P MU gate 突破：implicit universe 归一化 + MU ok=True**：v19 MU gate 两个真实输出缺陷（`material_role_mismatch` + `radial_overlap`）通过新建 `universes_patch_normalization.py`（首个 universes 归一化模块，镜像 materials normalizer 架构）解决。核心机制（reactor-neutral，input-driven）：
+- **Phase 8C Step 3P MU gate 完全通过：MU ok=True, 0 issues**：在 implicit universe 归一化基础上，新增 background cell 自动注入，使 v19 MU preflight 从「1 warning」降为「0 issues」。UniversesPatch normalizer 新增能力：
+  - **background_cell_injected**：检测 fuel_pin/guide_tube/instrument_tube universe 缺少 `region_kind="background"` cell 时，自动从 MaterialsPatch 选最佳 moderator/coolant 材料（优先 role=moderator，次选 role=coolant 且 density>0.1 排除气体），注入 background cell（含 r_min=最外层 r_max）。排除已被同 universe 其他 cell 使用的材料。
+  - 早退条件从 `has_implicit` 扩展为 `has_implicit or needs_background`，确保无 implicit universe 时仍触发 background 注入。
+- **验证结果**：v19 离线 MU preflight **MU ok=True, 0 issues**（零 error 零 warning）；offline closure suite 24 tests（+3 background 注入/幂等/v19-zero-issues）；调整 `test_plan_validation_repair` 的 bad_universes（background cell 改用 solid 材料而非缺失，使 validator 仍能捕获 `universe_missing_coolant`）；全量 `3881 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过。
   - **implicit universe 角色修正（always-on）**：检测 `implicit_*` satellite universe，用 MaterialsPatch 的 material role 纠正 cell role（如 `gas_gap_cladding` cell 的 role 从 `gas_gap` 修正为 `structural`，匹配 zircaloy4 材料 role）→ 消除 `material_role_mismatch` error。
   - **radial-layer satellite 合并**：仅对提供 radial-layer 角色（gap/cladding）的 satellite 尝试合并到 host fuel_pin；轴向结构（end plug/nozzle）和背景填充（moderator）不合并。
   - **半径兼容性检查**：当 satellite cell 的 r_max ≤ host 最外层 r_max 时跳过合并（避免 zero/negative thickness），但角色修正仍生效 → 不引入 `radial_overlap` 或 `invalid_radius_order`。

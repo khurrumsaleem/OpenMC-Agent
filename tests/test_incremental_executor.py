@@ -306,6 +306,7 @@ def test_plan_validation_repair_regenerates_targeted_patches_only() -> None:
     bad_universes = json.dumps({"patch_type": "universes", "universes": [
         {"universe_id": "fuel_pin", "kind": "fuel_pin", "cells": [
             {"id": "fuel", "role": "fuel", "material_id": "fuel"},
+            {"id": "bg", "role": "background", "material_id": "fuel", "region_kind": "background"},
         ]},
         {"universe_id": "gt", "kind": "guide_tube", "cells": [
             {"id": "iw", "role": "coolant", "material_id": "water"},

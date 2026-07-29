@@ -131,6 +131,53 @@ def _build_material_role_map(state: Any) -> dict[str, str]:
     return roles
 
 
+def _build_material_info_map(state: Any) -> dict[str, dict[str, Any]]:
+    """Extract material_id → {role, density_g_cm3} from valid MaterialsPatch."""
+    info: dict[str, dict[str, Any]] = {}
+    if state is None:
+        return info
+    for env in getattr(state, "patches", {}).values():
+        if (
+            getattr(env, "patch_type", None) == "materials"
+            and getattr(env, "status", None) == "valid"
+        ):
+            for mat in env.content.get("materials", []):
+                mid = mat.get("material_id")
+                if mid:
+                    info[mid] = {
+                        "role": mat.get("role", ""),
+                        "density_g_cm3": mat.get("density_g_cm3"),
+                    }
+            break
+    return info
+
+
+def _find_background_material(
+    material_info: dict[str, dict[str, Any]],
+    used_material_ids: set[str],
+) -> str | None:
+    """Pick the moderator/coolant material for a background cell.
+
+    Preference: role=moderator > role=coolant with density > 0.1 (liquid/solid,
+    excludes gases like helium).  Materials already used by cells in the same
+    universe are excluded.
+    """
+    candidates: list[tuple[str, int, float]] = []
+    for mid, info in material_info.items():
+        if mid in used_material_ids:
+            continue
+        role = info.get("role", "").lower()
+        density = info.get("density_g_cm3") or 0.0
+        if role == "moderator":
+            candidates.append((mid, 2, density))
+        elif role == "coolant" and density > 0.1:
+            candidates.append((mid, 1, density))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda x: (-x[1], -x[2]))
+    return candidates[0][0]
+
+
 def _correct_cell_role(
     cell: dict[str, Any],
     material_roles: dict[str, str],
@@ -186,6 +233,58 @@ def _adjust_merged_radii(
     return sorted_cells
 
 
+_BACKGROUND_KINDS = {"fuel_pin", "guide_tube", "instrument_tube"}
+
+
+def _inject_background_cells(
+    universes: list[dict[str, Any]],
+    material_info: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Add a background (moderator) cell to pin-type universes missing one."""
+    operations: list[dict[str, Any]] = []
+    for universe in universes:
+        if not isinstance(universe, dict):
+            continue
+        if universe.get("kind") not in _BACKGROUND_KINDS:
+            continue
+        cells = universe.get("cells", [])
+        if any(c.get("region_kind") == "background" for c in cells if isinstance(c, dict)):
+            continue
+        used = {
+            c.get("material_id") for c in cells
+            if isinstance(c, dict) and c.get("material_id")
+        }
+        bg_mat = _find_background_material(material_info, used)
+        if bg_mat is None:
+            continue
+        outer_r_max = 0.0
+        for c in cells:
+            if isinstance(c, dict):
+                r_max = c.get("r_max_cm")
+                if r_max is not None and r_max > outer_r_max:
+                    outer_r_max = r_max
+        cell_id = "background"
+        existing_ids = {c.get("id") for c in cells if isinstance(c, dict)}
+        if cell_id in existing_ids:
+            cell_id = f"{universe.get('universe_id', 'u')}_background"
+        bg_cell: dict[str, Any] = {
+            "id": cell_id,
+            "role": "background",
+            "material_id": bg_mat,
+            "region_kind": "background",
+        }
+        if outer_r_max > 0:
+            bg_cell["r_min_cm"] = outer_r_max
+        cells.append(bg_cell)
+        operations.append({
+            "operation": "background_cell_injected",
+            "universe_id": universe.get("universe_id"),
+            "material_id": bg_mat,
+            "cell_id": cell_id,
+        })
+    return operations
+
+
 def normalize_universes_patch_content(
     content: dict[str, Any],
     *,
@@ -214,7 +313,16 @@ def normalize_universes_patch_content(
         isinstance(u, dict) and str(u.get("universe_id", "")).startswith("implicit_")
         for u in universes
     )
-    if not has_implicit:
+    needs_background = state is not None and any(
+        isinstance(u, dict)
+        and u.get("kind") in _BACKGROUND_KINDS
+        and not any(
+            isinstance(c, dict) and c.get("region_kind") == "background"
+            for c in u.get("cells", [])
+        )
+        for u in universes
+    )
+    if not has_implicit and not needs_background:
         return UniversesPatchNormalizationResult(content=content, operations=operations)
 
     material_roles = _build_material_role_map(state)
@@ -342,6 +450,9 @@ def normalize_universes_patch_content(
             "cells_merged": merged_count,
             "role_corrections": role_corrections,
         })
+
+    material_info = _build_material_info_map(state)
+    operations.extend(_inject_background_cells(new_universes, material_info))
 
     if operations:
         new_content["universes"] = new_universes
