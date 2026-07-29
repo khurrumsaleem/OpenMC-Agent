@@ -369,17 +369,44 @@ def derive_overlay_universe_plan(
                     )
                 )
             elif len(open_cells) >= 2:
-                # Several open/coolant cells (e.g. a fuel pin with both an
-                # inner coolant annulus and an outer background moderator).
-                # The grid frame belongs in the OUTER moderator, so when
-                # exactly one open cell is the background
-                # (component_role='background'), derive the grid universe
-                # from it instead of degrading to no grid material.
+                # Several open/coolant cells. The grid frame belongs in the
+                # OUTER moderator, but only FUEL pins get a derived grid
+                # universe there; guide/instrument tubes (a through-channel
+                # plus outer moderator) stay conserved so their inner water
+                # path is preserved. The outer cell is identified broadly
+                # (component_role background/moderator/outer, or the cell
+                # id/region naming it outer/background) so different LLM
+                # conventions (component_role='background' vs an
+                # 'outer_moderator' cell still tagged role='coolant') work.
                 cells_map = _cells_by_id(model)
-                bg_cells = [
-                    cid for cid in open_cells
-                    if getattr(cells_map.get(cid), "component_role", "") == "background"
-                ]
+                mats_map = _materials_by_id(model)
+                universe_obj = universes.get(universe_id)
+                has_fuel = False
+                if universe_obj is not None:
+                    for cid in universe_obj.cell_ids:
+                        c = cells_map.get(cid)
+                        m = mats_map.get(c.fill_id) if c and c.fill_id else None
+                        if m is not None:
+                            mt = f"{m.id} {m.name}".lower()
+                            if any(t in mt for t in ("fuel", "uo2", "uranium")):
+                                has_fuel = True
+                                break
+
+                def _is_outer_moderator(cell: CellSpec) -> bool:
+                    role = str(getattr(cell, "component_role", "") or "").lower()
+                    cid = str(getattr(cell, "id", "") or "").lower()
+                    region = str(getattr(cell, "region_id", "") or "").lower()
+                    if role in ("background", "moderator", "outer_moderator", "outer"):
+                        return True
+                    return (
+                        any(t in cid for t in ("outer", "background", "moderator"))
+                        or any(t in region for t in ("outer", "background", "_out"))
+                    )
+
+                bg_cells = (
+                    [cid for cid in open_cells if _is_outer_moderator(cells_map.get(cid))]
+                    if has_fuel else []
+                )
                 if len(bg_cells) == 1:
                     derived_id = f"{universe_id}__overlay_{overlay.id}"
                     plans.append(
