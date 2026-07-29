@@ -2193,7 +2193,7 @@ def _reconcile_pixel_aspect(
     # too coarse to resolve guide tubes / inserts). Enforce a minimum pixel
     # count on the minor dimension and scale the major dimension by the true
     # aspect ratio so the slice stays sharp enough to audit geometry.
-    min_minor = 600
+    min_minor = 1200
     if min(p1, p2) < min_minor:
         if p1 <= p2:
             p1 = min_minor
