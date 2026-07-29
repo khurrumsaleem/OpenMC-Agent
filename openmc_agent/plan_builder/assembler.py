@@ -949,6 +949,12 @@ def _assemble_lattice(
             total_cells=nx * ny,
             issues=issues,
         )
+        # expected_counts is keyed by universe kind/role, but the lattice
+        # universe_pattern is keyed by concrete universe id; re-key so the
+        # downstream pin-count cross-check compares like with like.
+        expected_counts = _rekey_expected_counts_to_universe_ids(
+            expected_counts, universe_kind_by_id
+        )
 
     try:
         lattice = LatticeSpec(
@@ -1346,6 +1352,39 @@ def _reconcile_expected_counts_with_actual(
         ))
         return dict(actual_pin_counts)
     return expected_counts
+
+
+def _rekey_expected_counts_to_universe_ids(
+    expected_counts: dict[str, int],
+    universe_kind_by_id: dict[str, str],
+) -> dict[str, int]:
+    """Re-key role/kind-keyed ``expected_counts`` to concrete universe-id keys.
+
+    Facts/reconciliation ``expected_counts`` are typically keyed by universe
+    kind/role (e.g. ``"fuel_pin"``), but the assembled lattice
+    ``universe_pattern`` is keyed by concrete universe id (e.g.
+    ``"fuel_variant_3B"``).  The downstream pin-count cross-check compares
+    ``expected_counts`` against the pattern directly, so a role-keyed
+    expected_counts would spuriously mismatch a correct pattern.
+
+    Re-key to universe-id space only when each kind maps to exactly one
+    universe (unambiguous).  Counts whose key is already a universe id, or
+    whose kind is ambiguous/unknown, are preserved unchanged, so genuine
+    count errors are still caught.
+    """
+    if not expected_counts or not universe_kind_by_id:
+        return expected_counts
+    kind_to_uids: dict[str, list[str]] = {}
+    for uid, kind in universe_kind_by_id.items():
+        kind_to_uids.setdefault(kind, []).append(uid)
+    rekeyed: dict[str, int] = {}
+    for key, count in expected_counts.items():
+        uids = kind_to_uids.get(key)
+        if uids and len(uids) == 1:
+            rekeyed[uids[0]] = count
+        else:
+            rekeyed[key] = count
+    return rekeyed
 
 
 def _assemble_axial_layers(
