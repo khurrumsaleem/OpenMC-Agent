@@ -369,17 +369,40 @@ def derive_overlay_universe_plan(
                     )
                 )
             elif len(open_cells) >= 2:
-                # Ambiguous (inner channel vs outer moderator): preserve the
-                # base universe unchanged so through-paths are guaranteed.
-                plans.append(
-                    DerivedUniversePlan(
-                        base_universe_id=universe_id,
-                        derived_universe_id=None,
-                        open_cell_id=None,
-                        reuse_base=True,
-                        unresolved=False,
+                # Several open/coolant cells (e.g. a fuel pin with both an
+                # inner coolant annulus and an outer background moderator).
+                # The grid frame belongs in the OUTER moderator, so when
+                # exactly one open cell is the background
+                # (component_role='background'), derive the grid universe
+                # from it instead of degrading to no grid material.
+                cells_map = _cells_by_id(model)
+                bg_cells = [
+                    cid for cid in open_cells
+                    if getattr(cells_map.get(cid), "component_role", "") == "background"
+                ]
+                if len(bg_cells) == 1:
+                    derived_id = f"{universe_id}__overlay_{overlay.id}"
+                    plans.append(
+                        DerivedUniversePlan(
+                            base_universe_id=universe_id,
+                            derived_universe_id=derived_id,
+                            open_cell_id=bg_cells[0],
+                            reuse_base=False,
+                            unresolved=False,
+                        )
                     )
-                )
+                else:
+                    # Genuinely ambiguous: preserve the base universe so
+                    # through-paths are guaranteed.
+                    plans.append(
+                        DerivedUniversePlan(
+                            base_universe_id=universe_id,
+                            derived_universe_id=None,
+                            open_cell_id=None,
+                            reuse_base=True,
+                            unresolved=False,
+                        )
+                    )
             else:
                 # No recognizable open/coolant cell. Conservatively reuse the
                 # base universe (no grid material added at these positions)
