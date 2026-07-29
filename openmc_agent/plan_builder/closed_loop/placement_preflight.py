@@ -73,6 +73,14 @@ def validate_placement_binding_view(view: Any) -> list[dict[str, Any]]:
     universe_ids = {item.universe_id for item in view.universes}
     for requirement in view.requirements:
         scopes = [scope for scope in view.assembly_scopes if not requirement.assembly_type_ids or scope.assembly_type_id in requirement.assembly_type_ids]
+        if not scopes and view.scope_kind == "single_assembly" and view.assembly_scopes:
+            # In a single-assembly model there is exactly one assembly, so
+            # every assembly_type_id declared in Facts implicitly matches
+            # the sole scope regardless of naming.  This prevents false
+            # "required_assembly_type_missing" errors when the LLM uses
+            # variant names (e.g. "VERA_3B") that don't match the pin_map's
+            # implicit scope identifier.
+            scopes = list(view.assembly_scopes)
         if not scopes:
             issues.append(_issue("localized_insert.required_assembly_type_missing", "required assembly scope is absent", requirement.requirement_id, expected=requirement.assembly_type_ids))
             continue
