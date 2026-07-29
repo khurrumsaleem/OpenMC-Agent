@@ -111,6 +111,26 @@ def _wrap_as_universes_patch(universe_data: dict[str, Any]) -> dict[str, Any]:
     return {"patch_type": "universes", "universes": [universe_data]}
 
 
+def _variant_ids_equivalent(actual: str, expected: str) -> bool:
+    """Return True when two fuel variant ids refer to the same variant.
+
+    Both ids ultimately derive from the same Facts ``variant_id``, but the LLM
+    frequently emits a short label (e.g. ``"3B"``) where Facts declared a
+    canonical id (e.g. ``"3B_fuel"``).  Treat them as equivalent when they are
+    equal (case-insensitive) or one is a substring of the other.  A genuinely
+    different variant (e.g. ``"3A"`` vs ``"3B_fuel"``) has no substring
+    relation and is rejected.
+    """
+
+    a = (actual or "").strip().lower()
+    b = (expected or "").strip().lower()
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    return a in b or b in a
+
+
 # Marker strings the LLM occasionally emits when copying prompt examples
 # verbatim.  Detected as invalid material IDs regardless of whether they
 # appear in ``known_material_ids``.
@@ -386,7 +406,14 @@ def qualify_universe_fragment(
                 continue
             mid = cell.get("material_id")
             actual_variant = material_source_variants_by_id.get(mid)
-            if actual_variant and actual_variant != expected_variant:
+            # Tolerate canonical-equivalent variant ids: both the universe
+            # fuel_variant_id and the material source_variant_id derive from
+            # the same Facts variant id, but the LLM frequently emits a short
+            # label (e.g. "3B") where Facts declared "3B_fuel". Treat them as
+            # matching when one contains the other (case-insensitive). This
+            # still rejects a genuinely different variant (e.g. "3A" vs
+            # "3B_fuel", no substring relation).
+            if actual_variant and not _variant_ids_equivalent(actual_variant, expected_variant):
                 mismatched_fuel_cells.append({
                     "cell_id": cell.get("id"),
                     "material_id": mid,
