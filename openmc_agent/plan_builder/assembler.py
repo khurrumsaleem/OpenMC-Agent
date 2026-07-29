@@ -953,7 +953,11 @@ def _assemble_lattice(
         # universe_pattern is keyed by concrete universe id; re-key so the
         # downstream pin-count cross-check compares like with like.
         expected_counts = _rekey_expected_counts_to_universe_ids(
-            expected_counts, universe_kind_by_id
+            expected_counts,
+            universe_kind_by_id,
+            used_universe_ids={
+                uid for row in universe_pattern for uid in row
+            },
         )
 
     try:
@@ -1357,6 +1361,7 @@ def _reconcile_expected_counts_with_actual(
 def _rekey_expected_counts_to_universe_ids(
     expected_counts: dict[str, int],
     universe_kind_by_id: dict[str, str],
+    used_universe_ids: set[str] | None = None,
 ) -> dict[str, int]:
     """Re-key role/kind-keyed ``expected_counts`` to concrete universe-id keys.
 
@@ -1367,10 +1372,13 @@ def _rekey_expected_counts_to_universe_ids(
     ``expected_counts`` against the pattern directly, so a role-keyed
     expected_counts would spuriously mismatch a correct pattern.
 
-    Re-key to universe-id space only when each kind maps to exactly one
-    universe (unambiguous).  Counts whose key is already a universe id, or
-    whose kind is ambiguous/unknown, are preserved unchanged, so genuine
-    count errors are still caught.
+    Re-key to universe-id space when each kind maps to exactly one universe.
+    When a kind maps to several universes (e.g. the LLM emitted fuel universes
+    for multiple variants like ``fuel_pin_3A`` + ``fuel_pin_3B``), disambiguate
+    by the universe id actually used in the pattern.  Counts whose key is
+    already a universe id, or whose kind is ambiguous/unknown and cannot be
+    disambiguated by usage, are preserved unchanged, so genuine count errors
+    are still caught.
     """
     if not expected_counts or not universe_kind_by_id:
         return expected_counts
@@ -1382,6 +1390,12 @@ def _rekey_expected_counts_to_universe_ids(
         uids = kind_to_uids.get(key)
         if uids and len(uids) == 1:
             rekeyed[uids[0]] = count
+        elif uids and len(uids) > 1 and used_universe_ids:
+            in_use = [u for u in uids if u in used_universe_ids]
+            if len(in_use) == 1:
+                rekeyed[in_use[0]] = count
+            else:
+                rekeyed[key] = count
         else:
             rekeyed[key] = count
     return rekeyed

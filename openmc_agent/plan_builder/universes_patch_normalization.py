@@ -285,6 +285,86 @@ def _inject_background_cells(
     return operations
 
 
+# Poison universe kinds that are only legitimate when the variant's FactsPatch
+# explicitly declares a localized insert of that kind.
+_POISON_UNIVERSE_KINDS = {"pyrex_rod", "thimble_plug", "control_rod"}
+
+
+def _declared_localized_insert_kinds(state: Any) -> set[str] | None:
+    """Insert kinds the accepted FactsPatch declares for this variant.
+
+    Returns the set of declared ``insert_kind`` values from the valid
+    FactsPatch, or ``None`` when no valid FactsPatch exists yet (the variant
+    scope is unknown and the caller must not strip).
+    """
+    if state is None:
+        return None
+    for env in getattr(state, "patches", {}).values():
+        if (
+            getattr(env, "patch_type", None) == "facts"
+            and getattr(env, "status", None) == "valid"
+        ):
+            reqs = env.content.get("localized_insert_requirements") or []
+            return {
+                str(req.get("insert_kind", "")).lower()
+                for req in reqs
+                if isinstance(req, dict) and req.get("insert_kind")
+            }
+    return None
+
+
+def strip_spurious_poison_universes(
+    content: dict[str, Any],
+    *,
+    state: Any | None = None,
+) -> UniversesPatchNormalizationResult:
+    """Remove poison universes the variant's FactsPatch never declares.
+
+    The LLM frequently carries poison-rod descriptions from the source
+    document (e.g. VERA 3B Pyrex / thimble plugs) into variants that have
+    only empty guide tubes (e.g. VERA 3A / 2A).  These spurious poison
+    universes are not placed by the variant's pin map but still trip the
+    strict ``pyrex_annular_poison_missing`` safety check and abort
+    generation.  When the accepted FactsPatch declares no localized insert
+    of a poison kind, drop universes of that kind from the patch.
+
+    Variants that DO declare an insert (e.g. 3B declares pyrex) keep their
+    universes, so the annular-poison safety check still applies where poison
+    is actually intended.  Reactor-neutral: driven entirely by the FactsPatch
+    localized-insert contract.
+    """
+    declared = _declared_localized_insert_kinds(state)
+    if declared is None:
+        return UniversesPatchNormalizationResult(content=content)
+    universes = content.get("universes")
+    if not isinstance(universes, list) or not universes:
+        return UniversesPatchNormalizationResult(content=content)
+    spurious: list[str] = []
+    kept: list[dict[str, Any]] = []
+    for u in universes:
+        kind = str(u.get("kind", "")).lower() if isinstance(u, dict) else ""
+        if kind in _POISON_UNIVERSE_KINDS and kind not in declared:
+            spurious.append(u.get("universe_id") if isinstance(u, dict) else "?")
+        else:
+            kept.append(u)
+    if not spurious:
+        return UniversesPatchNormalizationResult(content=content)
+    new_content = copy.deepcopy(content)
+    new_content["universes"] = kept
+    return UniversesPatchNormalizationResult(
+        content=new_content,
+        operations=[{
+            "operation": "spurious_poison_universe_stripped",
+            "stripped_universe_ids": spurious,
+            "declared_insert_kinds": sorted(declared),
+            "message": (
+                "removed poison universes not declared by Facts "
+                "localized_insert_requirements for this variant"
+            ),
+        }],
+    )
+
+
 def normalize_universes_patch_content(
     content: dict[str, Any],
     *,
