@@ -1,0 +1,20 @@
+{
+  "scenario": "fuel_source_variant_id_canonicalized_to_facts_variant_id",
+  "source_run": "VERA_3B_llm_user_v16",
+  "description": "The LLM labeled the fuel material source_variant_id='3B' while Facts declared the canonical variant id '3B_fuel' (the universe manifest derives fuel_variant_id from the same Facts). Universe qualification requires an exact match, so the materials normalizer must canonicalize the fuel source_variant_id against Facts. v16 generated materials monolithically, so the monolithic normalization path must receive state (Facts) for the canonicalization to fire.",
+  "facts_patch": {
+    "patch_type": "facts",
+    "model_scope": "single_assembly",
+    "fuel_variant_requirements": [
+      {"variant_id": "3B_fuel", "density_g_cm3": 10.257, "enrichment_wt_percent": 2.619, "source_label": "VERA Problem 3 3B"}
+    ]
+  },
+  "materials_patch": {
+    "patch_type": "materials",
+    "materials": [
+      {"material_id": "fuel_3b", "name": "Fuel 3B", "role": "fuel", "density_g_cm3": 10.257, "source_variant_id": "3B"},
+      {"material_id": "coolant_3b", "name": "Borated Water 3B", "role": "coolant", "density_g_cm3": 0.743}
+    ]
+  },
+  "expected_fuel_source_variant_id": "3B_fuel"
+}

@@ -4,6 +4,9 @@
 
 ### 2026-07-29
 
+- **Phase 8C Step 3P Monolithic materials normalization now receives state**：v16 重跑确认 materials 仍走单体（auto 先单体成功），但 fuel `source_variant_id` 仍是短标签 `3B`（Facts canonical 为 `3B_fuel`），universes `fuel_variant_material_mismatch` 仍触发。根因：单体 `generate_patch` 的 materials 规范化调用 `normalize_materials_patch_content(content, requirement_text=prompt)` **未传 state**，故 fuel source_variant_id 规范化（依赖 Facts variant_ids）在生成期不触发；仅靠 `add_patch` 兜底在 v16 未生效。修复：`generate_patch` 的 materials 规范化调用补传 `state=state`，使 fuel 规范化在单体生成期即触发。同步把 v16 fuel-mismatch 抽取为离线 fixture（`vera3b_v16_fuel_variant_id_canonicalization.json`），离线 closure suite 增至 7 fixture / 14 tests。
+- **验证结果**：v16 真实 materials+facts 离线（带 state）复核 `3B→3B_fuel` 规范化生效；全量非 OpenMC/非 LLM pytest `3865 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过。
+
 - **Phase 8C Step 3P Materials fuel source_variant_id canonicalization**：v15 重跑确认 materials 碎片化已激活、materials gate 通过，但 universes 在 fuel 片段 `qualification.fuel_variant_material_mismatch` 失败：LLM 把 materials 的 fuel material `source_variant_id` 写成短标签 `3B`，而 Facts/universe manifest 用 canonical `fuel_3B`，二者严格不等。现 materials normalizer 增加 fuel source_variant_id 规范化：从已接受 FactsPatch 取 fuel variant_ids，对每个 fuel material 用“精确→唯一子串包含”匹配把 source_variant_id 改写为 canonical variant_id（歧义/无匹配则 fail-closed 不改）。
 - **验证结果**：v15 真实 materials+facts 离线复核 `3B→fuel_3B` 规范化生效；新增 canonicalize + ambiguous-fail-closed tests `2 passed`；全量非 OpenMC/非 LLM pytest `3863 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过。
 

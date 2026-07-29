@@ -50,6 +50,7 @@ from openmc_agent.plan_builder.patches import (
     parse_patch_content,
 )
 from openmc_agent.plan_builder.planning_scope import planning_feature_contract
+from openmc_agent.plan_builder.state import PlanBuildState, PlanPatchEnvelope
 from openmc_agent.plan_builder.universe_fragment_generation import (
     UniverseDefinitionFragment,
     UniverseManifestItem,
@@ -74,6 +75,7 @@ FIXTURE_NAMES = [
     "vera4_v5_materials_double_count.json",
     "vera3b_v12_pyrex_oracle.json",
     "vera3b_v13_plenum_alias.json",
+    "vera3b_v16_fuel_variant_id_canonicalization.json",
 ]
 
 
@@ -238,8 +240,6 @@ def test_pyrex_oracle_constructs_qualifying_universe_offline() -> None:
 # ---------------------------------------------------------------------------
 # F6: Gas-plenum alias replaces absorber (VERA3B v13)
 # ---------------------------------------------------------------------------
-
-
 def test_pyrex_plenum_alias_replaces_absorber_offline() -> None:
     data = _load("vera3b_v13_plenum_alias.json")
     patch = {"patch_type": "universes", "universes": [data["source_universe"]]}
@@ -280,3 +280,26 @@ def test_pyrex_plenum_alias_replaces_absorber_offline() -> None:
     )
     errors = [i for i in result.issues if i.severity == "error"]
     assert errors == []
+
+
+# ---------------------------------------------------------------------------
+# F7: Fuel source_variant_id canonicalization (VERA3B v16)
+# ---------------------------------------------------------------------------
+
+
+def test_fuel_source_variant_id_canonicalized_offline() -> None:
+    data = _load("vera3b_v16_fuel_variant_id_canonicalization.json")
+    state = PlanBuildState(state_id="s", requirement_text="r")
+    state.add_patch(PlanPatchEnvelope(
+        patch_id="facts", patch_type="facts",
+        content=data["facts_patch"], status="valid",
+    ))
+
+    result = normalize_materials_patch_content(
+        data["materials_patch"], state=state
+    )
+
+    ops = [op["operation"] for op in result.operations]
+    assert "fuel_source_variant_id_canonicalized" in ops
+    fuel = next(m for m in result.content["materials"] if m.get("role") == "fuel")
+    assert fuel["source_variant_id"] == data["expected_fuel_source_variant_id"]

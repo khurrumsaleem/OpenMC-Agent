@@ -1473,6 +1473,7 @@ def generate_patch(
             normalization = normalize_materials_patch_content(
                 content,
                 requirement_text=prompt,
+                state=state,
             )
             if normalization.changed:
                 content = normalization.content
