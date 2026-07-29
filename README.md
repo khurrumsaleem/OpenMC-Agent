@@ -382,19 +382,34 @@ conda run --no-capture-output -n openmc-env python scripts/collect_demo_results.
 
 > `run_demo.sh` 遇失败不中断，`collect_demo_results.py` 把每个算例的 `renderability` / keff / 阻塞码如实写进清单，绝不伪造 keff。
 
-### 推荐：一键复现 VERA3 3A（稳定可呈现）
+### 通用运行方式（换输入 / 换设置）
+
+demo 脚本 `scripts/run_demo.sh` 只是批量跑这组算例的便捷封装；**面向用户展示时用下面这条通用命令**——换 `--input` 即可建模任意 Markdown 需求文件，其余参数自由组合：
 
 ```bash
-# 方式 A：demo 驱动脚本（建模 + smoke + 中等统计量 transport，产出 keff）
-conda run --no-capture-output -n openmc-env bash scripts/run_demo.sh vera3a
-
-# 方式 B：直接调 run_model.py（等价，便于自定义参数）
 conda run -n openmc-env python scripts/run_model.py \
     --input Input/VERA3_problem.md --benchmark VERA3 --variant 3A \
     --model deepseek:deepseek-chat --allow-real-llm --smoke-test \
     --out data/runs/demo/VERA3_3A
 ```
-运行后：`data/runs/demo/VERA3_3A/` 下生成 `model.py`、`materials/geometry/settings.xml`、`plots/*.png`、`statepoint.*.h5`（`k_combined` 即 keff）。
+
+| 参数 | 作用 | 常用取值 |
+|---|---|---|
+| `--input` | **任意** Markdown/TXT/JSON 需求文件（换这个就能建模别的题） | `Input/VERA3_problem.md`、`Input/VERA2_problem.md`、`Input/case3.md`、你自己的 `.md` |
+| `--benchmark` `--variant` | 算例与工况（从文件名自动推断，也可显式指定） | `VERA3`/`3A`、`VERA2`/`2A`、`C5G7` |
+| `--model` | LLM（`provider:model`，需对应 key） | `deepseek:deepseek-chat`、`zhipu:glm-4-plus`、`ds:deepseek-v4-flash` |
+| `--allow-real-llm` | 允许真实 LLM（不加则只能 `--model fake`） | flag |
+| `--smoke-test` / `--plot` / `--full` | 跑 OpenMC smoke / 绘图 / 两者（需 OpenMC 环境） | flag |
+| `--no-incremental` | monolithic 单次出整个 plan（C5G7 推荐） | flag |
+| `--out` | 产物目录 | `data/runs/<你的目录>` |
+| `--material-policy` `--reference-patch-policy` | 材料成分 / 参考补丁策略 | `apply_alloy_library` / `off` |
+
+产物（写入 `--out`）：`model.py`、`materials/geometry/settings.xml`、`plots/*.png`、`simulation_plan.json`、`statepoint.*.h5`（`k_combined` 即 keff）、`incremental/material_composition_report.json`。
+
+等价的 `make` 入口（同样可换输入，见「Makefile 快速入门」）：
+```bash
+make model INPUT=Input/VERA3_problem.md BENCHMARK=VERA3 VARIANT=3A MODEL=deepseek:deepseek-chat ALLOW_REAL_LLM=1 SMOKE=1 OUT=data/runs/demo/VERA3_3A
+```
 
 ### 用户友好 CLI 与专家需求回环
 
