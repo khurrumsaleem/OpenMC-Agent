@@ -135,6 +135,8 @@ def validate_placement_binding_view(view: Any) -> list[dict[str, Any]]:
         for scope in view.assembly_scopes:
             if not requirement.assembly_type_ids or scope.assembly_type_id in requirement.assembly_type_ids:
                 continue
+            if view.scope_kind == "single_assembly":
+                continue
             wrong_intents = [
                 intent for intent in scope.localized_insert_intents
                 if intent.get("insert_kind") == requirement.insert_kind
