@@ -3177,10 +3177,16 @@ def _emit_overlay_derived_geometry(spec: ComplexModelSpec) -> tuple[str, dict[tu
                         _cell_fill_expression(open_cell) if open_cell is not None
                         else "None"
                     )
+                    # The grid overlay overwrites the moderator in its spatial
+                    # extent with the grid material: the open/background cell
+                    # ( moderator through-path in the base universe) is filled
+                    # with the grid alloy so the grid forms a continuous plate
+                    # across the cell instead of a thin frame eroded by
+                    # moderator.  Pin solids (fuel/gap/clad) remain unchanged.
                     lines.append(
                         f"{overlay_cell_var} = openmc.Cell("
                         f"name={('overlay inner ' + plan.open_cell_id + ' ' + overlay.id)!r}, "
-                        f"fill={open_fill}, "
+                        f"fill=materials_by_id[{overlay.material_id!r}], "
                         f"region={open_region_expr})"
                     )
                     if open_cell is not None and open_cell.temperature_k is not None:
