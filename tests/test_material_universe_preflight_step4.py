@@ -67,3 +67,56 @@ def test_segment_role_coverage_accepts_alternative_universe_id():
     result = run_material_universe_preflight(state=_state(materials, universes, facts), policy=_policy())
     codes = {item["code"] for item in result.issues if item.get("severity") == "error"}
     assert "material_universe.localized_insert_universe_missing" not in codes
+
+
+def test_nuclides_in_transport_composition_not_flagged_as_compound():
+    """A material whose transport composition uses nuclide symbols (B10, B11,
+    O16, Si) alongside compound_components (B2O3, SiO2) must NOT trigger
+    compound_in_transport_composition -- nuclides are legitimate transport
+    species, not misplaced compound formulas. Regression: v19 pyrex was
+    wrongly flagged because the heuristic matched B10/B11/O16 as compounds."""
+    materials = {
+        "patch_type": "materials",
+        "materials": [
+            {
+                "material_id": "pyrex_3b", "name": "Pyrex", "role": "poison",
+                "density_g_cm3": 2.25, "composition_basis": "weight_frac",
+                "composition": {"B10": 0.00712, "B11": 0.0317, "O16": 0.55217, "Si": 0.40901},
+                "compound_components": [
+                    {"formula": "B2O3", "fraction": 0.125, "fraction_basis": "weight_frac", "isotope_policy": "natural_elements"},
+                    {"formula": "SiO2", "fraction": 0.875, "fraction_basis": "weight_frac", "isotope_policy": "natural_elements"},
+                ],
+            },
+        ],
+    }
+    result = run_material_universe_preflight(
+        state=_state(materials, {"patch_type": "universes", "universes": []}),
+        policy=_policy(),
+    )
+    codes = {item["code"] for item in result.issues}
+    assert "material_universe.compound_in_transport_composition" not in codes
+
+
+def test_real_compound_in_transport_composition_still_flagged():
+    """A genuine compound formula (B2O3) placed in the transport composition
+    dict must still be flagged."""
+    materials = {
+        "patch_type": "materials",
+        "materials": [
+            {
+                "material_id": "pyrex", "name": "Pyrex", "role": "poison",
+                "density_g_cm3": 2.25, "composition_basis": "weight_frac",
+                "composition": {"B2O3": 0.125, "SiO2": 0.875},
+                "compound_components": [
+                    {"formula": "B2O3", "fraction": 0.125, "fraction_basis": "weight_frac", "isotope_policy": "natural_elements"},
+                ],
+            },
+        ],
+    }
+    result = run_material_universe_preflight(
+        state=_state(materials, {"patch_type": "universes", "universes": []}),
+        policy=_policy(),
+    )
+    assert "material_universe.compound_in_transport_composition" in {
+        item["code"] for item in result.issues
+    }

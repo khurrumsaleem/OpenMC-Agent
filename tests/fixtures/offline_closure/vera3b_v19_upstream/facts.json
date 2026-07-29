@@ -1,0 +1,119 @@
+{
+  "patch_type": "facts",
+  "benchmark_id": "VERA Problem 3",
+  "selected_variant": "3B",
+  "geometry_type": "single_assembly",
+  "lattice_size": [
+    17,
+    17
+  ],
+  "pin_pitch_cm": 1.26,
+  "assembly_pitch_cm": 21.5,
+  "has_axial_geometry": true,
+  "has_spacer_grids": true,
+  "has_special_pin_map": true,
+  "active_fuel_region_cm": [
+    11.951,
+    377.711
+  ],
+  "axial_domain_cm": [
+    -55.0,
+    463.937
+  ],
+  "expected_spacer_grid_count": 8,
+  "expected_pin_count": 264,
+  "expected_guide_tube_count": 24,
+  "expected_instrument_tube_count": 1,
+  "expected_pyrex_count": 16,
+  "expected_thimble_plug_count": 8,
+  "model_scope": "single_assembly",
+  "assembly_count": 1,
+  "core_lattice_size": [
+    1,
+    1
+  ],
+  "assembly_type_counts": {
+    "standard_17x17_3b": 1
+  },
+  "scoped_expected_counts": [],
+  "boundary_scope": "radial_reflective_axial_vacuum",
+  "symmetry_description": "Single assembly with reflective radial boundary conditions",
+  "material_roles": [
+    "fuel_uo2",
+    "clad_zircaloy4",
+    "coolant_borated_water",
+    "helium",
+    "inconel718",
+    "ss304",
+    "pyrex"
+  ],
+  "fuel_variant_requirements": [
+    {
+      "variant_id": "uo2_3b",
+      "source_label": "Problem 3 State 3B",
+      "enrichment_wt_percent": 2.619,
+      "density_g_cm3": 10.257,
+      "assembly_type_ids": [
+        "standard_17x17_3b"
+      ],
+      "expected_assembly_count": 1,
+      "source_note": "Section 2.1 specifies 3B enrichment."
+    }
+  ],
+  "localized_insert_requirements": [
+    {
+      "requirement_id": "pyrex_3b",
+      "insert_kind": "pyrex_rod",
+      "assembly_type_ids": [
+        "standard_17x17_3b"
+      ],
+      "expected_coordinate_count_per_assembly": 16,
+      "expected_assembly_instance_count": 1,
+      "host_kind": "guide_tube",
+      "required_profile_id": "pyrex_poison_profile",
+      "required_segment_roles": [
+        "pyrex_poison",
+        "upper_plenum"
+      ],
+      "expected_insert_universe_ids": [
+        "pyrex_poison_u",
+        "pyrex_plenum_u"
+      ],
+      "anchor_z_cm": 15.761,
+      "control_state_id": "3B",
+      "required_in_detailed_domain": true,
+      "source_note": "3B specifies 16 Pyrex rods in specific guide tube locations.",
+      "requires_human_confirmation": false
+    },
+    {
+      "requirement_id": "thimble_plug_3b",
+      "insert_kind": "thimble_plug",
+      "assembly_type_ids": [
+        "standard_17x17_3b"
+      ],
+      "expected_coordinate_count_per_assembly": 8,
+      "expected_assembly_instance_count": 1,
+      "host_kind": "guide_tube",
+      "required_profile_id": "thimble_plug_profile",
+      "required_segment_roles": [
+        "ss304_plug"
+      ],
+      "expected_insert_universe_ids": [
+        "thimble_plug_u"
+      ],
+      "anchor_z_cm": 383.31,
+      "control_state_id": "3B",
+      "required_in_detailed_domain": true,
+      "source_note": "3B specifies 8 thimble plugs in specific guide tube locations.",
+      "requires_human_confirmation": false
+    }
+  ],
+  "missing_facts": [],
+  "assumptions": [
+    "Pyrex upper plenum terminates at top nozzle, assuming standard homogenization boundary at 397.510 cm"
+  ],
+  "source_notes": [
+    "VERA Core Physics Benchmark Problem 3 (CASL-U-2012-0131-004)",
+    "operating_conditions/state=3B; coolant_temperature_K=565; coolant_density_g_cm3=0.743; boron_concentration_ppm=1066; reactor_pressure_psia=2250; boron_mass_fraction=0.001066; water_mass_fraction=0.998934; source=§3 Table 18 Table P3-1"
+  ]
+}

@@ -1,0 +1,327 @@
+{
+  "patch_type": "materials",
+  "materials": [
+    {
+      "material_id": "fuel_3b",
+      "name": "UO2 Fuel 3B",
+      "role": "fuel",
+      "density_g_cm3": 10.257,
+      "density_status": "needs_confirmation",
+      "density_source": null,
+      "density_requires_human_confirmation": false,
+      "temperature_K": 565.0,
+      "composition": {
+        "U234": 0.0219,
+        "U235": 2.619,
+        "U236": 0.012,
+        "U238": 97.3471,
+        "O16": 2.0
+      },
+      "compound_components": [],
+      "composition_basis": "stoichiometric_ratio",
+      "composition_status": "confirmed",
+      "source_note": "VERA Problem 3 State 3B Table P3-2 enrichment vector",
+      "warnings": [],
+      "mixture_components": [],
+      "source_variant_id": "uo2_3b",
+      "variant_scope": null,
+      "derivation_method": null
+    },
+    {
+      "material_id": "coolant_3b",
+      "name": "Borated Water 3B",
+      "role": "coolant",
+      "density_g_cm3": 0.743,
+      "density_status": "needs_confirmation",
+      "density_source": null,
+      "density_requires_human_confirmation": false,
+      "temperature_K": 565.0,
+      "composition": {
+        "B10": 1066.0,
+        "H1": 2.0,
+        "O16": 1.0
+      },
+      "compound_components": [],
+      "composition_basis": "ppm_by_weight",
+      "composition_status": "confirmed",
+      "source_note": "VERA Problem 3 State 3B Table 18 boron concentration",
+      "warnings": [],
+      "mixture_components": [],
+      "source_variant_id": null,
+      "variant_scope": null,
+      "derivation_method": null
+    },
+    {
+      "material_id": "helium",
+      "name": "Helium Gap",
+      "role": "coolant",
+      "density_g_cm3": 0.001,
+      "density_status": "needs_confirmation",
+      "density_source": null,
+      "density_requires_human_confirmation": false,
+      "temperature_K": 565.0,
+      "composition": {
+        "He4": 1.0
+      },
+      "compound_components": [],
+      "composition_basis": "atom_frac",
+      "composition_status": "approximate",
+      "source_note": null,
+      "warnings": [
+        "Nominal helium density used for gap and plenum gas."
+      ],
+      "mixture_components": [],
+      "source_variant_id": null,
+      "variant_scope": null,
+      "derivation_method": null
+    },
+    {
+      "material_id": "zircaloy4",
+      "name": "Zircaloy-4",
+      "role": "structural",
+      "density_g_cm3": 6.56,
+      "density_status": "needs_confirmation",
+      "density_source": null,
+      "density_requires_human_confirmation": false,
+      "temperature_K": 565.0,
+      "composition": {
+        "Zr": 0.9823,
+        "Sn": 0.0145,
+        "Fe": 0.0021,
+        "Cr": 0.0011
+      },
+      "compound_components": [],
+      "composition_basis": "weight_frac",
+      "composition_status": "approximate",
+      "source_note": null,
+      "warnings": [
+        "Using nominal standard weight fractions for Zircaloy-4."
+      ],
+      "mixture_components": [],
+      "source_variant_id": null,
+      "variant_scope": null,
+      "derivation_method": null
+    },
+    {
+      "material_id": "ss304",
+      "name": "SS304 Stainless Steel",
+      "role": "structural",
+      "density_g_cm3": 8.0,
+      "density_status": "needs_confirmation",
+      "density_source": null,
+      "density_requires_human_confirmation": false,
+      "temperature_K": 565.0,
+      "composition": {
+        "Fe": 0.695,
+        "Cr": 0.19,
+        "Ni": 0.095,
+        "Mn": 0.02
+      },
+      "compound_components": [],
+      "composition_basis": "weight_frac",
+      "composition_status": "approximate",
+      "source_note": null,
+      "warnings": [
+        "Using nominal standard weight fractions for SS304."
+      ],
+      "mixture_components": [],
+      "source_variant_id": null,
+      "variant_scope": null,
+      "derivation_method": null
+    },
+    {
+      "material_id": "inconel718",
+      "name": "Inconel-718",
+      "role": "structural",
+      "density_g_cm3": 8.19,
+      "density_status": "needs_confirmation",
+      "density_source": null,
+      "density_requires_human_confirmation": false,
+      "temperature_K": 565.0,
+      "composition": {
+        "Ni": 0.55,
+        "Cr": 0.19,
+        "Fe": 0.18,
+        "Nb": 0.05,
+        "Mo": 0.03
+      },
+      "compound_components": [],
+      "composition_basis": "weight_frac",
+      "composition_status": "approximate",
+      "source_note": null,
+      "warnings": [
+        "Using nominal standard weight fractions for Inconel-718."
+      ],
+      "mixture_components": [],
+      "source_variant_id": null,
+      "variant_scope": null,
+      "derivation_method": null
+    },
+    {
+      "material_id": "pyrex_3b",
+      "name": "Pyrex Borosilicate Glass Poison 3B",
+      "role": "poison",
+      "density_g_cm3": 2.25,
+      "density_status": "needs_confirmation",
+      "density_source": null,
+      "density_requires_human_confirmation": false,
+      "temperature_K": 565.0,
+      "composition": {
+        "B10": 0.00712,
+        "B11": 0.0317,
+        "O16": 0.55217,
+        "Si": 0.40901
+      },
+      "compound_components": [
+        {
+          "formula": "B2O3",
+          "fraction": 0.125,
+          "fraction_basis": "weight_frac",
+          "isotope_policy": "natural_elements",
+          "isotope_overrides": {},
+          "source_note": "VERA Problem 3 specifies 12.5 wt% B2O3",
+          "assumptions": []
+        },
+        {
+          "formula": "SiO2",
+          "fraction": 0.875,
+          "fraction_basis": "weight_frac",
+          "isotope_policy": "natural_elements",
+          "isotope_overrides": {},
+          "source_note": "VERA Problem 3 specifies 87.5 wt% SiO2",
+          "assumptions": []
+        }
+      ],
+      "composition_basis": "weight_frac",
+      "composition_status": "confirmed",
+      "source_note": "VERA Problem 3 State 3B Section 12.2 explicit isotopic weight fractions",
+      "warnings": [],
+      "mixture_components": [],
+      "source_variant_id": null,
+      "variant_scope": null,
+      "derivation_method": null
+    },
+    {
+      "material_id": "lower_nozzle_3b",
+      "name": "Homogenized Lower Nozzle 3B",
+      "role": "structural",
+      "density_g_cm3": 2.7693,
+      "density_status": "needs_confirmation",
+      "density_source": null,
+      "density_requires_human_confirmation": false,
+      "temperature_K": 565.0,
+      "composition": {},
+      "compound_components": [],
+      "composition_basis": "unknown",
+      "composition_status": "needs_confirmation",
+      "source_note": null,
+      "warnings": [],
+      "mixture_components": [
+        {
+          "material_id": "ss304",
+          "volume_fraction": 0.279217
+        },
+        {
+          "material_id": "coolant_3b",
+          "volume_fraction": 0.720783
+        }
+      ],
+      "source_variant_id": null,
+      "variant_scope": null,
+      "derivation_method": null
+    },
+    {
+      "material_id": "upper_nozzle_3b",
+      "name": "Homogenized Upper Nozzle 3B",
+      "role": "structural",
+      "density_g_cm3": 2.1325,
+      "density_status": "needs_confirmation",
+      "density_source": null,
+      "density_requires_human_confirmation": false,
+      "temperature_K": 565.0,
+      "composition": {},
+      "compound_components": [],
+      "composition_basis": "unknown",
+      "composition_status": "needs_confirmation",
+      "source_note": null,
+      "warnings": [],
+      "mixture_components": [
+        {
+          "material_id": "ss304",
+          "volume_fraction": 0.19147
+        },
+        {
+          "material_id": "coolant_3b",
+          "volume_fraction": 0.80853
+        }
+      ],
+      "source_variant_id": null,
+      "variant_scope": null,
+      "derivation_method": null
+    },
+    {
+      "material_id": "lower_plate_3b",
+      "name": "Homogenized Lower Core Plate 3B",
+      "role": "structural",
+      "density_g_cm3": 4.3715,
+      "density_status": "needs_confirmation",
+      "density_source": null,
+      "density_requires_human_confirmation": false,
+      "temperature_K": 565.0,
+      "composition": {},
+      "compound_components": [],
+      "composition_basis": "unknown",
+      "composition_status": "needs_confirmation",
+      "source_note": null,
+      "warnings": [],
+      "mixture_components": [
+        {
+          "material_id": "ss304",
+          "volume_fraction": 0.5
+        },
+        {
+          "material_id": "coolant_3b",
+          "volume_fraction": 0.5
+        }
+      ],
+      "source_variant_id": null,
+      "variant_scope": null,
+      "derivation_method": null
+    },
+    {
+      "material_id": "upper_plate_3b",
+      "name": "Homogenized Upper Core Plate 3B",
+      "role": "structural",
+      "density_g_cm3": 4.3715,
+      "density_status": "needs_confirmation",
+      "density_source": null,
+      "density_requires_human_confirmation": false,
+      "temperature_K": 565.0,
+      "composition": {},
+      "compound_components": [],
+      "composition_basis": "unknown",
+      "composition_status": "needs_confirmation",
+      "source_note": null,
+      "warnings": [],
+      "mixture_components": [
+        {
+          "material_id": "ss304",
+          "volume_fraction": 0.5
+        },
+        {
+          "material_id": "coolant_3b",
+          "volume_fraction": 0.5
+        }
+      ],
+      "source_variant_id": null,
+      "variant_scope": null,
+      "derivation_method": null
+    }
+  ],
+  "assumptions": [
+    "The model uses isothermal temperature conditions at 565 K for state 3B.",
+    "Structural alloy compositions for Zircaloy-4, SS304, and Inconel-718 are approximated using standard nominal weight fractions and flagged with a warning.",
+    "Nozzle and core plate homogenized structures are defined using mixture_components with ss304 and coolant_3b to correctly preserve transport-ready species rather than treating them as pure coolant or undefined structural mixtures.",
+    "Pyrex material is fully resolved to specific isotopes based on the benchmark description, while retaining the original chemical formula proportions in compound_components."
+  ]
+}

@@ -11,6 +11,7 @@ from typing import Any
 
 from pydantic import Field
 
+from openmc_agent.material_species import classify_species_name
 from openmc_agent.plan_builder.patches import parse_patch_content
 from openmc_agent.plan_builder.validators import validate_patch
 from openmc_agent.schemas import AgentBaseModel
@@ -85,8 +86,12 @@ def _collect_materials_issues(materials_patch: Any, view: MaterialUniverseBindin
         # Compound formula must not live in transport composition.
         if material.compound_components:
             for element, fraction in material.composition.items():
-                # Compound symbols like B2O3 / SiO2 contain digits and uppercase pairs.
-                if any(ch.isdigit() for ch in element) and element.upper() == element and len(element) > 2:
+                # A transport-composition key must be a nuclide/element symbol
+                # (e.g. B10, U235, O16, Si), not a compound formula (B2O3).
+                # The earlier heuristic (digit + all-upper + len>2) misflagged
+                # nuclides like B10/B11/O16; classify_species_name distinguishes
+                # nuclides/elements from compounds.
+                if classify_species_name(element) == "compound":
                     issues.append(_issue("material_universe.compound_in_transport_composition", f"material {mid} has compound formula {element} in transport composition", row_kind="source_material_coverage", row_key=mid, material_id=mid, compound=element))
                     break
             if not material.composition_basis or material.composition_basis == "unknown":

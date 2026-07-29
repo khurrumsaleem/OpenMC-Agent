@@ -285,8 +285,6 @@ def test_pyrex_plenum_alias_replaces_absorber_offline() -> None:
 # ---------------------------------------------------------------------------
 # F7: Fuel source_variant_id canonicalization (VERA3B v16)
 # ---------------------------------------------------------------------------
-
-
 def test_fuel_source_variant_id_canonicalized_offline() -> None:
     data = _load("vera3b_v16_fuel_variant_id_canonicalization.json")
     state = PlanBuildState(state_id="s", requirement_text="r")
@@ -303,3 +301,46 @@ def test_fuel_source_variant_id_canonicalized_offline() -> None:
     assert "fuel_source_variant_id_canonicalized" in ops
     fuel = next(m for m in result.content["materials"] if m.get("role") == "fuel")
     assert fuel["source_variant_id"] == data["expected_fuel_source_variant_id"]
+
+
+# ---------------------------------------------------------------------------
+# F8: VERA3B v19 upstream golden baseline + MU preflight
+# ---------------------------------------------------------------------------
+
+_V19_UPSTREAM_DIR = Path(__file__).parent / "fixtures" / "offline_closure" / "vera3b_v19_upstream"
+
+
+def test_v19_upstream_chain_loads_and_parses() -> None:
+    """The v19 facts+materials+universes triple is the first complete upstream
+    chain produced by the real LLM (all three gates passed). It is committed
+    as a golden regression baseline for the downstream material_universe gate."""
+    from openmc_agent.plan_builder.patches import parse_patch_content
+
+    for patch_type in ("facts", "materials", "universes"):
+        content = json.loads((_V19_UPSTREAM_DIR / f"{patch_type}.json").read_text())
+        # Must parse against the authoritative patch schema.
+        parse_patch_content(patch_type, content)
+
+
+def test_v19_mu_preflight_no_longer_flags_pyrex_nuclides_as_compound() -> None:
+    """Regression for the v19 MU blocker: pyrex transport composition uses
+    nuclide symbols (B10/B11/O16) which the MU preflight misflagged as
+    compound formulas. After the classify_species_name fix, the
+    compound_in_transport_composition error must be gone for the real v19
+    upstream chain."""
+    from openmc_agent.plan_builder.closed_loop.material_universe_preflight import (
+        run_material_universe_preflight,
+    )
+    from openmc_agent.plan_builder.closed_loop.models import PlanClosedLoopPolicy
+
+    state = PlanBuildState(state_id="v19", requirement_text="r")
+    for patch_type in ("facts", "materials", "universes"):
+        content = json.loads((_V19_UPSTREAM_DIR / f"{patch_type}.json").read_text())
+        state.add_patch(PlanPatchEnvelope(
+            patch_id=patch_type, patch_type=patch_type,
+            content=content, status="valid",
+        ))
+
+    result = run_material_universe_preflight(state=state, policy=PlanClosedLoopPolicy())
+    codes = {item["code"] for item in result.issues}
+    assert "material_universe.compound_in_transport_composition" not in codes

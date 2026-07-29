@@ -1,0 +1,588 @@
+{
+  "patch_type": "universes",
+  "universes": [
+    {
+      "universe_id": "fuel_variant_uo2_3b",
+      "kind": "fuel_pin",
+      "cells": [
+        {
+          "id": "fuel_pellet",
+          "role": "fuel",
+          "material_id": "fuel_3b",
+          "region_kind": "cylinder",
+          "r_min_cm": 0.0,
+          "r_max_cm": 0.4096
+        }
+      ],
+      "metadata": {
+        "source_requirement_ids": [
+          "fuel_variant:uo2_3b"
+        ],
+        "fuel_variant_id": "uo2_3b"
+      }
+    },
+    {
+      "universe_id": "localized_insert_pyrex_3b",
+      "kind": "pyrex_rod",
+      "cells": [
+        {
+          "id": "layer_0",
+          "role": "gas_gap",
+          "material_id": "helium",
+          "region_kind": "cylinder",
+          "r_min_cm": 0.0,
+          "r_max_cm": 0.214,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        },
+        {
+          "id": "ss304",
+          "role": "cladding",
+          "material_id": "ss304",
+          "region_kind": "annulus",
+          "r_min_cm": 0.214,
+          "r_max_cm": 0.231,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        },
+        {
+          "id": "layer_2",
+          "role": "gas_gap",
+          "material_id": "helium",
+          "region_kind": "annulus",
+          "r_min_cm": 0.231,
+          "r_max_cm": 0.241,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        },
+        {
+          "id": "pyrex",
+          "role": "poison",
+          "material_id": "pyrex_3b",
+          "region_kind": "annulus",
+          "r_min_cm": 0.241,
+          "r_max_cm": 0.427,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        },
+        {
+          "id": "layer_4",
+          "role": "gas_gap",
+          "material_id": "helium",
+          "region_kind": "annulus",
+          "r_min_cm": 0.427,
+          "r_max_cm": 0.437,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        },
+        {
+          "id": "ss304_5",
+          "role": "cladding",
+          "material_id": "ss304",
+          "region_kind": "annulus",
+          "r_min_cm": 0.437,
+          "r_max_cm": 0.484,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        },
+        {
+          "id": "pyrex_6",
+          "role": "inner_flow",
+          "material_id": "coolant_3b",
+          "region_kind": "annulus",
+          "r_min_cm": 0.484,
+          "r_max_cm": 0.561,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        },
+        {
+          "id": "zircaloy_4",
+          "role": "cladding",
+          "material_id": "zircaloy4",
+          "region_kind": "annulus",
+          "r_min_cm": 0.561,
+          "r_max_cm": 0.602,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        },
+        {
+          "id": "layer_8",
+          "role": "inner_flow",
+          "material_id": "coolant_3b",
+          "region_kind": "background",
+          "r_min_cm": null,
+          "r_max_cm": null,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        }
+      ],
+      "source_note": "Deterministic annular-insert universe constructed from the source radial cross-section by the annular_insert_universe_oracle.",
+      "assumptions": [],
+      "metadata": {
+        "constructed_by": "annular_insert_universe_oracle",
+        "source_requirement_ids": [
+          "localized_insert:pyrex_3b"
+        ],
+        "localized_insert_requirement_id": "pyrex_3b",
+        "localized_insert_requirement_ids": [
+          "pyrex_3b"
+        ]
+      }
+    },
+    {
+      "universe_id": "localized_insert_thimble_plug_3b",
+      "kind": "thimble_plug",
+      "cells": [
+        {
+          "id": "plug_body",
+          "role": "structural",
+          "material_id": "ss304",
+          "region_kind": "cylinder",
+          "r_min_cm": 0.0,
+          "r_max_cm": 0.4
+        }
+      ],
+      "metadata": {
+        "source_requirement_ids": [
+          "localized_insert:thimble_plug_3b"
+        ],
+        "localized_insert_requirement_id": "thimble_plug_3b",
+        "localized_insert_requirement_ids": [
+          "thimble_plug_3b"
+        ]
+      }
+    },
+    {
+      "universe_id": "implicit_end_plug_lower",
+      "kind": "custom",
+      "cells": [
+        {
+          "id": "lower_end_plug_zircaloy4",
+          "role": "end_plug",
+          "material_id": "zircaloy4",
+          "region_kind": "cylinder",
+          "r_min_cm": 0.0,
+          "r_max_cm": 0.1
+        },
+        {
+          "id": "lower_end_plug_ss304",
+          "role": "end_plug",
+          "material_id": "ss304",
+          "region_kind": "cylinder",
+          "r_min_cm": 0.1,
+          "r_max_cm": 0.2
+        },
+        {
+          "id": "lower_end_plug_inconel718",
+          "role": "end_plug",
+          "material_id": "inconel718",
+          "region_kind": "cylinder",
+          "r_min_cm": 0.2,
+          "r_max_cm": 0.3
+        },
+        {
+          "id": "lower_end_plug_lower_nozzle",
+          "role": "end_plug",
+          "material_id": "lower_nozzle_3b",
+          "region_kind": "cylinder",
+          "r_min_cm": 0.3,
+          "r_max_cm": 0.4
+        },
+        {
+          "id": "lower_end_plug_lower_plate",
+          "role": "end_plug",
+          "material_id": "lower_plate_3b",
+          "region_kind": "cylinder",
+          "r_min_cm": 0.4,
+          "r_max_cm": 0.5
+        },
+        {
+          "id": "lower_end_plug_upper_nozzle",
+          "role": "end_plug",
+          "material_id": "upper_nozzle_3b",
+          "region_kind": "cylinder",
+          "r_min_cm": 0.5,
+          "r_max_cm": 0.6
+        },
+        {
+          "id": "lower_end_plug_upper_plate",
+          "role": "end_plug",
+          "material_id": "upper_plate_3b",
+          "region_kind": "cylinder",
+          "r_min_cm": 0.6,
+          "r_max_cm": 0.7
+        }
+      ],
+      "metadata": {
+        "source_requirement_ids": [
+          "implicit:end_plug_lower"
+        ]
+      }
+    },
+    {
+      "universe_id": "implicit_end_plug_upper",
+      "kind": "custom",
+      "cells": [
+        {
+          "id": "upper_end_plug_zircaloy4",
+          "role": "end_plug",
+          "material_id": "zircaloy4",
+          "region_kind": "cylinder",
+          "r_min_cm": 0.0,
+          "r_max_cm": 0.4
+        }
+      ],
+      "metadata": {
+        "source_requirement_ids": [
+          "implicit:end_plug_upper"
+        ]
+      }
+    },
+    {
+      "universe_id": "implicit_gas_gap",
+      "kind": "custom",
+      "cells": [
+        {
+          "id": "gas_gap_helium",
+          "role": "gas_gap",
+          "material_id": "helium",
+          "region_kind": "cylinder",
+          "r_min_cm": 0.0,
+          "r_max_cm": 0.4
+        },
+        {
+          "id": "gas_gap_cladding",
+          "role": "gas_gap",
+          "material_id": "zircaloy4",
+          "region_kind": "cylinder",
+          "r_min_cm": 0.4,
+          "r_max_cm": 0.475
+        }
+      ],
+      "metadata": {
+        "source_requirement_ids": [
+          "implicit:gas_gap"
+        ]
+      }
+    },
+    {
+      "universe_id": "implicit_water_pin",
+      "kind": "water_cell",
+      "cells": [
+        {
+          "id": "water_outer",
+          "role": "moderator",
+          "material_id": "coolant_3b",
+          "region_kind": "cylinder",
+          "r_min_cm": 0.0,
+          "r_max_cm": 0.63
+        }
+      ],
+      "metadata": {
+        "source_requirement_ids": [
+          "implicit:water_pin"
+        ]
+      }
+    },
+    {
+      "universe_id": "pyrex_poison_u",
+      "kind": "pyrex_rod",
+      "cells": [
+        {
+          "id": "layer_0",
+          "role": "gas_gap",
+          "material_id": "helium",
+          "region_kind": "cylinder",
+          "r_min_cm": 0.0,
+          "r_max_cm": 0.214,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        },
+        {
+          "id": "ss304",
+          "role": "cladding",
+          "material_id": "ss304",
+          "region_kind": "annulus",
+          "r_min_cm": 0.214,
+          "r_max_cm": 0.231,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        },
+        {
+          "id": "layer_2",
+          "role": "gas_gap",
+          "material_id": "helium",
+          "region_kind": "annulus",
+          "r_min_cm": 0.231,
+          "r_max_cm": 0.241,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        },
+        {
+          "id": "pyrex",
+          "role": "poison",
+          "material_id": "pyrex_3b",
+          "region_kind": "annulus",
+          "r_min_cm": 0.241,
+          "r_max_cm": 0.427,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        },
+        {
+          "id": "layer_4",
+          "role": "gas_gap",
+          "material_id": "helium",
+          "region_kind": "annulus",
+          "r_min_cm": 0.427,
+          "r_max_cm": 0.437,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        },
+        {
+          "id": "ss304_5",
+          "role": "cladding",
+          "material_id": "ss304",
+          "region_kind": "annulus",
+          "r_min_cm": 0.437,
+          "r_max_cm": 0.484,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        },
+        {
+          "id": "pyrex_6",
+          "role": "inner_flow",
+          "material_id": "coolant_3b",
+          "region_kind": "annulus",
+          "r_min_cm": 0.484,
+          "r_max_cm": 0.561,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        },
+        {
+          "id": "zircaloy_4",
+          "role": "cladding",
+          "material_id": "zircaloy4",
+          "region_kind": "annulus",
+          "r_min_cm": 0.561,
+          "r_max_cm": 0.602,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        },
+        {
+          "id": "layer_8",
+          "role": "inner_flow",
+          "material_id": "coolant_3b",
+          "region_kind": "background",
+          "r_min_cm": null,
+          "r_max_cm": null,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        }
+      ],
+      "source_note": "Deterministic annular-insert universe constructed from the source radial cross-section by the annular_insert_universe_oracle.",
+      "assumptions": [],
+      "metadata": {
+        "constructed_by": "annular_insert_universe_oracle",
+        "source_requirement_ids": [
+          "localized_insert:pyrex_3b"
+        ],
+        "localized_insert_requirement_id": "pyrex_3b",
+        "localized_insert_requirement_ids": [
+          "pyrex_3b"
+        ],
+        "alias_of_universe_id": "localized_insert_pyrex_3b",
+        "localized_insert_expected_universe_id": "pyrex_poison_u"
+      }
+    },
+    {
+      "universe_id": "pyrex_plenum_u",
+      "kind": "pyrex_rod",
+      "cells": [
+        {
+          "id": "layer_0",
+          "role": "gas_gap",
+          "material_id": "helium",
+          "region_kind": "cylinder",
+          "r_min_cm": 0.0,
+          "r_max_cm": 0.214,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        },
+        {
+          "id": "ss304",
+          "role": "cladding",
+          "material_id": "ss304",
+          "region_kind": "annulus",
+          "r_min_cm": 0.214,
+          "r_max_cm": 0.231,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        },
+        {
+          "id": "layer_2",
+          "role": "gas_gap",
+          "material_id": "helium",
+          "region_kind": "annulus",
+          "r_min_cm": 0.231,
+          "r_max_cm": 0.241,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        },
+        {
+          "id": "pyrex",
+          "role": "gas_gap",
+          "material_id": "helium",
+          "region_kind": "annulus",
+          "r_min_cm": 0.241,
+          "r_max_cm": 0.427,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        },
+        {
+          "id": "layer_4",
+          "role": "gas_gap",
+          "material_id": "helium",
+          "region_kind": "annulus",
+          "r_min_cm": 0.427,
+          "r_max_cm": 0.437,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        },
+        {
+          "id": "ss304_5",
+          "role": "cladding",
+          "material_id": "ss304",
+          "region_kind": "annulus",
+          "r_min_cm": 0.437,
+          "r_max_cm": 0.484,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        },
+        {
+          "id": "pyrex_6",
+          "role": "inner_flow",
+          "material_id": "coolant_3b",
+          "region_kind": "annulus",
+          "r_min_cm": 0.484,
+          "r_max_cm": 0.561,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        },
+        {
+          "id": "zircaloy_4",
+          "role": "cladding",
+          "material_id": "zircaloy4",
+          "region_kind": "annulus",
+          "r_min_cm": 0.561,
+          "r_max_cm": 0.602,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        },
+        {
+          "id": "layer_8",
+          "role": "inner_flow",
+          "material_id": "coolant_3b",
+          "region_kind": "background",
+          "r_min_cm": null,
+          "r_max_cm": null,
+          "outer_side_cm": null,
+          "inner_side_cm": null,
+          "fill_universe_id": null,
+          "protected_through_path": false
+        }
+      ],
+      "source_note": "Deterministic annular-insert universe constructed from the source radial cross-section by the annular_insert_universe_oracle.",
+      "assumptions": [],
+      "metadata": {
+        "constructed_by": "annular_insert_universe_oracle",
+        "source_requirement_ids": [
+          "localized_insert:pyrex_3b"
+        ],
+        "localized_insert_requirement_id": "pyrex_3b",
+        "localized_insert_requirement_ids": [
+          "pyrex_3b"
+        ],
+        "gas_plenum_transform": true,
+        "alias_of_universe_id": "localized_insert_pyrex_3b",
+        "localized_insert_expected_universe_id": "pyrex_plenum_u"
+      }
+    },
+    {
+      "universe_id": "thimble_plug_u",
+      "kind": "thimble_plug",
+      "cells": [
+        {
+          "id": "plug_body",
+          "role": "structural",
+          "material_id": "ss304",
+          "region_kind": "cylinder",
+          "r_min_cm": 0.0,
+          "r_max_cm": 0.4
+        }
+      ],
+      "metadata": {
+        "source_requirement_ids": [
+          "localized_insert:thimble_plug_3b"
+        ],
+        "localized_insert_requirement_id": "thimble_plug_3b",
+        "localized_insert_requirement_ids": [
+          "thimble_plug_3b"
+        ],
+        "alias_of_universe_id": "localized_insert_thimble_plug_3b",
+        "localized_insert_expected_universe_id": "thimble_plug_u"
+      }
+    }
+  ]
+}
