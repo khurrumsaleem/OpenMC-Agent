@@ -3652,6 +3652,16 @@ def run_incremental_planning(
             stage.status = PlanStageStatus.PENDING
             stage.completed_at = None
             state.add_event("planning.material_universe_input_hash_changed", "material-universe accepted input hash changed; gate reopened", {"old": stage.metadata.get("accepted_input_hash"), "new": input_hash})
+        # Re-normalize materials against current Facts before MU preflight,
+        # in case the original add_patch normalization missed the canonical
+        # fuel variant id (e.g. Facts was repaired after Materials was added).
+        from .materials_patch_normalization import normalize_materials_patch_content as _renorm
+        for _env in state.patches.values():
+            if _env.patch_type == "materials" and _env.status == "valid":
+                _r = _renorm(_env.content, state=state)
+                if _r.changed:
+                    _env.content = _r.content
+
         # Build species report (reuse the executor's resolver if available).
         species_report: dict[str, Any] = {}
         materials_env = next((item for item in state.patches.values() if item.patch_type == "materials" and item.status == "valid"), None)
