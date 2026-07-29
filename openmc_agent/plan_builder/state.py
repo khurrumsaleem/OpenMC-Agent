@@ -338,6 +338,9 @@ class PlanBuildState(AgentBaseModel):
                         ],
                     },
                 )
+
+        if patch.patch_type == "pin_map" and patch.status == "valid":
+            patch.content = _normalize_pin_map_intent_bindings(patch.content, self)
         self.patches[patch.patch_id] = patch
         self.patch_status[patch.patch_id] = patch.status
 
@@ -959,3 +962,66 @@ __all__ = [
     "EVENT_PATCH_GENERATED",
     "EVENT_PATCH_GENERATION_FAILED",
 ]
+
+
+def _normalize_pin_map_intent_bindings(
+    content: dict[str, Any],
+    state: PlanBuildState,
+) -> dict[str, Any]:
+    """Fill null anchor_z_cm / axial_profile_id in localized_insert_intents.
+
+    The LLM frequently leaves these fields null in the pin_map even though
+    Facts declares explicit values.  Placement preflight flags the mismatch.
+    This normalizer copies values from the matching Facts requirement when
+    the insert_kind unambiguously matches.
+    """
+    import copy as _copy
+
+    intents = content.get("localized_insert_intents")
+    if not isinstance(intents, list) or not intents:
+        return content
+
+    facts_reqs: list[dict[str, Any]] = []
+    for env in state.patches.values():
+        if (
+            getattr(env, "patch_type", None) == "facts"
+            and getattr(env, "status", None) == "valid"
+        ):
+            facts_reqs = list(env.content.get("localized_insert_requirements") or [])
+            break
+    if not facts_reqs:
+        return content
+
+    kind_to_req: dict[str, dict[str, Any]] = {}
+    for req in facts_reqs:
+        if not isinstance(req, dict):
+            continue
+        kind = str(req.get("insert_kind", "")).lower().strip()
+        if kind:
+            kind_to_req.setdefault(kind, req)
+
+    changed = False
+    new_intents = []
+    for intent in intents:
+        if not isinstance(intent, dict):
+            new_intents.append(intent)
+            continue
+        kind = str(intent.get("insert_kind", "")).lower().strip()
+        req = kind_to_req.get(kind)
+        if req is None:
+            new_intents.append(intent)
+            continue
+        patched = _copy.deepcopy(intent)
+        if patched.get("anchor_z_cm") is None and req.get("anchor_z_cm") is not None:
+            patched["anchor_z_cm"] = req["anchor_z_cm"]
+            changed = True
+        if not patched.get("axial_profile_id") and req.get("required_profile_id"):
+            patched["axial_profile_id"] = req["required_profile_id"]
+            changed = True
+        new_intents.append(patched)
+
+    if changed:
+        new_content = _copy.deepcopy(content)
+        new_content["localized_insert_intents"] = new_intents
+        return new_content
+    return content
