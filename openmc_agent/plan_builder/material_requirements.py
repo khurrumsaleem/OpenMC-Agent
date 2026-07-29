@@ -266,6 +266,67 @@ def extract_material_requirements_from_facts(
             composition_required=True,
         ))
 
+    # Derive additional material roles from localized insert requirements.
+    # When Facts declares inserts (e.g. pyrex_rod, thimble_plug, control_rod),
+    # the materials needed for those inserts (poison, absorber, structural)
+    # must be generated even if material_roles is empty.
+    insert_reqs = list(getattr(accepted_facts, "localized_insert_requirements", []) or [])
+    _INSERT_KIND_TO_ROLES: dict[str, list[str]] = {
+        "pyrex_rod": ["poison"],
+        "thimble_plug": ["structural"],
+        "control_rod": ["absorber"],
+        "burnable_poison": ["poison"],
+        "waba_rod": ["absorber"],
+        "ifba_pin": ["poison"],
+    }
+    for req in insert_reqs:
+        insert_kind = str(
+            (req.get("insert_kind", "") if isinstance(req, dict)
+             else getattr(req, "insert_kind", ""))
+            or ""
+        ).lower().strip()
+        for derived_role in _INSERT_KIND_TO_ROLES.get(insert_kind, []):
+            key = ("role", derived_role)
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            requirements.append(MaterialGenerationRequirement(
+                requirement_id=short_id("mreq", {"role": derived_role, "insert": insert_kind}),
+                role=derived_role,
+                density_required=True,
+                composition_required=True,
+            ))
+
+    # Pin-cell geometry implies standard structural / coolant / gas roles
+    # even when Facts.material_roles is empty.  Derive conservatively from
+    # the presence of fuel variants and guide/instrument tube counts.
+    pin_count = getattr(accepted_facts, "expected_pin_count", None) or 0
+    guide_count = getattr(accepted_facts, "expected_guide_tube_count", None) or 0
+    if fuel_variants or pin_count:
+        for implied_role in ("cladding", "coolant", "gas"):
+            key = ("role", implied_role)
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            requirements.append(MaterialGenerationRequirement(
+                requirement_id=short_id("mreq", {"role": implied_role, "source": "fuel_geometry"}),
+                role=implied_role,
+                density_required=True,
+                composition_required=True,
+            ))
+    if guide_count:
+        for implied_role in ("cladding",):
+            key = ("role", implied_role)
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            requirements.append(MaterialGenerationRequirement(
+                requirement_id=short_id("mreq", {"role": implied_role, "source": "guide_tube"}),
+                role=implied_role,
+                density_required=True,
+                composition_required=True,
+            ))
+
     return MaterialGenerationRequirementSet(
         requirements=tuple(requirements),
         inventory_hash="facts-derived",

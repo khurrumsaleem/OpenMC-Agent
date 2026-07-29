@@ -124,3 +124,76 @@ def test_component_profile_loading_is_auto_attached_to_matching_layer() -> None:
     assert [issue.code for issue in issues] == [
         "assembly.component_profile_loading_auto_attached"
     ]
+
+
+# ---------------------------------------------------------------------------
+# v21 regressions: Facts fallback requirements + dynamic MU owner
+# ---------------------------------------------------------------------------
+
+
+def test_facts_fallback_derives_roles_from_inserts_and_geometry() -> None:
+    """When Facts has material_roles=[] but declares fuel variants + localized
+    inserts (pyrex_rod, thimble_plug), the Facts fallback must still produce
+    requirements for poison, structural, cladding, coolant, and gas — not
+    just fuel."""
+    from openmc_agent.plan_builder.material_requirements import (
+        extract_material_requirements_from_facts,
+    )
+    from openmc_agent.plan_builder.patches import parse_patch_content
+
+    facts = parse_patch_content("facts", {
+        "patch_type": "facts",
+        "model_scope": "single_assembly",
+        "fuel_variant_requirements": [{"variant_id": "UO2_2.619", "enrichment_wt_percent": 2.619}],
+        "material_roles": [],
+        "localized_insert_requirements": [
+            {"requirement_id": "pyrex_3B", "insert_kind": "pyrex_rod", "host_kind": "guide_tube"},
+            {"requirement_id": "thimble_plug_3B", "insert_kind": "thimble_plug", "host_kind": "guide_tube"},
+        ],
+        "expected_pin_count": 264,
+    })
+    reqs = extract_material_requirements_from_facts(facts)
+    roles = {r.role for r in reqs.requirements}
+    assert "fuel_UO2" in roles
+    assert "poison" in roles
+    assert "structural" in roles
+    assert "cladding" in roles
+    assert "coolant" in roles
+    assert "gas" in roles
+
+
+def test_material_reference_missing_routes_to_materials_owner() -> None:
+    """When a universe cell references a material_id that doesn't exist in the
+    Materials patch, the MU preflight issue should carry
+    owner_patch_type='materials' so the retry targets Materials, not
+    Universes."""
+    from openmc_agent.plan_builder.closed_loop.material_universe_preflight import (
+        run_material_universe_preflight,
+    )
+    from openmc_agent.plan_builder.closed_loop.models import PlanClosedLoopPolicy
+
+    materials = {
+        "patch_type": "materials",
+        "materials": [
+            {"material_id": "fuel", "name": "f", "role": "fuel", "density_g_cm3": 10.0},
+        ],
+    }
+    universes = {
+        "patch_type": "universes",
+        "universes": [
+            {"universe_id": "u1", "kind": "fuel_pin", "cells": [
+                {"id": "c1", "role": "fuel", "material_id": "fuel", "region_kind": "cylinder"},
+                {"id": "c2", "role": "clad", "material_id": "zircaloy4", "region_kind": "cylinder"},
+            ]},
+        ],
+    }
+    facts = {"patch_type": "facts", "model_scope": "single_assembly"}
+    state = PlanBuildState(state_id="s", requirement_text="r")
+    state.add_patch(PlanPatchEnvelope(patch_id="facts", patch_type="facts", content=facts, status="valid"))
+    state.add_patch(PlanPatchEnvelope(patch_id="materials", patch_type="materials", content=materials, status="valid"))
+    state.add_patch(PlanPatchEnvelope(patch_id="universes", patch_type="universes", content=universes, status="valid"))
+
+    result = run_material_universe_preflight(state=state, policy=PlanClosedLoopPolicy())
+    ref_missing = [i for i in result.issues if i["code"] == "material_universe.material_reference_missing"]
+    assert ref_missing
+    assert all(i.get("owner_patch_type") == "materials" for i in ref_missing)

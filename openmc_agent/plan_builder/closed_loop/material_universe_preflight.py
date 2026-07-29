@@ -179,7 +179,7 @@ def _collect_universes_issues(universes_patch: Any, view: MaterialUniverseBindin
                 continue
             seen_cell_ids.add(cell.id)
             if cell.material_id and cell.material_id not in material_ids:
-                issues.append(_issue("material_universe.material_reference_missing", f"universe {uid} cell {cell.id} references unknown material {cell.material_id}", row_kind="material_to_cell_binding", row_key=f"{uid}:{cell.id}", universe_id=uid, cell_id=cell.id, material_id=cell.material_id))
+                issues.append(_issue("material_universe.material_reference_missing", f"universe {uid} cell {cell.id} references unknown material {cell.material_id}", row_kind="material_to_cell_binding", row_key=f"{uid}:{cell.id}", universe_id=uid, cell_id=cell.id, material_id=cell.material_id, owner_patch_type="materials"))
             declared_variant = _universe_fuel_variant_id(universe)
             material_variant = material_variant_by_id.get(cell.material_id or "")
             if (
