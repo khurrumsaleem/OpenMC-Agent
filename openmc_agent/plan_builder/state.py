@@ -306,6 +306,38 @@ class PlanBuildState(AgentBaseModel):
                         ],
                     },
                 )
+
+        if patch.patch_type == "universes" and patch.status == "valid":
+            from .universes_patch_normalization import normalize_universes_patch_content
+
+            normalization = normalize_universes_patch_content(patch.content, state=self)
+            if normalization.changed:
+                patch.content = normalization.content
+                patch.metadata.setdefault("deterministic_normalizations", [])
+                patch.metadata["deterministic_normalizations"].extend(
+                    normalization.operations
+                )
+                self.metadata.setdefault("universes_deterministic_normalizations", [])
+                self.metadata["universes_deterministic_normalizations"].extend(
+                    normalization.operations
+                )
+                self.add_event(
+                    event_type="planning.universes_deterministic_normalization_applied",
+                    message="universes patch normalized (implicit universe merge)",
+                    data={
+                        "patch_id": patch.patch_id,
+                        "operation_count": len(normalization.operations),
+                        "operations": [
+                            {
+                                "operation": op.get("operation"),
+                                "implicit_universe_id": op.get("implicit_universe_id"),
+                                "host_universe_id": op.get("host_universe_id"),
+                                "cells_merged": op.get("cells_merged"),
+                            }
+                            for op in normalization.operations
+                        ],
+                    },
+                )
         self.patches[patch.patch_id] = patch
         self.patch_status[patch.patch_id] = patch.status
 

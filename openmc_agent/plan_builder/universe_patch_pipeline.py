@@ -1430,6 +1430,22 @@ def generate_universes_patch(
         if u_meta:
             universe["metadata"] = u_meta
 
+    # Deterministic post-merge normalization: merge implicit_* satellite
+    # universes back into their host fuel_pin and correct role/material
+    # mismatches (e.g. implicit_gas_gap's cladding cell tagged role=gas_gap).
+    from .universes_patch_normalization import normalize_universes_patch_content
+
+    uni_norm = normalize_universes_patch_content(merge_result.merged_patch, state=state)
+    if uni_norm.changed:
+        merge_result.merged_patch = uni_norm.content
+        for universe in merge_result.merged_patch.get("universes", []):
+            u_meta = dict(universe.get("metadata") or {})
+            norm_ops = u_meta.get("deterministic_normalizations") or []
+            norm_ops.extend(uni_norm.operations)
+            if norm_ops:
+                u_meta["deterministic_normalizations"] = norm_ops
+                universe["metadata"] = u_meta
+
     alias_issues = materialize_localized_insert_universe_aliases(
         merge_result.merged_patch,
         facts_obj=facts_obj,

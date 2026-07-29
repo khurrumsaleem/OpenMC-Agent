@@ -1,6 +1,17 @@
 # OpenMC-Agent 技术报告与进度总览
 
-维护日期：2026-07-28
+维护日期：2026-07-29
+
+### 2026-07-29 (PM)
+
+- **Phase 8C Step 3P MU gate 突破：implicit universe 归一化 + MU ok=True**：v19 MU gate 两个真实输出缺陷（`material_role_mismatch` + `radial_overlap`）通过新建 `universes_patch_normalization.py`（首个 universes 归一化模块，镜像 materials normalizer 架构）解决。核心机制（reactor-neutral，input-driven）：
+  - **implicit universe 角色修正（always-on）**：检测 `implicit_*` satellite universe，用 MaterialsPatch 的 material role 纠正 cell role（如 `gas_gap_cladding` cell 的 role 从 `gas_gap` 修正为 `structural`，匹配 zircaloy4 材料 role）→ 消除 `material_role_mismatch` error。
+  - **radial-layer satellite 合并**：仅对提供 radial-layer 角色（gap/cladding）的 satellite 尝试合并到 host fuel_pin；轴向结构（end plug/nozzle）和背景填充（moderator）不合并。
+  - **半径兼容性检查**：当 satellite cell 的 r_max ≤ host 最外层 r_max 时跳过合并（避免 zero/negative thickness），但角色修正仍生效 → 不引入 `radial_overlap` 或 `invalid_radius_order`。
+  - **径向连续性调整**：合并时按角色优先级（fuel→gap→cladding）排序，将 satellite cell 的 r_min 平移到 host 外缘，确保无重叠。
+  - 集成于 `generate_universes_patch`（post-merge pre-validation）和 `state.py:add_patch`（offline-loaded patches）。
+- **验证结果**：v19 上游三件套离线 MU preflight **MU ok=True**（仅剩 `background_missing` warning，非 blocking）；offline closure suite 增至 21 tests（+5 implicit/radius/v19-MU-pass）；全量 `3883 passed, 2 skipped, 393 deselected`，`compileall` 与 fake benchmark `21/21` 通过。
+- **修复关键 bug**：deep-copy 顺序——implicit_universes 原从原始 content 构建（deepcopy 前），角色修正写入原始 dict 而非返回的 copy；修正为先 deepcopy 再从 copy 构建 implicit 列表。
 
 ### 2026-07-29
 

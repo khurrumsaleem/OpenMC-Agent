@@ -344,3 +344,196 @@ def test_v19_mu_preflight_no_longer_flags_pyrex_nuclides_as_compound() -> None:
     result = run_material_universe_preflight(state=state, policy=PlanClosedLoopPolicy())
     codes = {item["code"] for item in result.issues}
     assert "material_universe.compound_in_transport_composition" not in codes
+
+
+# ---------------------------------------------------------------------------
+# F9: VERA3B v19 implicit universe merge normalization
+# ---------------------------------------------------------------------------
+
+
+def test_implicit_universe_merged_into_fuel_pin() -> None:
+    """When the LLM splits a fuel_pin into a main universe (fuel pellet only)
+    and a satellite ``implicit_gas_gap`` universe (gap + cladding), the
+    normalizer must merge the satellite's cells back into the host and
+    correct the cladding cell's role from ``gas_gap`` to ``cladding``
+    (its material's role)."""
+    from openmc_agent.plan_builder.universes_patch_normalization import (
+        normalize_universes_patch_content,
+    )
+
+    universes_patch = {
+        "patch_type": "universes",
+        "universes": [
+            {
+                "universe_id": "fuel_variant_uo2_3b",
+                "kind": "fuel_pin",
+                "cells": [
+                    {"id": "fuel_pellet", "role": "fuel", "material_id": "fuel_3b", "region_kind": "cylinder"},
+                ],
+            },
+            {
+                "universe_id": "implicit_gas_gap",
+                "kind": "custom",
+                "cells": [
+                    {"id": "gas_gap_helium", "role": "gas_gap", "material_id": "helium", "region_kind": "cylinder"},
+                    {"id": "gas_gap_cladding", "role": "gas_gap", "material_id": "zircaloy4", "region_kind": "cylinder"},
+                ],
+            },
+        ],
+    }
+    materials_patch = {
+        "patch_type": "materials",
+        "materials": [
+            {"material_id": "fuel_3b", "name": "fuel", "role": "fuel", "density_g_cm3": 10.0},
+            {"material_id": "helium", "name": "He", "role": "gas", "density_g_cm3": 0.001},
+            {"material_id": "zircaloy4", "name": "Zirc4", "role": "cladding", "density_g_cm3": 6.5},
+        ],
+    }
+    state = PlanBuildState(state_id="s", requirement_text="r")
+    state.add_patch(PlanPatchEnvelope(
+        patch_id="materials", patch_type="materials",
+        content=materials_patch, status="valid",
+    ))
+
+    result = normalize_universes_patch_content(universes_patch, state=state)
+
+    ops = [op["operation"] for op in result.operations]
+    assert "implicit_universe_merged" in ops
+
+    merged = result.content["universes"]
+    ids = {u["universe_id"] for u in merged}
+    assert "implicit_gas_gap" not in ids
+    fuel_pin = next(u for u in merged if u["universe_id"] == "fuel_variant_uo2_3b")
+    roles = {c["role"] for c in fuel_pin["cells"]}
+    assert roles == {"fuel", "gas_gap", "cladding"}
+
+
+def test_implicit_universe_merge_idempotent() -> None:
+    """Running the normalizer on already-normalized content produces no
+    operations (idempotency check)."""
+    from openmc_agent.plan_builder.universes_patch_normalization import (
+        normalize_universes_patch_content,
+    )
+
+    universes_patch = {
+        "patch_type": "universes",
+        "universes": [
+            {
+                "universe_id": "fuel_pin_a",
+                "kind": "fuel_pin",
+                "cells": [
+                    {"id": "fuel", "role": "fuel", "material_id": "fuel", "region_kind": "cylinder"},
+                    {"id": "gap", "role": "gas_gap", "material_id": "he", "region_kind": "cylinder"},
+                    {"id": "clad", "role": "cladding", "material_id": "zr4", "region_kind": "cylinder"},
+                ],
+            },
+        ],
+    }
+    result = normalize_universes_patch_content(universes_patch, state=None)
+    assert not result.changed
+
+
+def test_implicit_universe_merge_skipped_when_no_host() -> None:
+    """When no fuel_pin universe is missing the implicit's roles, the merge
+    is skipped (not force-fitted)."""
+    from openmc_agent.plan_builder.universes_patch_normalization import (
+        normalize_universes_patch_content,
+    )
+
+    universes_patch = {
+        "patch_type": "universes",
+        "universes": [
+            {
+                "universe_id": "implicit_extra",
+                "kind": "custom",
+                "cells": [
+                    {"id": "x", "role": "gas_gap", "material_id": "he", "region_kind": "cylinder"},
+                ],
+            },
+        ],
+    }
+    result = normalize_universes_patch_content(universes_patch, state=None)
+    ops = [op["operation"] for op in result.operations]
+    assert "implicit_universe_merge_skipped" in ops
+
+
+def test_implicit_universe_role_corrected_even_when_merge_skipped() -> None:
+    """When radii are incompatible (satellite's r_max < host's r_max), the
+    merge is skipped but cell roles are still corrected — resolving
+    ``material_role_mismatch`` without introducing ``radial_overlap``."""
+    from openmc_agent.plan_builder.universes_patch_normalization import (
+        normalize_universes_patch_content,
+    )
+
+    universes_patch = {
+        "patch_type": "universes",
+        "universes": [
+            {
+                "universe_id": "fuel_pin",
+                "kind": "fuel_pin",
+                "cells": [
+                    {"id": "fuel", "role": "fuel", "material_id": "fuel", "region_kind": "cylinder", "r_min_cm": 0.0, "r_max_cm": 0.41},
+                ],
+            },
+            {
+                "universe_id": "implicit_gas_gap",
+                "kind": "custom",
+                "cells": [
+                    {"id": "gap", "role": "gas_gap", "material_id": "he", "region_kind": "cylinder", "r_min_cm": 0.0, "r_max_cm": 0.40},
+                    {"id": "clad", "role": "gas_gap", "material_id": "zr4", "region_kind": "cylinder", "r_min_cm": 0.40, "r_max_cm": 0.475},
+                ],
+            },
+        ],
+    }
+    materials_patch = {
+        "patch_type": "materials",
+        "materials": [
+            {"material_id": "fuel", "name": "f", "role": "fuel", "density_g_cm3": 10.0},
+            {"material_id": "he", "name": "He", "role": "gas", "density_g_cm3": 0.001},
+            {"material_id": "zr4", "name": "Zr4", "role": "structural", "density_g_cm3": 6.5},
+        ],
+    }
+    state = PlanBuildState(state_id="s", requirement_text="r")
+    state.add_patch(PlanPatchEnvelope(
+        patch_id="materials", patch_type="materials",
+        content=materials_patch, status="valid",
+    ))
+
+    result = normalize_universes_patch_content(universes_patch, state=state)
+    ops = {op["operation"] for op in result.operations}
+    assert "implicit_universe_role_corrected" in ops
+    assert "implicit_universe_merge_skipped" in ops
+
+    # The implicit universe must still exist (not removed).
+    ids = {u["universe_id"] for u in result.content["universes"]}
+    assert "implicit_gas_gap" in ids
+
+    # The cladding cell role must be corrected.
+    impl = next(u for u in result.content["universes"] if u["universe_id"] == "implicit_gas_gap")
+    clad_cell = next(c for c in impl["cells"] if c["id"] == "clad")
+    assert clad_cell["role"] == "structural"
+
+
+def test_v19_mu_preflight_passes_after_implicit_normalization() -> None:
+    """End-to-end regression: the v19 upstream chain (facts+materials+
+    universes) must pass the material_universe gate after the implicit
+    universe normalizer runs.  Before the fix, ``material_role_mismatch``
+    (gas_gap_cladding cell with cladding material) blocked the gate."""
+    from openmc_agent.plan_builder.closed_loop.material_universe_preflight import (
+        run_material_universe_preflight,
+    )
+    from openmc_agent.plan_builder.closed_loop.models import PlanClosedLoopPolicy
+
+    state = PlanBuildState(state_id="v19", requirement_text="r")
+    for patch_type in ("facts", "materials", "universes"):
+        content = json.loads((_V19_UPSTREAM_DIR / f"{patch_type}.json").read_text())
+        state.add_patch(PlanPatchEnvelope(
+            patch_id=patch_type, patch_type=patch_type,
+            content=content, status="valid",
+        ))
+
+    result = run_material_universe_preflight(state=state, policy=PlanClosedLoopPolicy())
+    assert result.ok, (
+        f"MU gate should pass after implicit normalization; "
+        f"errors: {[i for i in result.issues if i['severity'] == 'error']}"
+    )
