@@ -54,6 +54,12 @@ tallies.out
 data/runs/*/
 !data/runs/evaluation/
 !data/runs/inspect/
+# Demo benchmark manifest only (curated keff summary); heavy run artifacts
+# (model.py, XML, h5, plots) stay local and regenerable via scripts/run_demo.sh.
+!data/runs/demo/
+data/runs/demo/*
+!data/runs/demo/README.md
+!data/runs/demo/results.json
 
 # Plan-generation artifacts (regenerable) at root or any nested run dir,
 # kept explicit in case a run lands outside data/runs/ or a plan file is

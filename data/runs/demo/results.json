@@ -1,0 +1,125 @@
+[
+  {
+    "case": "C5G7",
+    "mode": "monolithic（LLM 单次 plan，Gate 关）",
+    "renderability": "runnable",
+    "supported_renderer": "core",
+    "workflow_status": "ok",
+    "blocker": [],
+    "model_exists": true,
+    "xml_ok": true,
+    "statepoint": "statepoint.30.h5",
+    "keff": [
+      1.221013942975587,
+      0.003297243520756132
+    ],
+    "plots_count": 6,
+    "dir": "data/runs/demo/C5G7",
+    "outcome": "runnable（keff=1.22101±0.00330）"
+  },
+  {
+    "case": "VERA2_2A",
+    "mode": "增量 + Gate 关",
+    "renderability": "none",
+    "supported_renderer": null,
+    "workflow_status": "blocked_review_only",
+    "blocker": [
+      "incremental.patch_generation_failed"
+    ],
+    "model_exists": false,
+    "xml_ok": false,
+    "statepoint": null,
+    "keff": null,
+    "plots_count": 0,
+    "dir": "data/runs/demo/VERA2_2A",
+    "outcome": "未完成：incremental.patch_generation_failed"
+  },
+  {
+    "case": "VERA2_2A_mono",
+    "mode": "monolithic（LLM 单次 plan，Gate 关）",
+    "renderability": "skeleton",
+    "supported_renderer": null,
+    "workflow_status": "blocked_review_only",
+    "blocker": [
+      "assembly3d.spacer_grid_overlay_required"
+    ],
+    "model_exists": false,
+    "xml_ok": false,
+    "statepoint": null,
+    "keff": null,
+    "plots_count": 0,
+    "dir": "data/runs/demo/VERA2_2A_mono",
+    "outcome": "skeleton（不可导出）：assembly3d.spacer_grid_overlay_required"
+  },
+  {
+    "case": "VERA3_3B",
+    "mode": "增量 + Gate 关",
+    "renderability": "none",
+    "supported_renderer": null,
+    "workflow_status": "blocked_review_only",
+    "blocker": [
+      "fullcore.fuel_variant_unreachable",
+      "incremental.assembly_failed"
+    ],
+    "model_exists": false,
+    "xml_ok": false,
+    "statepoint": null,
+    "keff": null,
+    "plots_count": 0,
+    "dir": "data/runs/demo/VERA3_3B",
+    "outcome": "未完成：fullcore.fuel_variant_unreachable；incremental.assembly_failed"
+  },
+  {
+    "case": "VERA3_3B_gate",
+    "mode": "增量 + Gate 开（controlled 探针）",
+    "renderability": "none",
+    "supported_renderer": null,
+    "workflow_status": "blocked_review_only",
+    "blocker": [
+      "planning.material_universe_gate_not_accepted"
+    ],
+    "model_exists": false,
+    "xml_ok": false,
+    "statepoint": null,
+    "keff": null,
+    "plots_count": 0,
+    "dir": "data/runs/demo/VERA3_3B_gate",
+    "outcome": "未完成：planning.material_universe_gate_not_accepted"
+  },
+  {
+    "case": "VERA3_3B_mono",
+    "mode": "monolithic（LLM 单次 plan，Gate 关）",
+    "renderability": "skeleton",
+    "supported_renderer": null,
+    "workflow_status": "blocked_review_only",
+    "blocker": [
+      "assembly3d.axial_layers_required",
+      "assembly3d.default_z_extent_for_axial_problem"
+    ],
+    "model_exists": false,
+    "xml_ok": false,
+    "statepoint": null,
+    "keff": null,
+    "plots_count": 0,
+    "dir": "data/runs/demo/VERA3_3B_mono",
+    "outcome": "skeleton（不可导出）：assembly3d.axial_layers_required；assembly3d.default_z_extent_for_axial_problem"
+  },
+  {
+    "case": "VERA3_3B_reference",
+    "mode": "参照（proven build + fresh 中等统计量 transport）",
+    "renderability": "runnable",
+    "supported_renderer": "assembly",
+    "workflow_status": "ok",
+    "blocker": [],
+    "model_exists": false,
+    "xml_ok": true,
+    "statepoint": "statepoint.40.h5",
+    "keff": [
+      0.9676221555455257,
+      0.0019272737599224186
+    ],
+    "plots_count": 0,
+    "dir": "data/runs/demo/VERA3_3B_reference",
+    "outcome": "runnable（keff=0.96762±0.00193）"
+  }
+]

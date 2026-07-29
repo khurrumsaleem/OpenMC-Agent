@@ -334,6 +334,84 @@ make gate-workflow-regression BASE_REPORT=... HEAD_REPORT=...
 
 ---
 
+## 基准题演示（Demo）
+
+三个经典基准题的一键演示，验证 Agent 能否把自然语言需求变成**可运行的 OpenMC 模型**并给出 keff 诊断值。结果写入 `data/runs/demo/`，由 `scripts/collect_demo_results.py` 汇总成 `data/runs/demo/README.md`（结果清单）与 `results.json`。
+
+| 算例 | 输入 | 规模 | 建模策略 |
+|---|---|---|---|
+| **C5G7** | `Input/case3.md` | 2×2 MOX/UO2 四分之一堆芯（连续能，非七群物理基准） | monolithic（LLM 单次出整个 plan）✅ 当前可稳定跑通 |
+| **VERA3 3B** | `Input/VERA3_problem.md` | 单个 17×17 三维组件（含 Pyrex 毒物棒、定位格架） | 增量 patch 为主、monolithic 备选 ⚠️ fresh 当前受阻（见下） |
+| **VERA2 2A** | `Input/VERA2_problem.md` | 单个 17×17 二维燃料栅格（2D HZP） | 增量 patch 为主、monolithic 备选 ⚠️ fresh 当前受阻（见下） |
+
+> **关于 keff**：演示用**中等统计量**（约 1e4 粒子 / 40 批）做几何校验与本征值诊断，**不是**高统计量物理基准值；C5G7 采用连续能核素组成，所得 keff 不与 C5G7 七群参考值直接比较（见 `Input/case3.md` 说明）。
+
+### 前置条件
+
+- 已建好 `openmc-env` 并安装 OpenMC（`conda install -c conda-forge openmc`）；
+- `OPENMC_CROSS_SECTIONS` 指向已解压的核数据库；
+- 至少一组 LLM key 已在环境变量中（如 `DEEPSEEK_API_KEY` / `ZHIPUAI_API_KEY`）。
+
+### 一键复现
+
+```bash
+# 跑全部三个算例（VERA2/3 增量 + C5G7 monolithic，含 Gate 可行性探针，约 50–90 分钟）
+conda run --no-capture-output -n openmc-env bash scripts/run_demo.sh all
+
+# 汇总 keff / renderability 到结果清单
+conda run --no-capture-output -n openmc-env python scripts/collect_demo_results.py
+```
+
+也可只跑单个算例：`bash scripts/run_demo.sh {c5g7|vera3-mono|vera3|vera3-gate|vera2-mono|vera2|vera2-gate}`（`*-mono` = monolithic 单次 plan，`*-gate` = Gate 开探针）。
+覆盖 LLM 与输运参数：`MODEL=deepseek:deepseek-chat PARTICLES=10000 BATCHES=40 INACTIVE=20 bash scripts/run_demo.sh ...`。
+
+### 建模策略：为什么 C5G7 用 monolithic、VERA 用增量、Gate 开/关有什么区别
+
+- **C5G7（monolithic，`--no-incremental`）**：四分之一堆芯几何直接、需求自洽，让 LLM 一次性产出完整 `SimulationPlan`，不走增量 patch、不开 Gate，最稳，**当前可从零跑通并给出 keff**。
+- **VERA2 / VERA3（增量，Gate 关）**：组件级模型含导向管、Pyrex、定位格架等细节，增量 patch（Facts → Materials → Universes → PinMap → AxialLayers → Settings）更利于逐步校验，是组件建模的**目标路径**；脚本同时提供 `vera2-mono` / `vera3-mono` 作为单次 plan 备选。
+- **Gate 开探针（`inspect --plan-loop-mode controlled`）**：Facts / Material–Universe / Placement Gate 会做证据约束审查，**可能阻塞**（这是设计内的安全行为）。`run_demo.sh` 的 `vera2-gate` / `vera3-gate` 单独尝试并记录是否阻塞。
+
+### 实测结果与当前能力边界（诚实记录）
+
+演示追求"可运行模型 + keff 诊断"，并如实记录哪些路径当前可稳定跑通。最新结果见 `data/runs/demo/README.md`，典型情况：
+
+- **C5G7（monolithic，fresh）**：✅ `runnable`（core renderer），中等统计量 keff ≈ **1.22**（5000 粒子/30 批，漏堆 ~0.4%）。四分之一堆芯 keff ≈ 1.22 合理。
+- **VERA3 3B**：⚠️ fresh 建模当前受阻——**增量（Gate 关）**在最终装配阶段报 `fullcore.fuel_variant_unreachable`（materials/universes 被清空，已知在研问题）；**增量（Gate 开，`vera3-gate`）**更早在 Material–Universe Gate 就被阻塞（`material_universe_gate_not_accepted`，materials patch 未通过审查）；**monolithic** 单次 plan 未给出 `axial_layers`，被 3D 轴向 guard 降级为 skeleton。可见"开/关 Gate"落在**不同阻塞点**。`data/runs/demo/VERA3_3B_reference/` 复用此前成功生成的 agent 模型并跑中等统计量 transport（keff ≈ **0.97**）作为参照，**仅证明 Agent 曾产出可运行的 VERA3 3B 模型**，该值非基准标准值。
+- **VERA2 2A**：⚠️ fresh 受阻——**增量** universes patch 为 2A（无毒物）仍引入 Pyrex 等毒物 universe 触发 `patch_generation_failed`；**monolithic** 因输入提及定位格架但未给 `spacer_grid` overlay 被 guard 降级为 skeleton。当前记为能力边界。
+
+> 这些阻塞是 Agent 组件建模（fuel variant 装配、3D 轴向/格架 guard）的**已知在研问题**，不是 OpenMC 或核数据问题。`run_demo.sh` 遇失败不中断，`collect_demo_results.py` 把每个算例的 `renderability` / keff / 阻塞码如实写进清单，绝不伪造 keff。
+
+### 等价的手工命令
+
+```bash
+# C5G7 —— monolithic 单次 plan
+conda run -n openmc-env python scripts/run_model.py \
+    --input Input/case3.md --benchmark C5G7 \
+    --model deepseek:deepseek-chat --allow-real-llm --no-incremental \
+    --smoke-test --out data/runs/demo/C5G7
+
+# VERA3 3B —— 增量 + Gate 关（主展示 run）
+make model INPUT=Input/VERA3_problem.md BENCHMARK=VERA3 VARIANT=3B \
+    ALLOW_REAL_LLM=1 SMOKE=1 OUT=data/runs/demo/VERA3_3B
+
+# VERA3 3B —— Gate 开探针（controlled）
+conda run --no-capture-output -n openmc-env python -u -m openmc_agent.inspect \
+    --plan --md-file Input/VERA3_problem.md --state 3B \
+    --model deepseek:deepseek-chat --plan-loop-mode controlled \
+    --smoke-test --output-dir data/runs/demo/VERA3_3B_gate
+```
+
+### 如何读结果
+
+- `data/runs/demo/README.md`：每个算例的 `renderability` / `renderer` / `keff ± σ` / 状态汇总表；
+- `data/runs/demo/<case>/model.py`、`materials.xml`、`geometry.xml`、`settings.xml`：生成的模型与导出；
+- `data/runs/demo/<case>/plots/*.png`：OpenMC 几何校验图（材料/栅元切面）；
+- `data/runs/demo/<case>/statepoint.*.h5`：输运结果（`k_combined` 即 keff）。
+
+`renderability` 分级见上文「渲染能力分级」：`runnable` = 完整模型 + 可运行；`exportable` = 可导出 XML 但未运行；`skeleton` = 信息不全的审查骨架。演示脚本遇失败不中断，清单会如实标注 `exportable` / `skeleton` / `未完成` 等状态，绝不伪造 keff。
+
+---
+
 ## LLM 智能化闭环（P0-A / P0-B / P0-C）
 
 在确定性校验之后，三个 LLM 环节依次运行，形成"审查 → 修复 → 决策"的闭环：
