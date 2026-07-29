@@ -86,6 +86,17 @@ def build_fuel_variant_reachability_report(
     layout = core_layout_pattern or []
     counts = assembly_type_counts or {}
 
+    # This is a full-core reachability trace: it follows the variant chain
+    # through the core layout / assembly catalog into the geometry.  A
+    # single-assembly (or otherwise non-core) model has neither a core layout
+    # nor assembly-catalog bindings, so the trace has nothing to walk and would
+    # structurally report every variant as unreachable (materials/universes/
+    # assemblies all empty).  Such models trivially contain their own variant,
+    # so the full-core check is not applicable — skip it instead of aborting.
+    if not layout and not bindings:
+        report.result = "not_applicable_non_core"
+        return report
+
     # Build variant → entry mapping
     variant_entries: dict[str, FuelVariantReachabilityEntry] = {}
     for req in fuel_variant_requirements:

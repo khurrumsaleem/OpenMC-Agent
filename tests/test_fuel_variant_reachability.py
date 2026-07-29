@@ -121,3 +121,25 @@ def test_reachability_no_variants():
         fuel_variant_requirements=[],
     )
     assert report.result == "no_fuel_variants_required"
+
+
+def test_reachability_skipped_for_single_assembly_non_core():
+    """A single-assembly (non-core) model has neither a core layout nor
+    assembly-catalog bindings, so the full-core variant trace is not
+    applicable and must not report the variant as unreachable.
+
+    Regression: VERA3 3B (single_assembly) aborted assembly with
+    ``fullcore.fuel_variant_unreachable`` because the trace structurally found
+    materials/universes/assemblies all empty.  Full-core models that DO supply
+    a layout/bindings are still checked (see test_reachability_fail_* above)."""
+    report = build_fuel_variant_reachability_report(
+        assembled_plan={"placeholder": True},
+        fuel_variant_requirements=[
+            {"variant_id": "3B", "assembly_type_ids": ["A"]},
+        ],
+        material_source_variants={"fuel_3B": "3B"},
+        assembly_fuel_bindings=[],
+        core_layout_pattern=[],
+    )
+    assert report.result == "not_applicable_non_core"
+    assert reachability_report_to_issues(report) == []
