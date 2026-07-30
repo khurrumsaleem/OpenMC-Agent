@@ -1000,6 +1000,24 @@ def _normalize_pin_map_intent_bindings(
         if kind:
             kind_to_req.setdefault(kind, req)
 
+    # Collect profiles from state for profile-link and z-extent inference.
+    profiles_by_role: dict[str, dict[str, Any]] = {}
+    profiles_all: list[dict[str, Any]] = []
+    for env in state.patches.values():
+        if (
+            getattr(env, "patch_type", None) == "localized_insert_profiles"
+            and getattr(env, "status", None) == "valid"
+        ):
+            profiles_all = list(env.content.get("profiles") or [])
+            for prof in profiles_all:
+                if not isinstance(prof, dict):
+                    continue
+                for seg in prof.get("segments") or []:
+                    role = str(seg.get("role", "")).lower().strip()
+                    if role:
+                        profiles_by_role.setdefault(role, prof)
+            break
+
     changed = False
     new_intents = []
     for intent in intents:
@@ -1018,6 +1036,31 @@ def _normalize_pin_map_intent_bindings(
         if not patched.get("axial_profile_id") and req.get("required_profile_id"):
             patched["axial_profile_id"] = req["required_profile_id"]
             changed = True
+        # If still no profile, try to match by required_segment_roles.
+        if not patched.get("axial_profile_id"):
+            for role in req.get("required_segment_roles") or []:
+                prof = profiles_by_role.get(str(role).lower().strip())
+                if prof:
+                    patched["axial_profile_id"] = prof.get("profile_id")
+                    changed = True
+                    break
+        # If profile is now linked, ensure z_max covers the full profile extent.
+        prof_id = patched.get("axial_profile_id")
+        if prof_id:
+            prof = next((p for p in profiles_all if isinstance(p, dict) and p.get("profile_id") == prof_id), None)
+            if prof:
+                segments = prof.get("segments") or []
+                if segments:
+                    z_min = patched.get("z_min_cm")
+                    if z_min is not None:
+                        last_seg = segments[-1]
+                        rel_max = last_seg.get("relative_z_max_cm") if isinstance(last_seg, dict) else None
+                        if rel_max is not None:
+                            expected_z_max = z_min + rel_max
+                            current_z_max = patched.get("z_max_cm")
+                            if current_z_max is not None and current_z_max < expected_z_max - 0.1:
+                                patched["z_max_cm"] = expected_z_max
+                                changed = True
         new_intents.append(patched)
 
     if changed:
