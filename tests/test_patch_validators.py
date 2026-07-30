@@ -11,6 +11,7 @@ from openmc_agent.plan_builder.patches import (
     AxialOverlaysPatch,
     CellLayerPatch,
     FactsPatch,
+    LocalizedInsertIntentPatchItem,
     MaterialSpecPatch,
     MaterialsPatch,
     PinMapPatch,
@@ -318,6 +319,52 @@ def test_pin_map_count_mismatch() -> None:
     )
     result = validate_patch(patch, context)
     assert "patch.pin_map.count_mismatch" in _codes(result)
+
+
+def test_modern_pin_map_total_pin_count_and_segmented_insert_counts() -> None:
+    pyrex_coords = [(3, 6), (4, 4)]
+    thimble_coords = [(3, 9)]
+    patch = PinMapPatch(
+        lattice_size=(9, 9),
+        default_universe_id="fuel",
+        coordinate_convention={"index_base": 1},
+        guide_tube_coords=[(3, 6), (4, 4), (3, 9)],
+        localized_insert_intents=[
+            LocalizedInsertIntentPatchItem(
+                insert_id="pyrex_poison",
+                insert_kind="pyrex_rod",
+                insert_universe_id="pyrex_poison",
+                coordinates=pyrex_coords,
+            ),
+            LocalizedInsertIntentPatchItem(
+                insert_id="pyrex_plenum",
+                insert_kind="pyrex_rod",
+                insert_universe_id="pyrex_plenum",
+                coordinates=pyrex_coords,
+            ),
+            LocalizedInsertIntentPatchItem(
+                insert_id="thimble_plug",
+                insert_kind="thimble_plug",
+                insert_universe_id="thimble_plug",
+                coordinates=thimble_coords,
+            ),
+        ],
+    )
+    context = PatchValidationContext(
+        benchmark_id="VERA3",
+        selected_variant="3B",
+        expected_counts={
+            "expected_pin_count": 81,
+            "expected_guide_tube_count": 3,
+            "expected_pyrex_count": 2,
+            "expected_thimble_plug_count": 1,
+        },
+        strict_benchmark=True,
+    )
+
+    result = validate_patch(patch, context)
+
+    assert "patch.pin_map.count_mismatch" not in _codes(result)
 
 
 def test_pin_map_count_mismatch_strict_is_error() -> None:

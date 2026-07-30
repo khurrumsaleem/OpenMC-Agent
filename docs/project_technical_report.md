@@ -4,6 +4,10 @@
 
 ### 2026-07-30
 
+- **真实 VERA3B v28/v33 离线闭合**：v33 Placement reviewer 将 contract-row evidence refs `D017/D018` 误填到 `reviewed_contract_row_ids`，现 coverage 校验前规范化回真实 requirement ids；旧 v33 reviewer output 离线复放 `ok=true`、`coverage_complete=true`。v28 第二轮 pin_map 的 `expected_pin_count=289` 现按总 lattice cells 解释，现代 `localized_insert_intents` 的 Pyrex poison/plenum 同坐标按唯一 placement 计数；旧 v28 raw pin_map 离线 validate `ok=true`、issues 空。
+- **验证结果**：新增 focused regressions `69 passed`；全量非 OpenMC/非 LLM pytest `3899 passed, 2 skipped, 394 deselected`；`compileall` 通过；fake workflow benchmark `21/21`、`pass_rate=100.0%`。baseline diff 因 `data/evals/workflow/baseline/evaluation_report.json` 不存在跳过。
+- **下一步建议**：v31 的 Facts revision incomplete closure 仍不宜盲跑真实 LLM，应先抽最小 fixture，审计哪些 finding 属 FactsPatch hard contract、哪些应下放到 Materials/MU/Axial 或 human note；该项闭合后再只跑一次 VERA3B planning canary。
+
 - **Main 分支接收 demo 暴露缺口闭合**：把 demo 工作记录中的未闭合问题纳入生产路径：mixed `fraction_basis` 改为可审计 warning fallback；fuel variant canonicalization 支持 token-order 等价（如 `fuel_3b→3B_fuel`）；单组件和 full-core pin map 在缺 guide/instrument universe 但有 `water_cell` 时降级填充水格并保留语义计数；placement reviewer 空结果改用 `placement_review.result_unavailable`，不再混同 coverage 缺失。
 - **验证结果**：新增聚焦回归 `71 passed`；全量非 OpenMC/非 LLM pytest `3897 passed, 2 skipped, 394 deselected`；`compileall` 通过；fake workflow benchmark `21/21`、`pass_rate=100.0%`。baseline diff 因 `data/evals/workflow/baseline/evaluation_report.json` 不存在跳过。
 - **风险/边界**：pin map 水格降级只保证几何可渲染和问题可观测，不把缺失 guide/instrument tube 结构当作物理确认；OpenMC 几何运行仍受当前 sandbox UCX `getifaddrs Operation not permitted` 环境限制，真实运行需在允许 OpenMC 通信初始化的环境复核。

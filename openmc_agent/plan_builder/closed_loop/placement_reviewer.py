@@ -75,6 +75,33 @@ def _normalize(output: PlacementReviewModelOutput, pack: PlacementEvidencePack) 
     return list({item.finding_id: item for item in findings}.values()), rejected
 
 
+def _normalize_reviewed_contract_rows(
+    reviewed_rows: list[str],
+    pack: PlacementEvidencePack,
+) -> set[str]:
+    """Accept row ids and contract-row evidence refs as coverage proof."""
+
+    row_ids = {row.requirement_id for row in pack.contract_matrix.rows}
+    contract_ref_to_row: dict[str, str] = {}
+    for item in pack.evidence_items:
+        if item.evidence_kind != "contract_matrix_row":
+            continue
+        value = item.value if isinstance(item.value, dict) else {}
+        requirement_id = value.get("requirement_id")
+        if isinstance(requirement_id, str) and requirement_id in row_ids:
+            contract_ref_to_row[item.ref_id] = requirement_id
+
+    normalized: set[str] = set()
+    for row in reviewed_rows:
+        if row in row_ids:
+            normalized.add(row)
+            continue
+        mapped = contract_ref_to_row.get(row)
+        if mapped:
+            normalized.add(mapped)
+    return normalized
+
+
 def run_placement_review(*, evidence_pack: PlacementEvidencePack, reviewer_client: Any, state: Any, policy: PlanClosedLoopPolicy) -> PlacementReviewResult:
     call = run_structured_review_call(
         client=reviewer_client, initial_prompt=build_placement_review_prompt(evidence_pack),
@@ -94,7 +121,10 @@ def run_placement_review(*, evidence_pack: PlacementEvidencePack, reviewer_clien
     findings, rejected = _normalize(output, evidence_pack)
     required_rows = {item.requirement_id for item in evidence_pack.contract_matrix.rows}
     required_refs = {item.ref_id for item in evidence_pack.evidence_items}
-    reviewed_rows = set(output.reviewed_contract_row_ids)
+    reviewed_rows = _normalize_reviewed_contract_rows(
+        output.reviewed_contract_row_ids,
+        evidence_pack,
+    )
     reviewed_refs = set(output.reviewed_evidence_refs)
     # ``complete_with_gaps`` means the reviewer completed coverage and found
     # semantic gaps; it must not be treated as a coverage failure.  The

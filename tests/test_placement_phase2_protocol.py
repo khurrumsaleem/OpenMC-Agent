@@ -318,6 +318,34 @@ def test_placement_review_complete_with_gaps_is_coverage_complete() -> None:
     assert [finding.code for finding in result.findings] == ["placement.semantic_warning"]
 
 
+def test_placement_review_accepts_contract_row_evidence_refs_as_reviewed_rows() -> None:
+    state = _state()
+    policy = PlanClosedLoopPolicy(mode="advisory")
+    pack = build_placement_evidence_pack(state=state, policy=policy)
+    contract_row_refs = [
+        item.ref_id for item in pack.evidence_items
+        if item.evidence_kind == "contract_matrix_row"
+    ]
+    payload = {
+        "review_status": "complete",
+        "reviewed_contract_row_ids": contract_row_refs,
+        "reviewed_evidence_refs": [item.ref_id for item in pack.evidence_items],
+        "coverage_summary": {
+            "reviewed_contract_row_count": len(contract_row_refs),
+            "omitted_contract_row_count": 0,
+            "reviewed_evidence_item_count": len(pack.evidence_items),
+            "omitted_evidence_item_count": 0,
+        },
+        "findings": [],
+    }
+
+    result = run_placement_review(evidence_pack=pack, reviewer_client=lambda _: json.dumps(payload), state=state, policy=policy)
+
+    assert result.ok
+    assert result.coverage_complete
+    assert result.error_code == ""
+
+
 def test_placement_review_missing_coverage_ref_fails_closed() -> None:
     state = _state()
     policy = PlanClosedLoopPolicy(mode="advisory")

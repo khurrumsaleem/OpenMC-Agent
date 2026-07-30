@@ -985,12 +985,21 @@ def _validate_pin_map(
 
     if has_modern_intents:
         # Modern mode: localized_insert_intents are insert counts.
-        # Legacy coords (if any) are ignored — they should be empty.
-        insert_counts: dict[str, int] = {}
+        # Multiple axial segments for one insert kind can carry the same
+        # coordinate set, so count unique placements per kind.
+        insert_coords: dict[str, set[tuple[int, int]]] = {}
         for intent in patch.localized_insert_intents:
             kind = intent.insert_kind
-            insert_counts[kind] = insert_counts.get(kind, 0) + len(intent.coordinates)
-        combined_insert_counts = insert_counts
+            insert_coords.setdefault(kind, set()).update(
+                normalized_coords(
+                    intent.coordinates,
+                    conv,
+                    patch.lattice_size,
+                )
+            )
+        combined_insert_counts = {
+            kind: len(coords) for kind, coords in insert_coords.items()
+        }
         # Fuel pin = total - base path positions (inserts are within base paths).
         base_total = sum(base_path_counts.values())
     else:
@@ -1040,10 +1049,12 @@ def _validate_pin_map(
                             "pin": "fuel_pin",
                             "pyrex": "pyrex_rod",
                         }.get(sub_role, sub_role)
-                        if sub_role in ("guide_tube", "instrument_tube", "water_cell", "pyrex_rod", "thimble_plug"):
+                        subtractable_roles = {"guide_tube", "instrument_tube", "water_cell"}
+                        if not has_modern_intents:
+                            subtractable_roles.update({"pyrex_rod", "thimble_plug"})
+                        if sub_role in subtractable_roles:
                             derived -= sub_val
                     val = derived
-            expected_counts[role] = val
             expected_counts[role] = val
         else:
             expected_counts[key] = val
