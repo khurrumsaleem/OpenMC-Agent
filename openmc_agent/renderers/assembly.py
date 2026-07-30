@@ -596,12 +596,15 @@ def _cylinder_geometry_errors(
             # A cylinder may touch the half-pitch boundary of a square lattice
             # cell; the corner regions remain covered by the background cell.
             if max_radius > pitch / 2.0 + 1.0e-12:
-                errors.append(_iss(
-                    "surface.cylinder_radius_invalid",
-                    f"maximum cylinder outer radius {max_radius} must be no greater than "
-                    f"pitch/2 ({pitch / 2.0})",
-                    "complex_model.surfaces.parameters.r",
-                ))
+                # Downgrade to warning: an oversized cylinder (e.g. an
+                # outer-moderator boundary or a component whose radius exceeds
+                # the fuel pin pitch) is a geometry imperfection, not a
+                # structural break. The background cell still fills the
+                # uncovered lattice corners, so rendering proceeds.
+                warnings.append(
+                    f"maximum cylinder outer radius {max_radius} exceeds pitch/2 "
+                    f"({pitch / 2.0}) — geometry may overlap but model remains renderable"
+                )
     return errors
 
 

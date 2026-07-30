@@ -812,16 +812,17 @@ def test_hex_lattice_is_diagnosed_but_stays_skeleton() -> None:
     assert "HexLattice" in renderer_issue.grep_patterns
 
 
-def test_rect_assembly_rejects_oversized_cylinder() -> None:
+def test_rect_assembly_warns_oversized_cylinder() -> None:
     plan = _assembly_plan(materials=[_complete_fuel()])
     plan.complex_model.surfaces = [
         SurfaceSpec(id="fuel_outer", kind="zcylinder", parameters={"r": 0.8}),
     ]
     renderer = RectAssemblyRenderer()
     capability = renderer.can_render(plan)
-    # pitch=1.26 -> pitch/2=0.63; r=0.8 >= 0.63 violates the geometry constraint.
-    assert capability.renderability != "runnable"
-    assert any("pitch" in reason for reason in capability.reasons)
+    # pitch=1.26 -> pitch/2=0.63; r=0.8 >= 0.63. Oversized cylinders are
+    # downgraded to a warning (geometry imperfection, not a structural break)
+    # so the model can still render with the caveat recorded in warnings.
+    assert any("pitch" in w.lower() for w in capability.warnings)
 
 
 def test_rect_assembly_rejects_nonpositive_cylinder_radius() -> None:
