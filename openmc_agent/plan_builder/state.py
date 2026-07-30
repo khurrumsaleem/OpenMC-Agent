@@ -1072,7 +1072,11 @@ def _normalize_pin_map_intent_bindings(
                     patched["axial_profile_id"] = prof.get("profile_id")
                     changed = True
                     break
-        # If profile is now linked, ensure z_max covers the full profile extent.
+        # If profile is now linked and its segment coordinates are local
+        # offsets, ensure z_max covers the full profile extent.  A non-zero
+        # minimum segment bound often means the profile already carries
+        # source-frame z coordinates; adding intent.z_min_cm again would
+        # double-shift the upper bound.
         prof_id = patched.get("axial_profile_id")
         if prof_id:
             prof = next((p for p in profiles_all if isinstance(p, dict) and p.get("profile_id") == prof_id), None)
@@ -1081,9 +1085,19 @@ def _normalize_pin_map_intent_bindings(
                 if segments:
                     z_min = patched.get("z_min_cm")
                     if z_min is not None:
-                        last_seg = segments[-1]
-                        rel_max = last_seg.get("relative_z_max_cm") if isinstance(last_seg, dict) else None
-                        if rel_max is not None:
+                        rel_mins = [
+                            seg.get("relative_z_min_cm")
+                            for seg in segments
+                            if isinstance(seg, dict) and seg.get("relative_z_min_cm") is not None
+                        ]
+                        rel_maxes = [
+                            seg.get("relative_z_max_cm")
+                            for seg in segments
+                            if isinstance(seg, dict) and seg.get("relative_z_max_cm") is not None
+                        ]
+                        rel_min = min(rel_mins) if rel_mins else None
+                        rel_max = max(rel_maxes) if rel_maxes else None
+                        if rel_min is not None and abs(float(rel_min)) < 1e-6 and rel_max is not None:
                             expected_z_max = z_min + rel_max
                             current_z_max = patched.get("z_max_cm")
                             if current_z_max is not None and current_z_max < expected_z_max - 0.1:

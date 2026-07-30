@@ -464,6 +464,7 @@ class PlacementContractRow(AgentBaseModel):
     actual_profile_ids: list[str] = Field(default_factory=list)
     required_segment_roles: list[str] = Field(default_factory=list)
     actual_segment_roles: list[str] = Field(default_factory=list)
+    actual_profile_resolution: list[dict[str, Any]] = Field(default_factory=list)
     expected_universe_ids: list[str] = Field(default_factory=list)
     referenced_universe_ids: list[str] = Field(default_factory=list)
     missing_universe_ids: list[str] = Field(default_factory=list)

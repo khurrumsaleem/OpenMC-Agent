@@ -84,3 +84,62 @@ def test_placement_deferred_applicability_kept() -> None:
     preflight = run_placement_preflight(state=state)
     # Placement preflight runs without error when facts are well-formed.
     assert preflight["ok"] or not preflight["ok"]  # just ensure no crash
+
+
+def test_pin_map_normalizer_does_not_double_shift_nonzero_profile_bounds() -> None:
+    facts = {
+        "patch_type": "facts",
+        "model_scope": "single_assembly",
+        "localized_insert_requirements": [{
+            "requirement_id": "absorber",
+            "insert_kind": "absorber_insert",
+            "assembly_type_ids": [],
+            "expected_coordinate_count_per_assembly": 1,
+            "host_kind": "guide_tube",
+            "required_profile_id": None,
+            "required_segment_roles": ["absorber"],
+        }],
+    }
+    profiles = {
+        "patch_type": "localized_insert_profiles",
+        "profiles": [{
+            "profile_id": "offset_profile",
+            "anchor_kind": "bottom",
+            "anchor_z_cm": None,
+            "segments": [{
+                "segment_id": "absorber",
+                "relative_z_min_cm": 10.0,
+                "relative_z_max_cm": 20.0,
+                "universe_id": "abs",
+                "role": "absorber",
+            }],
+        }],
+    }
+    pin = {
+        "patch_type": "pin_map",
+        "lattice_size": [3, 3],
+        "default_universe_id": "fuel",
+        "guide_tube_coords": [[1, 1]],
+        "instrument_tube_coords": [],
+        "localized_insert_intents": [{
+            "insert_id": "i",
+            "insert_kind": "absorber_insert",
+            "insert_universe_id": "abs",
+            "coordinates": [[1, 1]],
+            "z_min_cm": 10.0,
+            "z_max_cm": 20.0,
+            "axial_profile_id": None,
+        }],
+    }
+    state = PlanBuildState(state_id="nonzero-profile", requirement_text="reactor-neutral")
+    for patch in (facts, profiles, pin):
+        state.add_patch(PlanPatchEnvelope(
+            patch_id=patch["patch_type"],
+            patch_type=patch["patch_type"],
+            content=patch,
+            status="valid",
+        ))
+
+    intent = state.patches["pin_map"].content["localized_insert_intents"][0]
+    assert intent["axial_profile_id"] == "offset_profile"
+    assert intent["z_max_cm"] == 20.0

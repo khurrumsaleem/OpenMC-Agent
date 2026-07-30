@@ -147,6 +147,83 @@ def _status(issue_codes: list[str], requirement: PlacementRequirementView) -> st
     return "fail" if issue_codes else "pass"
 
 
+def _segment_bounds(profile: PlacementProfileView) -> tuple[float | None, float | None]:
+    starts = [
+        float(segment["relative_z_min_cm"])
+        for segment in profile.segments
+        if segment.get("relative_z_min_cm") is not None
+    ]
+    ends = [
+        float(segment["relative_z_max_cm"])
+        for segment in profile.segments
+        if segment.get("relative_z_max_cm") is not None
+    ]
+    if not starts or not ends:
+        return None, None
+    return min(starts), max(ends)
+
+
+def _profile_resolution_summary(
+    *,
+    scope: PlacementAssemblyScopeView,
+    intent: dict[str, Any],
+    profile: PlacementProfileView,
+) -> dict[str, Any]:
+    rel_min, rel_max = _segment_bounds(profile)
+    roles = sorted({
+        str(segment.get("role"))
+        for segment in profile.segments
+        if segment.get("role")
+    })
+    universe_ids = sorted({
+        str(segment.get("universe_id"))
+        for segment in profile.segments
+        if segment.get("universe_id")
+    })
+    anchor_kind = str(profile.anchor_kind or "absolute")
+    anchor = intent.get("anchor_z_cm")
+    anchor_source = "intent.anchor_z_cm"
+    if anchor is None:
+        anchor = profile.anchor_z_cm
+        anchor_source = "profile.anchor_z_cm"
+    if anchor is None and anchor_kind == "bottom" and intent.get("z_min_cm") is not None and rel_min is not None and abs(rel_min) < 1e-6:
+        anchor = intent.get("z_min_cm")
+        anchor_source = "intent.z_min_cm"
+
+    resolved_interval = None
+    if rel_min is not None and rel_max is not None:
+        if anchor_kind == "absolute":
+            resolved_interval = [rel_min, rel_max]
+        elif anchor is not None:
+            anchor_value = float(anchor)
+            if anchor_kind == "bottom":
+                resolved_interval = [anchor_value + rel_min, anchor_value + rel_max]
+            elif anchor_kind == "top":
+                resolved_interval = [anchor_value - rel_max, anchor_value - rel_min]
+            elif anchor_kind == "center":
+                center = (rel_min + rel_max) / 2.0
+                resolved_interval = [anchor_value + rel_min - center, anchor_value + rel_max - center]
+
+    return {
+        "scope_id": scope.scope_id,
+        "intent_id": intent.get("insert_id"),
+        "profile_id": profile.profile_id,
+        "anchor_kind": anchor_kind,
+        "anchor_z_cm": anchor,
+        "anchor_source": anchor_source if anchor is not None else "unresolved",
+        "intent_envelope_cm": [intent.get("z_min_cm"), intent.get("z_max_cm")],
+        "profile_relative_interval_cm": [rel_min, rel_max],
+        "resolved_profile_interval_cm": resolved_interval,
+        "coordinate_frame_status": "resolved" if resolved_interval is not None else "unresolved_anchor_or_source_frame",
+        "roles": roles,
+        "universe_ids": universe_ids,
+        "coordinate_frame_note": (
+            "profile relative_z_* values are profile-frame coordinates; compare "
+            "against intent z_min_cm/z_max_cm only after anchor translation"
+        ),
+    }
+
+
 def build_placement_contract_matrix(view: PlacementBindingView, issues: list[dict[str, Any]] | None = None) -> PlacementContractMatrix:
     by_requirement: dict[str, list[dict[str, Any]]] = {}
     for issue in issues or []:
@@ -163,11 +240,19 @@ def build_placement_contract_matrix(view: PlacementBindingView, issues: list[dic
         actual_profiles = sorted({str(intent.get("axial_profile_id")) for _, intent in intents if intent.get("axial_profile_id")})
         referenced = set()
         roles = set()
+        profile_resolution: list[dict[str, Any]] = []
         if req.required_profile_id and req.required_profile_id in profiles:
             referenced.update(segment.get("universe_id") for segment in profiles[req.required_profile_id].segments if segment.get("universe_id"))
             roles.update(segment.get("role") for segment in profiles[req.required_profile_id].segments if segment.get("role"))
-        else:
-            referenced.update(intent.get("insert_universe_id") for _, intent in intents if intent.get("insert_universe_id"))
+        for scope, intent in intents:
+            profile_id = intent.get("axial_profile_id")
+            profile = profiles.get(str(profile_id)) if profile_id else None
+            if profile is None:
+                referenced.add(intent.get("insert_universe_id"))
+                continue
+            referenced.update(segment.get("universe_id") for segment in profile.segments if segment.get("universe_id"))
+            roles.update(segment.get("role") for segment in profile.segments if segment.get("role"))
+            profile_resolution.append(_profile_resolution_summary(scope=scope, intent=intent, profile=profile))
         found_issues = by_requirement.get(req.requirement_id, [])
         codes = sorted({str(issue.get("code")) for issue in found_issues})
         rows.append(PlacementContractRow(
@@ -180,6 +265,7 @@ def build_placement_contract_matrix(view: PlacementBindingView, issues: list[dic
             host_kind=req.host_kind, host_coordinate_counts={scope.scope_id: len(scope.guide_tube_coords if req.host_kind == "guide_tube" else scope.instrument_tube_coords) for scope in matching_scopes},
             matching_intent_ids=[str(intent.get("insert_id")) for _, intent in intents], required_profile_id=req.required_profile_id,
             actual_profile_ids=actual_profiles, required_segment_roles=list(req.required_segment_roles), actual_segment_roles=sorted(str(role) for role in roles),
+            actual_profile_resolution=profile_resolution,
             expected_universe_ids=list(req.expected_universe_ids), referenced_universe_ids=sorted(str(value) for value in referenced if value),
             missing_universe_ids=sorted(set(req.expected_universe_ids) - universes), anchor_expected=req.anchor_z_cm,
             anchor_actual={scope.scope_id: intent.get("anchor_z_cm") for scope, intent in intents},

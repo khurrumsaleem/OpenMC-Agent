@@ -173,7 +173,26 @@ def test_single_assembly_view_preflight_and_hash_are_deterministic() -> None:
     assert placement_gate_input_hash(state) == placement_gate_input_hash(state)
     pack = build_placement_evidence_pack(state=state, policy=PlanClosedLoopPolicy(mode="advisory"))
     assert pack.contract_matrix.rows[0].static_binding_status == "pass"
+    assert pack.contract_matrix.rows[0].actual_segment_roles == ["absorber"]
+    assert pack.contract_matrix.rows[0].actual_profile_resolution
     assert all(item.canonical_hash for item in pack.evidence_items)
+
+
+def test_placement_matrix_lifts_roles_from_actual_profile_without_required_profile_id() -> None:
+    state = _state()
+    req = state.patches["facts"].content["localized_insert_requirements"][0]
+    req["required_profile_id"] = None
+
+    pack = build_placement_evidence_pack(
+        state=state,
+        policy=PlanClosedLoopPolicy(mode="advisory"),
+    )
+
+    row = pack.contract_matrix.rows[0]
+    assert row.actual_profile_ids == ["p1"]
+    assert row.actual_segment_roles == ["absorber"]
+    assert row.referenced_universe_ids == ["abs"]
+    assert row.actual_profile_resolution[0]["resolved_profile_interval_cm"] == [1.0, 2.0]
 
 
 def test_shared_profile_across_authorized_assembly_scopes_is_not_unexpected() -> None:

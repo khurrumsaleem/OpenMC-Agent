@@ -937,3 +937,14 @@ runtime repair, or monolithic fallback path was introduced.
   focused Facts regressions 21 passed; full non-OpenMC/non-LLM suite and
   compileall passed; fake workflow benchmark 21/21. Baseline diff is unavailable
   because no baseline report is present.
+
+## 2026-07-31 - Placement profile coordinate-frame evidence
+
+- Placement contract rows now lift segment roles and universe refs from actual
+  intent-bound profiles even when Facts did not name `required_profile_id`.
+- Pin-map intent normalization no longer double-shifts nonzero profile segment
+  bounds; the critic prompt now states profile coordinate-frame and
+  single-assembly implicit-scope rules.
+- Validation: focused placement regressions 24 passed; full non-OpenMC/non-LLM
+  suite 3918 passed, 2 skipped, 394 deselected; compileall passed; fake workflow
+  benchmark 21/21. Baseline diff unavailable because no baseline report exists.
