@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import copy
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -147,9 +148,92 @@ def _build_material_info_map(state: Any) -> dict[str, dict[str, Any]]:
                     info[mid] = {
                         "role": mat.get("role", ""),
                         "density_g_cm3": mat.get("density_g_cm3"),
+                        "name": mat.get("name", ""),
                     }
             break
     return info
+
+
+def _normalize_material_key(s: str) -> str:
+    """Lowercase and strip separators for fuzzy material-id matching."""
+    return re.sub(r"[\s_.\-]", "", s).lower()
+
+
+def resolve_material_id_aliases(
+    content: dict[str, Any],
+    material_info: dict[str, dict[str, Any]],
+) -> UniversesPatchNormalizationResult:
+    """Rewrite cell ``material_id`` references that don't match any material in
+    the valid MaterialsPatch.
+
+    LLMs occasionally emit slightly different material ids across patches --
+    e.g. ``zircaloy_4`` in the universes patch vs ``zircaloy4`` in materials,
+    or ``uo2_3a`` vs ``uo2_31``, or ``borated_water`` vs
+    ``borated_water_3a``.  Each cell reference is resolved via:
+
+    1. **Normalized-id match** -- strip ``_ - .`` and lowercase (handles
+       ``zircaloy_4`` → ``zircaloy4``).
+    2. **Keyword match** -- the first segment of the reference id (before the
+       first ``_``/``-``) is searched against material names and id prefixes;
+       a unique candidate rewrites the reference (handles ``uo2_3a`` →
+       ``uo2_31`` via the ``uo2`` keyword, ``borated_water`` →
+       ``borated_water_3a`` via ``borated``).
+
+    Only unambiguous (single-candidate) rewrites are applied.  Idempotent and
+    reactor-neutral.
+    """
+    if not material_info:
+        return UniversesPatchNormalizationResult(content=content, operations=[])
+
+    valid_ids = set(material_info)
+    norm_index: dict[str, str] = {
+        _normalize_material_key(mid): mid for mid in valid_ids
+    }
+    # keyword → [material_ids]; keyword = first segment of id or first word of name
+    keyword_index: dict[str, list[str]] = {}
+    for mid in valid_ids:
+        kws: set[str] = set()
+        first_seg = re.split(r"[_\-]", mid, maxsplit=1)[0].lower()
+        if first_seg:
+            kws.add(first_seg)
+        name = str(material_info[mid].get("name", ""))
+        if name:
+            first_word = re.split(r"[\s\-]", name, maxsplit=1)[0].lower()
+            if first_word:
+                kws.add(first_word)
+        for kw in kws:
+            keyword_index.setdefault(kw, []).append(mid)
+
+    operations: list[dict[str, Any]] = []
+    new_content = copy.deepcopy(content)
+    changed = False
+    for uni in new_content.get("universes", []):
+        if not isinstance(uni, dict):
+            continue
+        for cell in uni.get("cells", []):
+            if not isinstance(cell, dict):
+                continue
+            mid = cell.get("material_id")
+            if not isinstance(mid, str) or not mid or mid in valid_ids:
+                continue
+            candidate: str | None = norm_index.get(_normalize_material_key(mid))
+            if candidate is None:
+                first_seg = re.split(r"[_\-]", mid, maxsplit=1)[0].lower()
+                cands = keyword_index.get(first_seg, [])
+                if len(cands) == 1:
+                    candidate = cands[0]
+            if candidate is not None and candidate != mid:
+                cell["material_id"] = candidate
+                changed = True
+                operations.append({
+                    "operation": "material_id_alias_resolved",
+                    "from": mid,
+                    "to": candidate,
+                })
+    return UniversesPatchNormalizationResult(
+        content=new_content if changed else content,
+        operations=operations,
+    )
 
 
 def _find_background_material(
@@ -481,6 +565,13 @@ def normalize_universes_patch_content(
     if poison_strip.changed:
         content = poison_strip.content
         operations.extend(poison_strip.operations)
+
+    alias_fix = resolve_material_id_aliases(
+        content, _build_material_info_map(state)
+    )
+    if alias_fix.changed:
+        content = alias_fix.content
+        operations.extend(alias_fix.operations)
 
     bg_canon = canonicalize_background_materials(
         content,
