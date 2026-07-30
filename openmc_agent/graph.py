@@ -1664,7 +1664,7 @@ def _run_incremental_plan_generation(
         requirement=requirement,
         state=build_state,
         llm_client=patch_llm_client,
-        max_patch_attempts=2,
+        max_patch_attempts=4,
         strict=True,
         reference_patch_policy=reference_patch_policy,
         few_shot_case_ids=few_shot_case_ids,

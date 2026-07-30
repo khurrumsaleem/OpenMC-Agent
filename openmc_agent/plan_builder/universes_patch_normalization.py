@@ -193,14 +193,14 @@ def resolve_material_id_aliases(
     keyword_index: dict[str, list[str]] = {}
     for mid in valid_ids:
         kws: set[str] = set()
-        first_seg = re.split(r"[_\-]", mid, maxsplit=1)[0].lower()
-        if first_seg:
-            kws.add(first_seg)
+        for seg in re.split(r"[_\-]", mid):
+            if seg:
+                kws.add(seg.lower())
         name = str(material_info[mid].get("name", ""))
         if name:
-            first_word = re.split(r"[\s\-]", name, maxsplit=1)[0].lower()
-            if first_word:
-                kws.add(first_word)
+            for word in re.split(r"[\s\-]", name):
+                if word:
+                    kws.add(word.lower())
         for kw in kws:
             keyword_index.setdefault(kw, []).append(mid)
 
@@ -218,10 +218,23 @@ def resolve_material_id_aliases(
                 continue
             candidate: str | None = norm_index.get(_normalize_material_key(mid))
             if candidate is None:
-                first_seg = re.split(r"[_\-]", mid, maxsplit=1)[0].lower()
-                cands = keyword_index.get(first_seg, [])
-                if len(cands) == 1:
-                    candidate = cands[0]
+                for seg in re.split(r"[_\-]", mid):
+                    cands = keyword_index.get(seg.lower(), [])
+                    if len(cands) == 1:
+                        candidate = cands[0]
+                        break
+            # void/vacuum semantic: map to the near-zero-density material
+            # (LLM uses 'void'/'vacuum' for sealed cavities; the materials
+            # patch represents the same cavity as a ~0-density material).
+            if candidate is None and mid.lower() in {"void", "vacuum", "empty", "null", "none"}:
+                low_density = sorted(
+                    (m for m, info in material_info.items()
+                     if info.get("density_g_cm3") is not None
+                     and float(info["density_g_cm3"]) < 0.01),
+                    key=lambda m: float(material_info[m]["density_g_cm3"]),
+                )
+                if low_density:
+                    candidate = low_density[0]
             if candidate is not None and candidate != mid:
                 cell["material_id"] = candidate
                 changed = True

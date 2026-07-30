@@ -91,6 +91,9 @@ def normalize_materials_patch_content(
         if not isinstance(material, dict):
             continue
         operations.extend(_normalize_material_schema_surface(material))
+        fill_op = _fill_empty_composition(material)
+        if fill_op is not None:
+            operations.append(fill_op)
 
     # Canonicalize fuel material source_variant_id against the accepted Facts
     # fuel variant ids.  The LLM frequently emits a short label (e.g. "3B")
@@ -248,6 +251,39 @@ def _normalize_material_schema_surface(material: dict[str, Any]) -> list[dict[st
             material["compound_components"] = retained
 
     return operations
+
+
+def _fill_empty_composition(material: dict[str, Any]) -> dict[str, Any] | None:
+    """Give a schema-incomplete material (empty composition, no formula /
+    macroscopic / mixture) a placeholder nuclide so it passes
+    ComplexMaterialSpec validation.  Vacuum/void materials -- LLM
+    representations of sealed cavities at near-zero density -- are the
+    typical case; placeholder H1 at the material's existing (near-zero)
+    density is physically indistinguishable from vacuum.  Returns an
+    operation dict or None when the material is already schema-complete.
+    """
+    composition = material.get("composition")
+    if isinstance(composition, dict) and len(composition) > 0:
+        return None
+    if material.get("chemical_formula") or material.get("macroscopic") or material.get("mixture_components"):
+        return None
+    # Only fill vacuum/void materials (LLM representations of sealed cavities
+    # at near-zero density).  Other empty-composition materials (e.g. fuels
+    # awaiting species resolution) are left for the validator.
+    mid = str(material.get("material_id") or "").lower()
+    name = str(material.get("name") or "").lower()
+    is_vacuum = any(t in mid or t in name for t in ("vacuum", "void", "empty"))
+    density = material.get("density_g_cm3")
+    if not is_vacuum and (density is None or float(density) >= 0.01):
+        return None
+    material["composition"] = {"H1": 1.0}
+    material["composition_basis"] = "atom_frac"
+    if material.get("composition_status") in (None, "", "unknown"):
+        material["composition_status"] = "confirmed"
+    return {
+        "operation": "empty_composition_filled_with_placeholder",
+        "material_id": material.get("material_id"),
+    }
 
 
 def normalize_materials_patches_in_state(state: Any) -> list[dict[str, Any]]:
