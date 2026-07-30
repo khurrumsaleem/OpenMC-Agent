@@ -4,6 +4,10 @@
 
 ### 2026-07-30
 
+- **VERA3B main 86744e1 / GLM-5.2 Universes fuel-variant alias 闭合**：用户真实 canary 确认上一轮 Placement blocker 已不再出现，本轮 Facts accepted、Materials valid 后在 Universes fragmented qualification 失败：fuel universe 采用 `fuel_variant_id="3B_fuel"`，燃料材料采用 LLM 别名 `source_variant_id="state_3b"`。现将燃料 variant id 比较抽为通用 token-equivalence helper，忽略 `fuel/source/state/variant/pin` 等非区分修饰词，`state_3b`、`fuel_3b`、`3B_fuel` 视作同一 source variant；`state_3a` 与 `3B_fuel` 仍 fail-closed。该规则同时接入 Materials normalizer、Universe fragment qualification 与 MU preflight。
+- **验证结果**：新增 focused regressions `5 passed`，相关 Materials/Universes/MU regressions `53 passed`；全量非 OpenMC/非 LLM pytest `3911 passed, 2 skipped, 394 deselected`；`compileall` 通过；fake workflow benchmark `21/21`、`pass_rate=100.0%`；baseline diff 因 `data/evals/workflow/baseline/evaluation_report.json` 不存在跳过。
+- **下一步建议**：push 后由用户用新 HEAD 只重跑一次 GLM-5.2 VERA3B planning canary；若继续失败，优先分析 Universes 后续 fragment 或 MU artifacts，不恢复批量真实 LLM 测试。
+
 - **VERA3B main 93b0cd7 / GLM-5.2 Placement 重审预算闭合**：用户真实 canary 已越过 Facts、Materials、Universes 与 MU gate，当前失败不是新的 placement 语义缺口，而是 Placement Gate 第一次 `accepted` 后因 lifecycle input hash 与 evidence-pack hash 混用被误判输入变化，重复 review；第二次 clean review 又被 `review_count >= max_review_rounds` 预算检查误挡为 `fail_closed`。现 Placement accepted/reviewed 缓存统一使用 lifecycle input hash，evidence-pack hash 仅作 artifact 审计；action policy 允许预算内最后一轮 clean review 批准，仍对 blocking finding/no-progress/repair/human/总调用预算 fail-closed。
 - **验证结果**：focused regressions `4 passed`；旧 `phase8c_step3q_vera3b_main_93b0cd7` 失败状态离线 policy sanity 从 `fail_closed` 变为 `approve`。全量非 OpenMC/非 LLM pytest `3906 passed, 2 skipped, 394 deselected`；`compileall` 通过；fake workflow benchmark `21/21`、`pass_rate=100.0%`；baseline diff 因 `data/evals/workflow/baseline/evaluation_report.json` 不存在跳过。
 - **下一步建议**：push 后由用户只重跑一次 GLM-5.2 VERA3B planning canary；若继续失败，优先分析 Axial 或 Assembled artifacts，仍不做盲目真实 LLM 批量。

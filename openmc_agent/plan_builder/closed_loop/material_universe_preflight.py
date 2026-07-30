@@ -12,6 +12,7 @@ from typing import Any
 from pydantic import Field
 
 from openmc_agent.material_species import classify_species_name
+from openmc_agent.plan_builder.fuel_variant_ids import fuel_variant_ids_equivalent
 from openmc_agent.plan_builder.patches import parse_patch_content
 from openmc_agent.plan_builder.validators import validate_patch
 from openmc_agent.schemas import AgentBaseModel
@@ -126,7 +127,7 @@ def _collect_materials_issues(materials_patch: Any, view: MaterialUniverseBindin
         if variant:
             # Fuel variant: check by source_variant_id.
             found = any(
-                m.role == "fuel" and m.source_variant_id == variant
+                m.role == "fuel" and fuel_variant_ids_equivalent(m.source_variant_id, variant)
                 for m in materials_patch.materials
             )
             if not found:
@@ -187,7 +188,7 @@ def _collect_universes_issues(universes_patch: Any, view: MaterialUniverseBindin
                 and cell.role == "fuel"
                 and declared_variant
                 and material_variant
-                and material_variant != declared_variant
+                and not fuel_variant_ids_equivalent(material_variant, declared_variant)
             ):
                 issues.append(_issue(
                     "material_universe.fuel_variant_material_mismatch",
@@ -362,7 +363,11 @@ def _collect_requirement_skeleton_issues(state: Any, materials_patch: Any, unive
         for req in material_data.get("requirements", []):
             role = str(req.get("role", ""))
             variant = req.get("source_variant")
-            matches = [m for m in materials if m.role == role and (not variant or m.source_variant_id == variant)]
+            matches = [
+                m for m in materials
+                if m.role == role
+                and (not variant or fuel_variant_ids_equivalent(m.source_variant_id, variant))
+            ]
             if not matches:
                 issues.append(_issue("material_universe.material_requirement_missing", f"material requirement {req.get('requirement_id', '')} is not covered", row_kind="source_material_coverage", row_key=str(req.get("requirement_id", "")), requirement_id=req.get("requirement_id"), expected_role=role, expected_variant=variant))
             elif req.get("required_density") is not None and matches[0].density_g_cm3 is None:

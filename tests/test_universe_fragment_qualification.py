@@ -151,6 +151,60 @@ def test_qualify_accepts_canonical_equivalent_fuel_variant_label():
     )
 
 
+def test_qualify_accepts_state_prefixed_fuel_variant_label():
+    item = _manifest_item(
+        universe_id="u_fuel_3b",
+        required_cell_roles=["fuel"],
+        required_material_roles=["fuel"],
+        fuel_variant_id="3B_fuel",
+    )
+    frag = _fragment(
+        "u_fuel_3b",
+        _fuel_universe(uid="u_fuel_3b", material_id="m_fuel_3b"),
+    )
+
+    result = qualify_universe_fragment(
+        manifest_item=item,
+        fragment=frag,
+        known_material_ids={"m_fuel_3b"},
+        material_roles_by_id={"m_fuel_3b": "fuel"},
+        material_source_variants_by_id={"m_fuel_3b": "state_3b"},
+    )
+
+    assert result.ok is True
+    assert not any(
+        issue.code == "qualification.fuel_variant_material_mismatch"
+        for issue in result.issues
+    )
+
+
+def test_qualify_rejects_different_state_prefixed_fuel_variant_label():
+    item = _manifest_item(
+        universe_id="u_fuel_3b",
+        required_cell_roles=["fuel"],
+        required_material_roles=["fuel"],
+        fuel_variant_id="3B_fuel",
+    )
+    frag = _fragment(
+        "u_fuel_3b",
+        _fuel_universe(uid="u_fuel_3b", material_id="m_fuel_3b"),
+    )
+
+    result = qualify_universe_fragment(
+        manifest_item=item,
+        fragment=frag,
+        known_material_ids={"m_fuel_3b"},
+        material_roles_by_id={"m_fuel_3b": "fuel"},
+        material_source_variants_by_id={"m_fuel_3b": "state_3a"},
+    )
+
+    assert result.ok is False
+    assert any(
+        issue.code == "qualification.fuel_variant_material_mismatch"
+        for issue in result.issues
+    )
+
+
 def test_qualify_fragment_hash_is_canonical_and_stable():
     item = _manifest_item()
     frag = _fragment("u_fuel", _fuel_universe())

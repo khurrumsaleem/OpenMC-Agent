@@ -39,6 +39,7 @@ from pydantic import Field
 
 from openmc_agent.schemas import AgentBaseModel
 
+from .fuel_variant_ids import fuel_variant_ids_equivalent
 from .closed_loop.fingerprints import canonical_json_dumps, compute_candidate_hash
 from .patches import parse_patch_content, PatchParseError
 from .universe_fragment_generation import (
@@ -122,13 +123,7 @@ def _variant_ids_equivalent(actual: str, expected: str) -> bool:
     relation and is rejected.
     """
 
-    a = (actual or "").strip().lower()
-    b = (expected or "").strip().lower()
-    if not a or not b:
-        return False
-    if a == b:
-        return True
-    return a in b or b in a
+    return fuel_variant_ids_equivalent(actual, expected)
 
 
 # Marker strings the LLM occasionally emits when copying prompt examples

@@ -243,6 +243,32 @@ def test_fuel_source_variant_id_token_order_canonicalized_to_facts_variant_id() 
     ]
 
 
+def test_fuel_source_variant_id_state_label_canonicalized_to_facts_variant_id() -> None:
+    from openmc_agent.plan_builder.state import PlanPatchEnvelope, PlanBuildState
+
+    patch = {
+        "patch_type": "materials",
+        "materials": [
+            {"material_id": "fuel_3b", "name": "Fuel 3B", "role": "fuel",
+             "density_g_cm3": 10.257, "source_variant_id": "state_3b"},
+        ],
+    }
+    state = PlanBuildState(state_id="s", requirement_text="r")
+    state.add_patch(PlanPatchEnvelope(
+        patch_id="facts", patch_type="facts",
+        content={"patch_type": "facts",
+                 "fuel_variant_requirements": [{"variant_id": "3B_fuel"}]},
+        status="valid",
+    ))
+
+    result = normalize_materials_patch_content(patch, state=state)
+
+    assert result.content["materials"][0]["source_variant_id"] == "3B_fuel"
+    assert "fuel_source_variant_id_canonicalized" in [
+        op["operation"] for op in result.operations
+    ]
+
+
 def test_fuel_source_variant_id_ambiguous_not_canonicalized() -> None:
     """When the short label matches multiple Facts variants, do not guess."""
     from openmc_agent.plan_builder.state import PlanPatchEnvelope, PlanBuildState

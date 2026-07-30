@@ -319,6 +319,91 @@ def test_fuel_universe_material_variant_mismatch_detected_from_material_referenc
     } == {"u_fuel_region1": "region1", "u_fuel_region2": "region2"}
 
 
+def test_fuel_universe_material_variant_accepts_state_label_equivalent() -> None:
+    state = _state(
+        facts={
+            "patch_type": "facts",
+            "model_scope": "single_assembly",
+            "fuel_variant_requirements": [
+                {"variant_id": "3B_fuel", "enrichment_wt_percent": 3.1},
+            ],
+        },
+        materials={
+            "patch_type": "materials",
+            "materials": [
+                {"material_id": "fuel_3b", "name": "fuel 3B", "role": "fuel", "density_g_cm3": 10.0, "source_variant_id": "state_3b"},
+                {"material_id": "clad", "name": "clad", "role": "cladding", "density_g_cm3": 6.5},
+                {"material_id": "coolant", "name": "water", "role": "coolant", "density_g_cm3": 0.99},
+            ],
+        },
+        universes={
+            "patch_type": "universes",
+            "universes": [
+                {
+                    "universe_id": "fuel_variant_3B_fuel",
+                    "kind": "fuel_pin",
+                    "metadata": {"fuel_variant_id": "3B_fuel"},
+                    "cells": [
+                        {"id": "fuel", "role": "fuel", "material_id": "fuel_3b", "region_kind": "cylinder", "r_min_cm": 0, "r_max_cm": 0.4},
+                        {"id": "clad", "role": "clad", "material_id": "clad", "region_kind": "annulus", "r_min_cm": 0.4, "r_max_cm": 0.45},
+                        {"id": "bg", "role": "background", "material_id": "coolant", "region_kind": "background"},
+                    ],
+                },
+            ],
+        },
+    )
+
+    result = run_material_universe_preflight(state=state, policy=_policy())
+
+    assert "material_universe.fuel_variant_material_mismatch" not in {
+        i["code"] for i in result.issues
+    }
+    assert "material_universe.required_fuel_variant_material_missing" not in {
+        i["code"] for i in result.issues
+    }
+
+
+def test_fuel_universe_material_variant_rejects_different_state_label() -> None:
+    state = _state(
+        facts={
+            "patch_type": "facts",
+            "model_scope": "single_assembly",
+            "fuel_variant_requirements": [
+                {"variant_id": "3B_fuel", "enrichment_wt_percent": 3.1},
+            ],
+        },
+        materials={
+            "patch_type": "materials",
+            "materials": [
+                {"material_id": "fuel_3a", "name": "fuel 3A", "role": "fuel", "density_g_cm3": 10.0, "source_variant_id": "state_3a"},
+                {"material_id": "clad", "name": "clad", "role": "cladding", "density_g_cm3": 6.5},
+                {"material_id": "coolant", "name": "water", "role": "coolant", "density_g_cm3": 0.99},
+            ],
+        },
+        universes={
+            "patch_type": "universes",
+            "universes": [
+                {
+                    "universe_id": "fuel_variant_3B_fuel",
+                    "kind": "fuel_pin",
+                    "metadata": {"fuel_variant_id": "3B_fuel"},
+                    "cells": [
+                        {"id": "fuel", "role": "fuel", "material_id": "fuel_3a", "region_kind": "cylinder", "r_min_cm": 0, "r_max_cm": 0.4},
+                        {"id": "clad", "role": "clad", "material_id": "clad", "region_kind": "annulus", "r_min_cm": 0.4, "r_max_cm": 0.45},
+                        {"id": "bg", "role": "background", "material_id": "coolant", "region_kind": "background"},
+                    ],
+                },
+            ],
+        },
+    )
+
+    result = run_material_universe_preflight(state=state, policy=_policy())
+
+    assert "material_universe.fuel_variant_material_mismatch" in {
+        i["code"] for i in result.issues
+    }
+
+
 def test_role_mismatch_detected() -> None:
     """Fuel cell referencing a cladding material → role mismatch."""
     state = _state(universes={"patch_type": "universes", "universes": [

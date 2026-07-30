@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from openmc_agent.material_species import canonical_nuclide_name, classify_species_name
+from openmc_agent.plan_builder.fuel_variant_ids import fuel_variant_tokens
 
 
 _MASS = {
@@ -632,12 +633,7 @@ def _match_canonical_variant(actual: str, canonical_ids: list[str]) -> str | Non
 
 
 def _variant_tokens(value: str) -> frozenset[str]:
-    tokens = {
-        item
-        for item in re.split(r"[^a-z0-9]+", value.lower())
-        if item and item not in {"fuel", "pin", "variant", "source"}
-    }
-    return frozenset(tokens)
+    return fuel_variant_tokens(value)
 
 
 def _canonicalize_fuel_source_variant_id(
