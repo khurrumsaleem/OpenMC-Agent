@@ -205,6 +205,43 @@ def test_qualify_rejects_different_state_prefixed_fuel_variant_label():
     )
 
 
+def test_qualify_accepts_absorber_material_for_poison_requirement():
+    item = _manifest_item(
+        universe_id="u_pyrex",
+        kind="custom",
+        required_cell_roles=["poison"],
+        required_material_roles=["poison"],
+    )
+    frag = _fragment(
+        "u_pyrex",
+        {
+            "universe_id": "u_pyrex",
+            "kind": "custom",
+            "cells": [
+                {
+                    "id": "poison",
+                    "role": "poison",
+                    "material_id": "pyrex",
+                    "region_kind": "cylinder",
+                },
+            ],
+        },
+    )
+
+    result = qualify_universe_fragment(
+        manifest_item=item,
+        fragment=frag,
+        known_material_ids={"pyrex"},
+        material_roles_by_id={"pyrex": "absorber"},
+    )
+
+    assert result.ok is True
+    assert not any(
+        issue.code == "qualification.required_material_role_missing"
+        for issue in result.issues
+    )
+
+
 def test_qualify_fragment_hash_is_canonical_and_stable():
     item = _manifest_item()
     frag = _fragment("u_fuel", _fuel_universe())

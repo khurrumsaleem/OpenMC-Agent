@@ -606,6 +606,46 @@ class TestGenerateMaterialsPatchIntegration:
         parsed = result.parsed_patch
         assert len(parsed["materials"]) == 2
 
+    def test_fragmented_generation_returns_normalized_merged_patch(self):
+        from openmc_agent.plan_builder.materials_patch_pipeline import generate_materials_patch
+        from openmc_agent.plan_builder.patch_generator import FakePatchLLM
+
+        rs = _make_requirement_set([_make_requirement("m1", "fuel", "3b")])
+        manifest = build_material_manifest(rs)
+        mid = manifest.generation_order[0]
+        mat = _make_material_data(
+            mid=mid,
+            role="fuel",
+            variant="3b",
+            composition={
+                "U234": 0.0219,
+                "U235": 2.619,
+                "U236": 0.012,
+                "U238": 97.3471,
+                "O16": 2.0,
+            },
+        )
+        state = PlanBuildState(state_id="s", requirement_text="test")
+        state.metadata["planning_material_requirement_set"] = rs.model_dump(mode="json")
+        llm = FakePatchLLM([json.dumps({"patch_type": "materials", "materials": [mat]})])
+
+        result = generate_materials_patch(
+            requirement="test requirement",
+            state=state,
+            llm_client=llm,
+            mode="fragmented",
+        )
+
+        assert result.ok
+        fuel = result.parsed_patch["materials"][0]
+        assert fuel["composition"]["O16"] == 200.0
+        assert result.envelope is not None
+        assert result.envelope.content["materials"][0]["composition"]["O16"] == 200.0
+        assert "uo2_stoichiometric_oxygen_expanded" in [
+            op["operation"]
+            for op in state.metadata["materials_deterministic_normalizations"]
+        ]
+
     def test_checkpoint_reuse_on_resume(self):
         """Second call with same state should reuse accepted fragments."""
         from openmc_agent.plan_builder.materials_patch_pipeline import generate_materials_patch

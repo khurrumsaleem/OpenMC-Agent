@@ -24,6 +24,7 @@ import json
 from typing import Any
 
 from .llm_adapter import PatchLLMResponse, normalize_patch_llm_response
+from .material_role_compat import material_role_satisfies
 from .patch_generator import PatchGenerationResult, PatchGenerationAttempt
 from .patches import get_patch_json_schema
 from .state import PlanBuildState, PlanPatchEnvelope
@@ -412,11 +413,11 @@ def _preflight_material_role_coverage(
     uncovered, the pipeline blocks deterministically with
     ``unavailable_material_role`` — no LLM call is wasted.
     """
-    available_roles = set(material_roles_by_id.values())
+    available_roles = {str(role).strip().lower() for role in material_roles_by_id.values()}
     issues: list[dict[str, Any]] = []
     for item in manifest.items:
         for role in item.required_material_roles:
-            if role not in available_roles:
+            if not any(material_role_satisfies(actual, role) for actual in available_roles):
                 issues.append({
                     "code": "patch_generation.unavailable_material_role",
                     "severity": "error",

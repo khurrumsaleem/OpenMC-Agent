@@ -52,6 +52,7 @@ from .material_requirements import (
     MaterialGenerationRequirementSet,
     extract_material_requirements_from_facts,
 )
+from .materials_patch_normalization import normalize_materials_patch_content
 
 
 # ---------------------------------------------------------------------------
@@ -660,7 +661,20 @@ def generate_materials_patch(
         top_issue = _build_merge_failed_issue(merge_result)
         return PatchGenerationResult(ok=False, patch_type=patch_type, issues=[top_issue])
 
-    ok, val_issues = _validate_merged_materials_patch(merge_result.merged_patch or {})
+    merged_patch = merge_result.merged_patch or {}
+    normalization = normalize_materials_patch_content(merged_patch, state=state)
+    if normalization.changed:
+        merged_patch = normalization.content
+        state.metadata.setdefault("materials_deterministic_normalizations", [])
+        state.metadata["materials_deterministic_normalizations"].extend(
+            normalization.operations
+        )
+        session.metadata.setdefault("deterministic_normalizations", [])
+        session.metadata["deterministic_normalizations"].extend(
+            normalization.operations
+        )
+
+    ok, val_issues = _validate_merged_materials_patch(merged_patch)
     if not ok:
         _save_session(state, session)
         return PatchGenerationResult(
@@ -678,16 +692,18 @@ def generate_materials_patch(
         )
 
     import hashlib
-    patch_hash = merge_result.merged_patch_hash or hashlib.sha256(
-        json.dumps(merge_result.merged_patch, sort_keys=True, default=str).encode()
+    patch_hash = hashlib.sha256(
+        json.dumps(merged_patch, sort_keys=True, default=str).encode()
     ).hexdigest()[:16]
 
     envelope = PlanPatchEnvelope(
         patch_id=f"materials_fragmented_{patch_hash}",
         patch_type=patch_type,
-        content=merge_result.merged_patch,
+        content=merged_patch,
         source="llm",
         status="valid",
+        metadata={"deterministic_normalizations": normalization.operations}
+        if normalization.changed else {},
     )
     session.completed = True
     session.merged_patch_hash = patch_hash
@@ -695,7 +711,7 @@ def generate_materials_patch(
 
     return PatchGenerationResult(
         ok=True, patch_type=patch_type, envelope=envelope,
-        parsed_patch=merge_result.merged_patch,
+        parsed_patch=merged_patch,
         attempts=[], issues=[],
     )
 

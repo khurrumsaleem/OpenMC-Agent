@@ -4,6 +4,10 @@
 
 ### 2026-07-30
 
+- **VERA3B main f073d2f / GLM-5.2 fragmented Materials→Universes 接线闭合**：用户真实 canary 不再复现 MU reviewer 的 fuel stoichiometry blocker，但本轮 Materials fragmented path 返回的 merged patch 未走 patch-level normalizer，导致 valid artifact 仍保留 O16=`2.0` 与短 variant；随后 Universes preflight 又因 Pyrex material role=`absorber` 而 manifest required role=`poison` 报 `patch_generation.unavailable_material_role`。现 Materials fragmented merge 后统一调用 MaterialsPatch normalizer，并把 normalized content 写回 envelope/parsed_patch；Universe material-role preflight 与 fragment qualification 复用通用 `poison↔absorber` 兼容关系，仍不合并 requirements 本身。
+- **验证结果**：focused regressions `3 passed`；相关 Materials fragmented / Universe inventory / Universe qualification / Materials normalization regressions `109 passed`。全量非 OpenMC/非 LLM pytest `3916 passed, 2 skipped, 394 deselected`；`compileall` 通过；fake workflow benchmark `21/21`、`pass_rate=100.0%`；baseline diff 因 `data/evals/workflow/baseline/evaluation_report.json` 不存在跳过。
+- **下一步建议**：push 后由用户用新 HEAD 只重跑一次 GLM-5.2 VERA3B planning canary；如果继续失败，优先看是否已越过 Universes preflight 进入 MU/Placement/Axial。
+
 - **VERA3B main b6ed333 / GLM-5.2 MU fuel stoichiometry 闭合**：用户真实 canary 已越过 Universes fragment variant alias，当前推进到 MU gate；deterministic preflight `ok=true`，blocking 来自 MU reviewer 对 `fuel_3b` 的 composition semantics：`composition_basis="stoichiometric_ratio"` 下 U 同位素为 percent vector、O16 仍为 `2.0`，会产生 O/U=0.02 的歧义。现 MaterialsPatch normalizer 在入库前对通用 UO2 fuel 窄模式执行 O/U=2 扩展（U sum≈100 且 O≈2 → O≈200），并同步加固 lower-level material normalization，避免已扩展 O16 被二次扩展。
 - **验证结果**：focused material normalization regressions `31 passed`；旧 `phase8c_step3q_vera3b_main_b6ed333` MaterialsPatch 离线复放 O16 `2.0→200.0`，assembly-level normalization 保持 `200.0`。全量非 OpenMC/非 LLM pytest `3913 passed, 2 skipped, 394 deselected`；`compileall` 通过；fake workflow benchmark `21/21`、`pass_rate=100.0%`；baseline diff 因 `data/evals/workflow/baseline/evaluation_report.json` 不存在跳过。
 - **下一步建议**：push 后由用户用新 HEAD 只重跑一次 GLM-5.2 VERA3B planning canary；若继续失败，优先分析 MU reviewer/MU deterministic artifacts，避免重复批量真实 LLM。

@@ -40,6 +40,7 @@ from pydantic import Field
 from openmc_agent.schemas import AgentBaseModel
 
 from .fuel_variant_ids import fuel_variant_ids_equivalent
+from .material_role_compat import material_role_satisfies
 from .closed_loop.fingerprints import canonical_json_dumps, compute_candidate_hash
 from .patches import parse_patch_content, PatchParseError
 from .universe_fragment_generation import (
@@ -373,7 +374,7 @@ def qualify_universe_fragment(
         }
         missing_material_roles = sorted({
             role for role in declared_material_roles
-            if role.lower() not in actual_roles
+            if not any(material_role_satisfies(actual, role) for actual in actual_roles)
         })
         if missing_material_roles:
             issues.append(FragmentQualificationIssue(

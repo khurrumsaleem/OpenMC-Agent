@@ -203,6 +203,26 @@ class TestMaterialRolePreflight:
         assert len(issues) == 2
         roles_reported = {i["metadata"]["required_role"] for i in issues}
         assert roles_reported == {"coolant", "structural"}
+
+    def test_preflight_accepts_absorber_material_for_poison_requirement(self):
+        manifest = UniverseManifest(
+            manifest_id="test",
+            items=[
+                UniverseManifestItem(
+                    universe_id="u_pyrex",
+                    kind="pyrex_rod",
+                    required_material_roles=["poison"],
+                ),
+            ],
+            generation_order=["u_pyrex"],
+            expected_universe_count=1,
+        )
+
+        issues = _preflight_material_role_coverage(
+            manifest, {"pyrex": "absorber"},
+        )
+
+        assert issues == []
         assert all(i["metadata"]["universe_id"] == "u_gas_gap" for i in issues)
 
 
