@@ -8,8 +8,8 @@ overlays, and confirm the renderer:
 * splits the axial domain around each overlay,
 * derives an overlay lattice that swaps only the open/coolant cell while
   preserving fuel / clad / tube solids,
-* conservatively reuses ambiguous universes (e.g. a guide tube with both an
-  inner channel and outer moderator),
+* derives guide/instrument tubes on their outer moderator (grid stays
+  continuous) while preserving insert-bearing universes verbatim,
 * and still downgrades for unsupported overlaps / unresolved open regions.
 """
 
@@ -227,8 +227,10 @@ def test_derived_overlay_lattice_preserves_shape_and_pin_counts() -> None:
     script = RectAssemblyRenderer().render(plan, Path("/tmp/_ov_shape")).script
     # The derived fuel-pin overlay universe fills every original fuel position.
     assert script.count("universes['fuel_pin__overlay_grid1']") >= fuel_positions
-    # guide_tube (2 open cells) is reused unchanged at its original positions.
-    assert "universes['guide_tube']" in script
+    # guide_tube is derived too (outer moderator -> grid), keeping the grid
+    # lattice continuous across tube positions instead of leaving a gap.
+    guide_positions = sum(row.count("guide_tube") for row in base.universe_pattern)
+    assert script.count("universes['guide_tube__overlay_grid1']") >= guide_positions
     # Pitch / lower_left inherited from the base lattice.
     assert "overlay_lattice_grid1__assembly_lattice.pitch = (1.26, 1.26)" in script
 
@@ -257,18 +259,70 @@ def test_derived_overlay_universe_preserves_protected_cells() -> None:
     assert "cells['fuel_cell']" not in overlay_u_line
 
 
-def test_guide_tube_with_two_open_cells_is_conserved() -> None:
-    """A guide tube with inner channel + outer moderator (2 open cells) cannot be
-    safely split, so the base universe is reused unchanged (through-path kept)."""
+def test_guide_tube_outer_moderator_derived_inner_channel_preserved() -> None:
+    """A guide tube with an inner channel + outer moderator (2 open cells, no
+    insert) is derived on its OUTER moderator so the grid frame covers the tube
+    cell too -- keeping the spacer-grid lattice continuous instead of broken at
+    every tube. The inner through-channel and wall are cloned unchanged."""
     plan = _overlay_plan(overlays=[_homogenized_overlay()])
     overlay = plan.complex_model.core.axial_overlays[0]
     plans, _ = derive_overlay_universe_plan(overlay, plan.complex_model)
     guide_plan = next(p for p in plans if p.base_universe_id == "guide_tube")
-    assert guide_plan.reuse_base is True
-    assert guide_plan.derived_universe_id is None  # not altered -> through-path preserved
-    # No full material replacement of the guide tube universe.
+    assert guide_plan.reuse_base is False
+    assert guide_plan.derived_universe_id == "guide_tube__overlay_grid1"
+    assert guide_plan.open_cell_id == "guide_outer_water"  # outer moderator swapped
+    # The inner channel and tube wall are cloned into the overlay universe
+    # (through-path preserved), not the outer moderator alone.
     script = RectAssemblyRenderer().render(plan, Path("/tmp/_ov_guide")).script
-    assert "universes['guide_tube']" in script  # base reused in overlay lattice
+    assert "overlay_cell_guide_inner_water__grid1" in script
+    assert "overlay_cell_tube_wall_cell__grid1" in script
+    # The derived guide-tube universe is used in the overlay lattice.
+    assert "universes['guide_tube__overlay_grid1']" in script
+
+
+def test_insert_bearing_universe_is_never_derived() -> None:
+    """A universe carrying a localized insert (poison / Pyrex / absorber) is
+    NEVER derived: the base universe is reused verbatim so axial insert loadings
+    (e.g. VERA 3B Pyrex rods) are not disturbed by the grid overlay."""
+    poison = ComplexMaterialSpec(
+        id="pyrex", name="pyrex poison rod", density_unit="g/cm3", density_value=2.23,
+        composition=[NuclideSpec(name="B10", percent=1.0)],
+    )
+    cells = list(_cells()) + [
+        CellSpec(id="pyrex_cell", name="pyrex rod", fill_type="material", fill_id="pyrex"),
+    ]
+    universes = [
+        UniverseSpec(id="fuel_pin", name="fuel pin", cell_ids=["fuel_cell", "clad_cell", "coolant_cell"]),
+        UniverseSpec(id="guide_with_pyrex", name="guide with pyrex",
+                     cell_ids=["tube_wall_cell", "guide_inner_water", "guide_outer_water", "pyrex_cell"]),
+    ]
+    lattice = LatticeSpec(
+        id="assembly_lattice", name="assembly", kind="rect", pitch_cm=(1.26, 1.26),
+        universe_pattern=[
+            ["fuel_pin", "guide_with_pyrex"],
+            ["guide_with_pyrex", "fuel_pin"],
+        ],
+    )
+    model = ComplexModelSpec(
+        name="insert", kind="assembly",
+        materials=_materials() + [poison],
+        cells=cells, universes=universes, lattices=[lattice],
+        core=CoreSpec(
+            id="core", name="core", lattice_id="assembly_lattice", boundary="reflective",
+            axial_layers=[AxialLayerSpec(id="fuel", name="fuel", z_min_cm=0.0, z_max_cm=10.0,
+                                         fill={"type": "lattice", "id": "assembly_lattice"})],
+            axial_overlays=[_homogenized_overlay(z_min=2.0, z_max=3.0)],
+        ),
+        settings=RunSettingsSpec(batches=4, inactive=1, particles=10),
+    )
+    overlay = model.core.axial_overlays[0]
+    plans, _ = derive_overlay_universe_plan(overlay, model)
+    insert_plan = next(p for p in plans if p.base_universe_id == "guide_with_pyrex")
+    assert insert_plan.reuse_base is True
+    assert insert_plan.derived_universe_id is None  # insert geometry preserved
+    # fuel_pin is still derived (it has no insert).
+    fuel_plan = next(p for p in plans if p.base_universe_id == "fuel_pin")
+    assert fuel_plan.reuse_base is False
 
 
 # -- 8. unsupported overlapping overlays downgrade safely -----------------

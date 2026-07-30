@@ -18,12 +18,16 @@ Conservative rules
 ------------------
 * A universe with exactly one open cell -> derive an overlay universe (open cell
   fill becomes grid material, other cells reused).
-* A universe with two or more open cells (e.g. a guide tube with an inner
-  water channel plus outer moderator) -> do NOT alter it; reuse the base
-  universe. The schema cannot safely tell inner through-path from outer
-  moderator, so we preserve through-paths and forgo grid material there.
-* A universe with zero open cells -> ``open_region_unresolved``: the renderer
-  cannot safely place the grid material, so the model downgrades.
+* A universe with two or more open cells (e.g. a fuel pin, or a guide/instrument
+  tube with an inner water channel plus an outer moderator) -> derive the OUTER
+  moderator cell (identified by component_role or id/region naming) so the grid
+  frame covers this cell too; inner through-channels and walls are cloned.
+* A universe carrying a localized insert (poison / absorber / Pyrex / burnable
+  poison / control rod) -> NEVER derived; reuse the base universe verbatim so
+  axial insert loadings are not disturbed.
+* A universe with zero open cells, or an ambiguous multi-open layout where no
+  unique outer moderator can be identified -> reuse the base universe (grid
+  material simply absent there rather than blocking the whole model).
 
 No benchmark facts live here: classification is by generic material/cell names.
 """
@@ -325,9 +329,17 @@ def derive_overlay_universe_plan(
 
     Returns ``(plans, unresolved_universe_ids)``. When ``unresolved`` is non-empty
     the renderer cannot safely place the grid material for those universes.
-    Universes with 0 open cells are conservatively reused (no grid material,
-    through-paths preserved) rather than blocking -- the same safe degradation
-    as the 2+-open-cells case.
+
+    Derivation rules (per universe):
+
+    * one open cell (no insert)        -> derive that cell;
+    * 2+ open cells, no insert, one
+      identifiable outer moderator     -> derive the outer moderator (keeps the
+      grid lattice continuous across guide/instrument tubes);
+    * any universe with a localized
+      insert (poison/absorber/Pyrex)   -> reuse base (insert geometry preserved);
+    * 0 open cells / ambiguous layout  -> reuse base (grid absent there, model
+      not blocked).
     """
     target = overlay_target_lattice(overlay, model)
     plans: list[DerivedUniversePlan] = []
@@ -357,7 +369,33 @@ def derive_overlay_universe_plan(
                 )
                 continue
             open_cells = universe_open_cell_ids(universe, model)
-            if len(open_cells) == 1:
+            # Detect localized inserts (poison / absorber / burnable poison /
+            # Pyrex / control rod). Such a universe is NEVER derived: reusing
+            # the base universe preserves its geometry verbatim so axial
+            # insert loadings (e.g. VERA 3B Pyrex rods) are not disturbed by
+            # the grid overlay.
+            cells_map = _cells_by_id(model)
+            mats_map = _materials_by_id(model)
+            has_insert = False
+            for cid in universe.cell_ids:
+                c = cells_map.get(cid)
+                if c is None:
+                    continue
+                role = str(getattr(c, "component_role", "") or "").lower()
+                if role in ("poison", "absorber", "burnable_poison"):
+                    has_insert = True
+                    break
+                m = mats_map.get(c.fill_id) if c.fill_id else None
+                if m is not None:
+                    mt = f"{m.id} {m.name}".lower()
+                    if any(t in mt for t in (
+                        "pyrex", "poison", "absorb", "burnable",
+                        "boron_carbide", "b4c", "agincd",
+                        "control_rod", "absorber_rod",
+                    )):
+                        has_insert = True
+                        break
+            if len(open_cells) == 1 and not has_insert:
                 derived_id = f"{universe_id}__overlay_{overlay.id}"
                 plans.append(
                     DerivedUniversePlan(
@@ -368,29 +406,19 @@ def derive_overlay_universe_plan(
                         unresolved=False,
                     )
                 )
-            elif len(open_cells) >= 2:
-                # Several open/coolant cells. The grid frame belongs in the
-                # OUTER moderator, but only FUEL pins get a derived grid
-                # universe there; guide/instrument tubes (a through-channel
-                # plus outer moderator) stay conserved so their inner water
-                # path is preserved. The outer cell is identified broadly
-                # (component_role background/moderator/outer, or the cell
-                # id/region naming it outer/background) so different LLM
-                # conventions (component_role='background' vs an
-                # 'outer_moderator' cell still tagged role='coolant') work.
-                cells_map = _cells_by_id(model)
-                mats_map = _materials_by_id(model)
-                universe_obj = universes.get(universe_id)
-                has_fuel = False
-                if universe_obj is not None:
-                    for cid in universe_obj.cell_ids:
-                        c = cells_map.get(cid)
-                        m = mats_map.get(c.fill_id) if c and c.fill_id else None
-                        if m is not None:
-                            mt = f"{m.id} {m.name}".lower()
-                            if any(t in mt for t in ("fuel", "uo2", "uranium")):
-                                has_fuel = True
-                                break
+            elif len(open_cells) >= 2 and not has_insert:
+                # Several open/coolant cells (a fuel pin or a guide/instrument
+                # tube with an inner water channel plus an outer moderator).
+                # The grid frame belongs in the OUTER moderator: that cell is
+                # swapped for the derived overlay universe (outer moderator
+                # restricted to the inner square + grid frame outside it) while
+                # every inner through-channel and solid wall is cloned
+                # unchanged. This keeps the spacer-grid lattice *continuous*
+                # across guide/instrument-tube positions instead of
+                # interrupted -- the prior fuel-pin-only rule left tubes as a
+                # pure moderator gap so the grid appeared eroded/broken at
+                # every tube (moderator "invading" the grid). Insert-bearing
+                # universes are excluded by has_insert above.
 
                 def _is_outer_moderator(cell: CellSpec) -> bool:
                     role = str(getattr(cell, "component_role", "") or "").lower()
@@ -403,10 +431,7 @@ def derive_overlay_universe_plan(
                         or any(t in region for t in ("outer", "background", "_out"))
                     )
 
-                bg_cells = (
-                    [cid for cid in open_cells if _is_outer_moderator(cells_map.get(cid))]
-                    if has_fuel else []
-                )
+                bg_cells = [cid for cid in open_cells if _is_outer_moderator(cells_map.get(cid))]
                 if len(bg_cells) == 1:
                     derived_id = f"{universe_id}__overlay_{overlay.id}"
                     plans.append(
@@ -431,12 +456,12 @@ def derive_overlay_universe_plan(
                         )
                     )
             else:
-                # No recognizable open/coolant cell. Conservatively reuse the
-                # base universe (no grid material added at these positions)
-                # instead of blocking the entire model. This is the same safe
-                # degradation as the 2+-open-cells case: through-paths are
-                # preserved, grid material simply doesn't appear here. The
-                # verification digest can note which universes were skipped.
+                # No recognizable open/coolant cell, an ambiguous multi-open
+                # layout, or an insert-bearing universe (has_insert). All fall
+                # back to reusing the base universe verbatim: through-paths
+                # and insert geometry are preserved, grid material simply does
+                # not appear at these positions. The verification digest can
+                # note which universes were skipped.
                 plans.append(
                     DerivedUniversePlan(
                         base_universe_id=universe_id,
