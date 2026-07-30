@@ -376,6 +376,62 @@ class TestExecutorRevisionTrigger:
         # repair_count should be 0 — no revision attempted
         assert stage.repair_count == 0
 
+    def test_schema_invalid_review_with_deterministic_error_triggers_revision(self, monkeypatch, tmp_path) -> None:
+        """A broken reviewer must not mask a deterministic repairable Facts gap."""
+        monkeypatch.setattr(executor, "default_patch_task_order", lambda _: ["facts"])
+        monkeypatch.setattr(executor, "required_patch_types_for_state", lambda _: ["facts"])
+        monkeypatch.setattr(executor, "assemble_state_if_ready", lambda state, **_: state.model_copy(update={"assembled_plan": {"ok": True}}))
+
+        initial_facts = {
+            "patch_type": "facts",
+            "model_scope": "single_assembly",
+            "assembly_count": 1,
+            "fuel_variant_requirements": [{"variant_id": "fuel"}],
+            "has_spacer_grids": False,
+        }
+        patch_llm = FakePatchLLM([json.dumps(initial_facts)])
+        repair_llm = FakePatchLLM([json.dumps({
+            "proposal_id": "restore_grid_flag",
+            "confidence": 0.9,
+            "rationale": "restore source-backed spacer grid flag",
+            "operations": [
+                {"op": "replace", "path": "/has_spacer_grids", "value": True},
+            ],
+            "resolved_finding_ids": [],
+        })])
+
+        state = PlanBuildState(state_id="schema-bad-with-facts-gap", requirement_text="source")
+        state.metadata["planning_mode_decision"] = {
+            "feature_summary": {"has_spacer_grid": True}
+        }
+        review_calls = {"n": 0}
+
+        def distinct_bad_reviewer(_prompt: str) -> str:
+            review_calls["n"] += 1
+            return "{\"broken\": " + ("[" * review_calls["n"])
+
+        result = run_incremental_planning(
+            requirement="source mentions spacer grid",
+            state=state,
+            llm_client=patch_llm,
+            plan_loop_policy={"mode": "controlled"},
+            plan_reviewer_client=distinct_bad_reviewer,
+            plan_repair_client=repair_llm,
+            plan_loop_output_dir=tmp_path,
+        )
+
+        assert result.ok
+        stage = result.state.plan_loop_stages["plan_gate_facts"]
+        assert stage.status is PlanStageStatus.ACCEPTED
+        assert stage.repair_count == 1
+        repaired = [
+            env for env in result.state.patches.values()
+            if env.patch_type == "facts" and env.status == "valid"
+        ][-1]
+        assert repaired.content["has_spacer_grids"] is True
+        gate_result = json.loads((tmp_path / "incremental" / "plan_closed_loop" / "facts_gate_result.json").read_text())
+        assert gate_result["final_gate_status"]["terminal_reason"] == "candidate_committed_and_accepted"
+
     def test_coverage_incomplete_with_repairable_triggers_revision(self, monkeypatch) -> None:
         """review.ok=True + error findings + repairable → revision attempted.
 

@@ -4,6 +4,10 @@
 
 ### 2026-07-30
 
+- **VERA3B main 7ca2c8c 真实 canary Facts 失败闭合**：本次用户真实运行并非环境失败，而是 `facts` gate 在 `assembly_structure` 分阶段 reviewer 处输出重复 evidence hash 直到截断；同时上游 FactsPatch 已出现 schema-valid 的推理文本污染（`symmetry_description` 承载长段自我推理）并缺失 spacer/localized-insert contracts。现新增 Facts 标量文本污染 validator/preflight，旧产物离线复核从 `ok=true` 变为 `ok=false`、`facts.reasoning_text_leaked`；reviewer 退化输出归类为 `facts.reviewer_repeated_hash_truncation`；executor 在 reviewer 不可用但已有 deterministic facts error 时进入现有修复闭环，而不是被 reviewer schema failure 直接遮蔽。
+- **验证结果**：新增 focused regressions `6 passed`；旧 `phase8c_step3q_vera3b_main_7ca2c8c` artifacts 离线复盘确认污染 FactsPatch 被拦截、重复 hash 截断被精确分类。全量非 OpenMC/非 LLM pytest `3903 passed, 2 skipped, 394 deselected`；`compileall` 通过；fake workflow benchmark `21/21`、`pass_rate=100.0%`；baseline diff 因 `data/evals/workflow/baseline/evaluation_report.json` 不存在跳过。
+- **下一步建议**：先不要追加真实 LLM 测试；待本次离线 gate 全量通过并 push 后，再由用户用同一 canary 指令重跑一次，观察 Facts 生成是否被 validator 重试修正，或是否暴露新的 patch-generation 失败。
+
 - **真实 VERA3B v28/v33 离线闭合**：v33 Placement reviewer 将 contract-row evidence refs `D017/D018` 误填到 `reviewed_contract_row_ids`，现 coverage 校验前规范化回真实 requirement ids；旧 v33 reviewer output 离线复放 `ok=true`、`coverage_complete=true`。v28 第二轮 pin_map 的 `expected_pin_count=289` 现按总 lattice cells 解释，现代 `localized_insert_intents` 的 Pyrex poison/plenum 同坐标按唯一 placement 计数；旧 v28 raw pin_map 离线 validate `ok=true`、issues 空。
 - **验证结果**：新增 focused regressions `69 passed`；全量非 OpenMC/非 LLM pytest `3899 passed, 2 skipped, 394 deselected`；`compileall` 通过；fake workflow benchmark `21/21`、`pass_rate=100.0%`。baseline diff 因 `data/evals/workflow/baseline/evaluation_report.json` 不存在跳过。
 - **下一步建议**：v31 的 Facts revision incomplete closure 仍不宜盲跑真实 LLM，应先抽最小 fixture，审计哪些 finding 属 FactsPatch hard contract、哪些应下放到 Materials/MU/Axial 或 human note；该项闭合后再只跑一次 VERA3B planning canary。

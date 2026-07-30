@@ -91,6 +91,20 @@ def test_facts_missing_facts_info() -> None:
     assert result.ok is True
 
 
+def test_facts_reasoning_text_leak_is_error() -> None:
+    patch = FactsPatch(
+        symmetry_description=(
+            "reflective radial axial vacuum but we need to ensure value is "
+            "appropriate so we include boundary_scope and omit this field to "
+            "avoid errors because schema allows strings and output only json "
+            "with no trailing commas now generate json " * 4
+        )
+    )
+    result = validate_patch(patch)
+    assert "facts.reasoning_text_leaked" in _codes(result)
+    assert result.ok is False
+
+
 # ---------------------------------------------------------------------------
 # 3. MaterialsPatch unique IDs
 # ---------------------------------------------------------------------------

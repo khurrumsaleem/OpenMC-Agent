@@ -31,6 +31,7 @@ from openmc_agent.material_species import (
 )
 
 from .material_resolution import infer_material_aliases, resolve_material_id
+from .facts_text_quality import find_facts_scalar_text_leaks
 from .patches import (
     AxialLayerPatchItem,
     AxialLayersPatch,
@@ -290,6 +291,19 @@ def _validate_facts(
     context: PatchValidationContext,
 ) -> list[PatchValidationIssue]:
     issues: list[PatchValidationIssue] = []
+    facts_payload = patch.model_dump(mode="json")
+
+    for item in find_facts_scalar_text_leaks(facts_payload):
+        issues.append(PatchValidationIssue(
+            code=item["code"],
+            severity="error",
+            message=(
+                "FactsPatch scalar field appears to contain prompt/reasoning "
+                "text instead of a source-backed fact"
+            ),
+            path=str(item.get("path", "/")).lstrip("/"),
+            actual=item.get("actual_preview"),
+        ))
 
     if patch.lattice_size is not None:
         nx, ny = patch.lattice_size

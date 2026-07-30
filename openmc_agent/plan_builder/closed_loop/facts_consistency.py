@@ -5,6 +5,7 @@ from openmc_agent.schemas import AgentBaseModel
 from openmc_agent.plan_builder.control_state_normalization import (
     canonicalize_control_state_id,
 )
+from openmc_agent.plan_builder.facts_text_quality import find_facts_scalar_text_leaks
 from openmc_agent.plan_builder.planning_scope import PlanningFeatureContract, ResolvedPlanningScope, resolve_planning_scope
 
 class FactsConsistencyResult(AgentBaseModel):
@@ -19,6 +20,7 @@ def _issue(code: str, path: str, *, repairable: bool = True, human: bool = False
 def run_facts_consistency_preflight(*, feature_contract: PlanningFeatureContract, facts_patch: dict[str, Any], confirmed_facts: dict[str, Any] | None = None, existing_valid_patch_types: list[str] | None = None) -> FactsConsistencyResult:
     scope = resolve_planning_scope(planning_mode_decision={"feature_summary": feature_contract.evidence.get("feature_summary", {})}, facts_patch=facts_patch, existing_valid_patch_types=existing_valid_patch_types or [], confirmed_facts=confirmed_facts)
     issues: list[dict[str, Any]] = []
+    issues.extend(find_facts_scalar_text_leaks(facts_patch))
     if scope.status == "conflict":
         issues.append(_issue("facts.model_scope_conflicts_with_planning_features", "/model_scope", expected_scope="multi_assembly_core", facts_scope=facts_patch.get("model_scope"), feature_contract_hash=feature_contract.contract_hash))
     if feature_contract.multi_assembly_core and facts_patch.get("model_scope") in {"single_pin", "single_assembly"}:

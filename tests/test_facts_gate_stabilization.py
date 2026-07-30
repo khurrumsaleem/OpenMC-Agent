@@ -430,6 +430,34 @@ class TestReviewerFailureClassification:
         code = _classify_review_failure(call)
         assert code == "structured_review.schema_invalid"
 
+    def test_repeated_hash_truncation_classified(self):
+        """A reviewer that loops on evidence hashes gets a precise failure code."""
+
+        @dataclass
+        class _Attempt:
+            raw_text: str = ""
+            truncated_suspected: bool = True
+
+        @dataclass
+        class _Call:
+            ok: bool = False
+            error_code: str = "structured_review.schema_invalid"
+            attempts: list = None
+            raw_outputs: list[str] = None
+
+            def __post_init__(self):
+                repeated = (
+                    '{"review_status":"complete_with_gaps",'
+                    '"reviewed_evidence_hashes":["'
+                    + ("a" * 64) * 160
+                )
+                self.attempts = [_Attempt(raw_text=repeated)]
+                self.raw_outputs = [repeated]
+
+        call = _Call()
+        code = _classify_review_failure(call)
+        assert code == "facts.reviewer_repeated_hash_truncation"
+
 
 class TestCompletenessOwnership:
     def test_prompt_keeps_downstream_contracts_nonblocking(self):

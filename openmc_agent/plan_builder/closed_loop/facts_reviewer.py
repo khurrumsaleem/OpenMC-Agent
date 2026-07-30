@@ -1230,6 +1230,26 @@ _FREE_TEXT_APPROVE_PHRASES: tuple[str, ...] = (
 )
 
 
+def _looks_like_repeated_hash_truncation(call: Any, raw_texts: list[str]) -> bool:
+    attempts = list(getattr(call, "attempts", []) or [])
+    truncated = any(bool(getattr(attempt, "truncated_suspected", False)) for attempt in attempts)
+    if not truncated:
+        truncated = any(len(text) > 4000 for text in raw_texts)
+    if not truncated:
+        return False
+    for text in raw_texts:
+        lower = text.lower()
+        if "reviewed_evidence_hashes" not in lower:
+            continue
+        suffix = lower.split("reviewed_evidence_hashes", 1)[1]
+        hex_chars = sum(1 for char in suffix if char in "0123456789abcdef")
+        if len(suffix) >= 1000 and hex_chars / max(len(suffix), 1) > 0.7:
+            return True
+        if re.search(r"([0-9a-f]{24,64})\1{3,}", suffix):
+            return True
+    return False
+
+
 def _classify_review_failure(call: Any) -> str:
     """Classify a failed structured review call precisely.
 
@@ -1257,6 +1277,8 @@ def _classify_review_failure(call: Any) -> str:
     # Empty response: all attempts produced empty content.
     if raw_texts and all(not text.strip() for text in raw_texts):
         return "facts.reviewer_empty_response"
+    if _looks_like_repeated_hash_truncation(call, raw_texts):
+        return "facts.reviewer_repeated_hash_truncation"
     # Free-text approve: the response is short prose that matches an
     # approval phrase but contains no JSON structure.
     for text in raw_texts:

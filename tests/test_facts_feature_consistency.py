@@ -91,3 +91,21 @@ def test_multi_segment_insert_with_neither_profile_id_nor_roles_still_blocks():
     assert "facts.localized_insert_profile_contract_missing" in {
         item["code"] for item in result.issues
     }
+
+
+def test_reasoning_text_leak_is_preflight_error():
+    contract = planning_feature_contract({"feature_summary": {}})
+    result = run_facts_consistency_preflight(
+        feature_contract=contract,
+        facts_patch={
+            "patch_type": "facts",
+            "symmetry_description": (
+                "reflective radial but we need to include boundary_scope and "
+                "we omit other fields to avoid errors because schema allows "
+                "this string and output only json now generate json " * 4
+            ),
+        },
+    )
+    issues = {item["code"]: item for item in result.issues}
+    assert "facts.reasoning_text_leaked" in issues
+    assert issues["facts.reasoning_text_leaked"]["path"] == "/symmetry_description"

@@ -2494,14 +2494,28 @@ def run_incremental_planning(
         ]
         all_findings = consistency_findings + contract_preflight_findings + evidence_consistency_findings + list(review.findings)
         record_findings(state, stage, all_findings)
-        if not review.ok:
+        review_deterministic_issues = list(consistency.issues) + list(contract_preflight_issues) + [f.model_dump(mode="json") for f in evidence_consistency_findings if hasattr(f, "model_dump")] + ([{"code": "facts_review.coverage_incomplete", "severity": "error", "blocking": True}]
+                                       if not review.coverage_complete else [])
+        has_deterministic_error_findings = any(
+            item.severity.value == "error"
+            and item.metadata.get("deterministic")
+            for item in all_findings
+        )
+        if not review.ok and not has_deterministic_error_findings:
             state.add_event("planning.facts_review_failed", review.error or review.failure_code or "facts_review.schema_invalid", {})
             if policy.mode is PlanLoopMode.CONTROLLED:
                 transition_stage(stage, PlanStageStatus.BLOCKED)
                 _write_facts_gate_result("initial_review_unusable", failure_code=review.failure_code or "facts_review.schema_invalid")
                 return IncrementalExecutionIssue(code=review.failure_code or "facts_review.schema_invalid", severity="error", message="facts review output was unusable", patch_type="facts")
-        review_deterministic_issues = list(consistency.issues) + list(contract_preflight_issues) + [f.model_dump(mode="json") for f in evidence_consistency_findings if hasattr(f, "model_dump")] + ([{"code": "facts_review.coverage_incomplete", "severity": "error", "blocking": True}]
-                                       if not review.coverage_complete else [])
+        if not review.ok:
+            state.add_event(
+                "planning.facts_review_unusable_with_deterministic_findings",
+                "facts review output was unusable; deterministic facts findings drive repair",
+                {
+                    "failure_code": review.failure_code or "facts_review.schema_invalid",
+                    "finding_codes": [item.code for item in all_findings if item.severity.value == "error"],
+                },
+            )
         actions = compute_allowed_actions(policy=policy, stage_state=stage, findings=all_findings, deterministic_issues=review_deterministic_issues, additional_llm_calls_used=state.plan_loop_additional_llm_calls)
         action = actions[0] if actions else PlanReviewAction.FAIL_CLOSED
         decision = PlanReviewDecision(
