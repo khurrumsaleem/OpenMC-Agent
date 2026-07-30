@@ -1022,6 +1022,28 @@ def _validate_pin_map(
                 "pin": "fuel_pin",
                 "pyrex": "pyrex_rod",
             }.get(role, role)
+            # expected_pin_count may be either the fuel-pin count directly
+            # (264 for VERA3 3B) or the total lattice positions (289 = 17×17).
+            # When it equals the lattice product, subtract other declared
+            # base-path counts to derive the expected fuel-pin count.
+            if role == "fuel_pin" and key == "expected_pin_count":
+                total_cells = nx * ny
+                if val == total_cells:
+                    derived = val
+                    for sub_key, sub_val in raw_expected.items():
+                        if not isinstance(sub_val, int) or sub_val <= 0:
+                            continue
+                        if sub_key == key:
+                            continue
+                        sub_role = sub_key.removeprefix("expected_").removesuffix("_count")
+                        sub_role = {
+                            "pin": "fuel_pin",
+                            "pyrex": "pyrex_rod",
+                        }.get(sub_role, sub_role)
+                        if sub_role in ("guide_tube", "instrument_tube", "water_cell", "pyrex_rod", "thimble_plug"):
+                            derived -= sub_val
+                    val = derived
+            expected_counts[role] = val
             expected_counts[role] = val
         else:
             expected_counts[key] = val
