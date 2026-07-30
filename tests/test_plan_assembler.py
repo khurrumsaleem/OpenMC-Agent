@@ -189,6 +189,34 @@ def test_water_cell_at_half_pitch_remains_renderable() -> None:
     ]
 
 
+def test_missing_guide_universe_degrades_to_water_cell_without_count_drift() -> None:
+    patches = _minimal_3d_patches()
+    universes = next(p for p in patches if isinstance(p, UniversesPatch))
+    universes.universes = [
+        univ for univ in universes.universes
+        if univ.kind != "guide_tube"
+    ]
+    universes.universes.append(UniverseSpecPatch(
+        universe_id="water_cell",
+        kind="water_cell",
+        cells=[CellLayerPatch(
+            id="water", role="coolant", material_id="water", region_kind="background",
+        )],
+    ))
+
+    result = assemble_simulation_plan_from_patches(patches)
+
+    assert result.ok is True
+    assert result.plan is not None
+    lattice = result.plan.complex_model.lattices[0]
+    assert lattice.universe_pattern[2][2] == "water_cell"
+    assert lattice.universe_pattern[2][5] == "water_cell"
+    assert result.summary["actual_pin_counts"]["guide_tube"] == 2
+    assert "assembly.pin_map.special_universe_degraded_to_water_cell" in [
+        issue.code for issue in result.issues
+    ]
+
+
 # ---------------------------------------------------------------------------
 # 2. Missing required patch fails cleanly
 # ---------------------------------------------------------------------------

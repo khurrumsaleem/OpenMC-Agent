@@ -14,6 +14,7 @@ Production-grade hierarchical assembly that creates real schema objects:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 from typing import Any
 
 from openmc_agent.plan_builder.patches import (
@@ -26,6 +27,9 @@ from openmc_agent.plan_builder.patches import (
     LocalizedInsertIntentPatchItem,
     LocalizedInsertProfilesPatch,
     PinMapPatch,
+)
+from openmc_agent.plan_builder.pin_map_universe_mapping import (
+    build_kind_to_universe_map,
 )
 from openmc_agent.plan_builder.scoped_counts import (
     AssemblyTypeCountSummary,
@@ -109,6 +113,13 @@ def lift_single_pin_map_to_catalog(
 # ---------------------------------------------------------------------------
 
 
+def _mapping_entries(kind_to_universe: dict[str, str]) -> list[Any]:
+    return [
+        SimpleNamespace(kind=kind, universe_id=uid)
+        for kind, uid in kind_to_universe.items()
+    ]
+
+
 def _expand_assembly_pin_map(
     pm: AssemblyPinMapPatchItem,
     kind_to_universe: dict[str, str] | None = None,
@@ -130,12 +141,16 @@ def _expand_assembly_pin_map(
                 grid[ri][ci] = universe_id
 
     if kind_to_universe:
+        kind_map, _fallbacks = build_kind_to_universe_map(
+            _mapping_entries(kind_to_universe),
+            pm,
+        )
         for coord_group, target_kind in [
             (pm.guide_tube_coords, "guide_tube"),
             (pm.instrument_tube_coords, "instrument_tube"),
             (pm.water_cell_coords, "water_cell"),
         ]:
-            target_uv = kind_to_universe.get(target_kind, pm.default_universe_id)
+            target_uv = kind_map.get(target_kind, pm.default_universe_id)
             _apply(coord_group, target_uv)
     else:
         _apply(pm.guide_tube_coords, pm.default_universe_id)
@@ -259,6 +274,23 @@ def assemble_assembly_templates(
         type_id = atype.assembly_type_id
         pm = atype.pin_map
         nx, ny = pm.lattice_size
+        fallback_reports: list[dict[str, Any]] = []
+        if kind_to_universe:
+            _, fallbacks = build_kind_to_universe_map(
+                _mapping_entries(kind_to_universe),
+                pm,
+            )
+            fallback_reports = [
+                {
+                    "code": "assembly.pin_map.special_universe_degraded_to_water_cell",
+                    "severity": "warning",
+                    "assembly_type_id": type_id,
+                    "kind": fallback.kind,
+                    "substitute_kind": fallback.substitute_kind,
+                    "universe_id": fallback.universe_id,
+                }
+                for fallback in fallbacks
+            ]
 
         universe_pattern = _expand_assembly_pin_map(pm, kind_to_universe=kind_to_universe)
 
@@ -313,6 +345,7 @@ def assemble_assembly_templates(
             "in_base_lattice": False,
         }
         issues.append(localized_report)
+        issues.extend(fallback_reports)
 
     return (
         pin_lattices,

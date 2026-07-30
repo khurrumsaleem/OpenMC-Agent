@@ -85,6 +85,10 @@ def run_placement_review(*, evidence_pack: PlacementEvidencePack, reviewer_clien
     )
     result = PlacementReviewResult(reviewer_calls=call.call_count, schema_retries=call.schema_retry_count, attempts=[item.model_dump(mode="json") for item in call.attempts], error_code=call.error_code, error_detail=call.error_detail)
     if not call.ok or call.parsed_output is None:
+        if not result.error_code:
+            result.error_code = "placement_review.result_unavailable"
+        if not result.error_detail:
+            result.error_detail = "placement review result unavailable"
         return result
     output = PlacementReviewModelOutput.model_validate(call.parsed_output)
     findings, rejected = _normalize(output, evidence_pack)

@@ -90,6 +90,7 @@ from .patches import (
     normalized_coords,
 )
 from .pin_counts import compute_pin_role_counts
+from .pin_map_universe_mapping import build_kind_to_universe_map as _shared_kind_map
 
 
 # ---------------------------------------------------------------------------
@@ -318,12 +319,40 @@ def _build_kind_to_universe_map(
     pin_map: PinMapPatch,
 ) -> dict[str, str]:
     """Map universe kind → universe_id from the UniversesPatch."""
-    kind_map: dict[str, str] = {}
-    if universes_patch is not None:
-        for univ in universes_patch.universes:
-            kind_map[univ.kind] = univ.universe_id
-    kind_map.setdefault("fuel_pin", pin_map.default_universe_id)
+    kind_map, _fallbacks = _shared_kind_map(
+        universes_patch.universes if universes_patch is not None else None,
+        pin_map,
+    )
     return kind_map
+
+
+def _pin_map_semantic_counts(
+    pin_map: PinMapPatch,
+    *,
+    fallback_kinds: set[str],
+) -> dict[str, int]:
+    """Count path roles from pin-map coordinates when ids were degraded."""
+
+    nx, ny = pin_map.lattice_size
+    counts = {
+        "fuel_pin": nx * ny,
+        "guide_tube": 0,
+        "instrument_tube": 0,
+        "pyrex_rod": 0,
+        "thimble_plug": 0,
+        "water_cell": 0,
+    }
+    for role, coords in (
+        ("guide_tube", pin_map.guide_tube_coords),
+        ("instrument_tube", pin_map.instrument_tube_coords),
+        ("water_cell", pin_map.water_cell_coords),
+    ):
+        if role != "water_cell" and role not in fallback_kinds:
+            continue
+        unique = set(normalized_coords(coords, pin_map.coordinate_convention, pin_map.lattice_size))
+        counts[role] = len(unique)
+        counts["fuel_pin"] -= len(unique)
+    return counts
 
 
 def expand_pin_map(
@@ -944,7 +973,23 @@ def _assemble_lattice(
         ))
         pin_map = pin_map.model_copy(update={"default_universe_id": preferred})
 
-    kind_map = _build_kind_to_universe_map(universes_patch, pin_map)
+    kind_map, fallbacks = _shared_kind_map(
+        universes_patch.universes if universes_patch is not None else None,
+        pin_map,
+    )
+    for fallback in fallbacks:
+        issues.append(PlanAssemblyIssue(
+            code="assembly.pin_map.special_universe_degraded_to_water_cell",
+            severity="warning",
+            message=(
+                f"{fallback.kind} coordinates were filled with "
+                f"{fallback.substitute_kind} universe {fallback.universe_id!r} "
+                "because no dedicated universe of that kind was available"
+            ),
+            path=f"pin_map.{fallback.kind}_coords",
+            expected=fallback.kind,
+            actual=fallback.universe_id,
+        ))
 
     try:
         universe_pattern = expand_pin_map(pin_map, universe_ids=kind_map)
@@ -966,7 +1011,13 @@ def _assemble_lattice(
         univ.universe_id: univ.kind
         for univ in (universes_patch.universes if universes_patch is not None else [])
     }
-    actual_pin_counts = compute_pin_role_counts(universe_pattern, universe_kind_by_id)
+    if fallbacks:
+        actual_pin_counts = _pin_map_semantic_counts(
+            pin_map,
+            fallback_kinds={item.kind for item in fallbacks},
+        )
+    else:
+        actual_pin_counts = compute_pin_role_counts(universe_pattern, universe_kind_by_id)
 
     expected_counts = _expected_counts_from_facts(facts)
     if expected_counts:

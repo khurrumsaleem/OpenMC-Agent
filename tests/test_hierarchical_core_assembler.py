@@ -158,6 +158,25 @@ def test_assemble_assembly_templates_returns_summaries():
     assert summaries["type_b"].fuel_pin_count == 7
 
 
+def test_assembly_templates_degrade_missing_guide_universe_to_water_cell():
+    catalog = _make_catalog()
+
+    lattices, _, _, _, _, summaries, reports, _, _ = assemble_assembly_templates(
+        catalog,
+        kind_to_universe={"fuel_pin": "fuel", "water_cell": "water"},
+    )
+
+    lattice_a = next(lat for lat in lattices if lat.id == "assembly_lattice__type_a")
+    assert lattice_a.universe_pattern[1][1] == "water"
+    assert summaries["type_a"].guide_tube_count == 1
+    fallback_reports = [
+        report for report in reports
+        if report.get("code") == "assembly.pin_map.special_universe_degraded_to_water_cell"
+    ]
+    assert {report["assembly_type_id"] for report in fallback_reports} == {"type_a", "type_b"}
+    assert all(report["kind"] == "guide_tube" for report in fallback_reports)
+
+
 def test_core_lattice_assembly_universe_ids():
     catalog = _make_catalog()
     layout = _make_layout()

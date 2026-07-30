@@ -288,12 +288,21 @@ def resolve_material_species(
         bases.add(str(composition_basis))
     bases.discard("None")
     if len(bases) > 1:
-        result.errors.append("material_resolution.mixed_fraction_basis")
-        return result
-    result.fraction_basis = next(iter(bases), composition_basis)
+        from collections import Counter
+
+        basis_counts = Counter(str(_basis_for_component(c)) for c in components)
+        if composition:
+            basis_counts.update([str(composition_basis)])
+        basis_counts.pop("None", None)
+        result.fraction_basis = (
+            basis_counts.most_common(1)[0][0] if basis_counts else "atom_frac"
+        )
+        result.warnings.append("material_resolution.mixed_fraction_basis_fallback")
+    else:
+        result.fraction_basis = next(iter(bases), composition_basis)
     if components and result.fraction_basis not in {"weight_frac", "atom_frac"}:
-        result.errors.append("material_resolution.mixed_fraction_basis")
-        return result
+        result.fraction_basis = "atom_frac"
+        result.warnings.append("material_resolution.mixed_fraction_basis_fallback")
 
     direct_total = 0.0
     for raw_name, value in (composition or {}).items():

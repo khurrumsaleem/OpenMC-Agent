@@ -619,7 +619,25 @@ def _match_canonical_variant(actual: str, canonical_ids: list[str]) -> str | Non
     ]
     if len(matches) == 1:
         return matches[0]
+    actual_tokens = _variant_tokens(actual_l)
+    if actual_tokens:
+        matches = [
+            canonical
+            for canonical, cl in zip(canonical_ids, canonical_lower)
+            if _variant_tokens(cl) == actual_tokens
+        ]
+        if len(matches) == 1:
+            return matches[0]
     return None
+
+
+def _variant_tokens(value: str) -> frozenset[str]:
+    tokens = {
+        item
+        for item in re.split(r"[^a-z0-9]+", value.lower())
+        if item and item not in {"fuel", "pin", "variant", "source"}
+    }
+    return frozenset(tokens)
 
 
 def _canonicalize_fuel_source_variant_id(

@@ -13,7 +13,7 @@ from openmc_agent.plan_builder.closed_loop.placement_evidence import (
 from openmc_agent.plan_builder.closed_loop.placement_preflight import run_placement_preflight
 from openmc_agent.plan_builder.closed_loop.placement_reviewer import run_placement_review
 from openmc_agent.plan_builder.closed_loop.placement_issue_policy import placement_issue_owner
-from openmc_agent.plan_builder.closed_loop.review_io import StructuredReviewCallSpec, run_structured_review_call
+from openmc_agent.plan_builder.closed_loop.review_io import StructuredReviewCallSpec, StructuredReviewResult, run_structured_review_call
 from openmc_agent.plan_builder.closed_loop.models import PlacementReviewModelOutput
 from openmc_agent.plan_builder.state import PlanBuildState, PlanPatchEnvelope
 from openmc_agent.plan_builder import executor
@@ -332,6 +332,31 @@ def test_placement_review_missing_coverage_ref_fails_closed() -> None:
     result = run_placement_review(evidence_pack=pack, reviewer_client=lambda _: json.dumps(payload), state=state, policy=policy)
     assert not result.ok
     assert result.error_code == "placement_review.coverage_incomplete"
+
+
+def test_placement_review_result_unavailable_has_specific_error_code(monkeypatch) -> None:
+    state = _state()
+    policy = PlanClosedLoopPolicy(mode="advisory")
+    pack = build_placement_evidence_pack(state=state, policy=policy)
+
+    def unavailable_call(**_kwargs):
+        return StructuredReviewResult(ok=False, parsed_output=None)
+
+    monkeypatch.setattr(
+        "openmc_agent.plan_builder.closed_loop.placement_reviewer.run_structured_review_call",
+        unavailable_call,
+    )
+
+    result = run_placement_review(
+        evidence_pack=pack,
+        reviewer_client=lambda _: "",
+        state=state,
+        policy=policy,
+    )
+
+    assert not result.ok
+    assert result.error_code == "placement_review.result_unavailable"
+    assert result.error_detail == "placement review result unavailable"
 
 
 def test_review_io_uses_last_schema_valid_embedded_object() -> None:

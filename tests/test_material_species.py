@@ -52,6 +52,28 @@ def test_pyrex_weight_resolution_conserves_mass_and_merges_oxygen() -> None:
     assert len([s for s in resolution.species if s.name == "O"]) == 1
 
 
+def test_mixed_fraction_basis_degrades_to_audited_warning() -> None:
+    resolution = resolve_material_species(
+        material_id="mixed_glass",
+        role="absorber",
+        composition={"B": 0.1},
+        composition_basis="weight_frac",
+        compound_components=[
+            {
+                "formula": "SiO2",
+                "fraction": 0.9,
+                "fraction_basis": "atom_frac",
+                "isotope_policy": "natural_elements",
+            }
+        ],
+    )
+
+    assert resolution.ok
+    assert "material_resolution.mixed_fraction_basis" not in resolution.errors
+    assert "material_resolution.mixed_fraction_basis_fallback" in resolution.warnings
+    assert resolution.fraction_basis in {"weight_frac", "atom_frac"}
+
+
 def test_unsupported_formula_and_fissile_formula_fail_closed() -> None:
     unsupported = resolve_material_species(
         material_id="lime", role="structural", composition={}, composition_basis="weight_frac",
