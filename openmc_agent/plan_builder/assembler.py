@@ -906,16 +906,43 @@ def _assemble_lattice(
     issues: list[PlanAssemblyIssue] = []
 
     if pin_map.default_universe_id not in universe_ids_on_plan:
+        # Alias resolution: LLMs sometimes write a short default_universe_id
+        # (e.g. 'fuel_pin') when the UniversesPatch split it into axial
+        # segments ('fuel_pin_active', 'fuel_pin_plenum', ...). Find a unique
+        # universe whose normalized id starts with the default's stem; the
+        # 'active'/main fuel segment is preferred. This is a downgrade from a
+        # blocking error to a recorded warning so the model can still render.
+        import re as _re
+        stem = _re.sub(r"[\s_.\-]", "", pin_map.default_universe_id).lower()
+        candidates = sorted(
+            uid for uid in universe_ids_on_plan
+            if _re.sub(r"[\s_.\-]", "", uid).lower().startswith(stem)
+        )
+        if not candidates:
+            issues.append(PlanAssemblyIssue(
+                code="assembly.pin_map.default_universe_missing",
+                severity="error",
+                message=(
+                    f"PinMapPatch.default_universe_id {pin_map.default_universe_id!r} "
+                    "does not exist in UniversesPatch"
+                ),
+                path="pin_map.default_universe_id",
+            ))
+            return None, issues, {}
+        preferred = next(
+            (c for c in candidates if "active" in c.lower() or "main" in c.lower()),
+            candidates[0],
+        )
         issues.append(PlanAssemblyIssue(
-            code="assembly.pin_map.default_universe_missing",
-            severity="error",
+            code="assembly.pin_map.default_universe_alias_resolved",
+            severity="warning",
             message=(
                 f"PinMapPatch.default_universe_id {pin_map.default_universe_id!r} "
-                "does not exist in UniversesPatch"
+                f"aliased to {preferred!r} (not an exact match in UniversesPatch)"
             ),
             path="pin_map.default_universe_id",
         ))
-        return None, issues, {}
+        pin_map = pin_map.model_copy(update={"default_universe_id": preferred})
 
     kind_map = _build_kind_to_universe_map(universes_patch, pin_map)
 
