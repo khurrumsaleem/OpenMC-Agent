@@ -409,6 +409,39 @@ def _adjust_merged_radii(
     return sorted_cells
 
 
+def _drop_zero_thickness_moderator_layers(
+    cells: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Drop moderator/coolant cells collapsed to zero thickness by merge.
+
+    For moderator-like finite layers, the outer fill is represented by the
+    background cell injected after merge.  Non-moderator zero-thickness cells
+    stay in place so validation can fail closed.
+    """
+
+    kept: list[dict[str, Any]] = []
+    dropped: list[dict[str, Any]] = []
+    for cell in cells:
+        r_min = cell.get("r_min_cm")
+        r_max = cell.get("r_max_cm")
+        role = str(cell.get("role", "")).lower()
+        material = str(cell.get("material_id", "")).lower()
+        moderator_like = (
+            any(token in role for token in ("coolant", "moderator", "background", "water"))
+            or any(token in material for token in ("coolant", "moderator", "water"))
+        )
+        if (
+            r_min is not None
+            and r_max is not None
+            and r_min >= r_max
+            and moderator_like
+        ):
+            dropped.append(dict(cell))
+            continue
+        kept.append(cell)
+    return kept, dropped
+
+
 _BACKGROUND_KINDS = {"fuel_pin", "guide_tube", "instrument_tube"}
 
 
@@ -725,6 +758,9 @@ def normalize_universes_patch_content(
             if not (c.get("id") and c.get("id") in existing_cell_ids)
         ]
         cells_to_merge = _adjust_merged_radii(cells_to_merge, host_r_max)
+        cells_to_merge, dropped_zero_moderator = _drop_zero_thickness_moderator_layers(
+            cells_to_merge
+        )
 
         merged_count = 0
         for cell in cells_to_merge:
@@ -740,6 +776,17 @@ def normalize_universes_patch_content(
             "cells_merged": merged_count,
             "role_corrections": role_corrections,
         })
+        if dropped_zero_moderator:
+            operations.append({
+                "operation": "zero_thickness_moderator_layer_dropped",
+                "implicit_universe_id": implicit_id,
+                "host_universe_id": host_id,
+                "cell_ids": [
+                    str(cell.get("id"))
+                    for cell in dropped_zero_moderator
+                    if cell.get("id")
+                ],
+            })
 
     material_info = _build_material_info_map(state)
     operations.extend(_inject_background_cells(new_universes, material_info))

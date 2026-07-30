@@ -514,6 +514,99 @@ def test_implicit_universe_role_corrected_even_when_merge_skipped() -> None:
     assert clad_cell["role"] == "structural"
 
 
+def test_zero_thickness_moderator_layer_dropped_after_implicit_merge() -> None:
+    """A malformed implicit radial satellite can collapse a coolant layer to
+    zero thickness after merge; drop that finite layer and rely on background
+    moderator fill instead."""
+    from openmc_agent.plan_builder.universes_patch_normalization import (
+        normalize_universes_patch_content,
+    )
+
+    universes_patch = {
+        "patch_type": "universes",
+        "universes": [
+            {
+                "universe_id": "fuel_variant_3B_fuel",
+                "kind": "fuel_pin",
+                "cells": [
+                    {
+                        "id": "fuel_cell",
+                        "role": "fuel",
+                        "material_id": "fuel_3b",
+                        "region_kind": "cylinder",
+                        "r_min_cm": 0.0,
+                        "r_max_cm": 0.4096,
+                    },
+                ],
+            },
+            {
+                "universe_id": "implicit_gas_gap",
+                "kind": "custom",
+                "cells": [
+                    {
+                        "id": "gas_gap_layer",
+                        "role": "gas_gap",
+                        "material_id": "helium",
+                        "region_kind": "cylinder",
+                        "r_min_cm": 0.0,
+                        "r_max_cm": 0.41,
+                    },
+                    {
+                        "id": "coolant_layer",
+                        "role": "coolant",
+                        "material_id": "coolant",
+                        "region_kind": "cylinder",
+                        "r_min_cm": 0.41,
+                        "r_max_cm": 0.5,
+                    },
+                    {
+                        "id": "structural_layer",
+                        "role": "structural",
+                        "material_id": "zircaloy4",
+                        "region_kind": "cylinder",
+                        "r_min_cm": 0.5,
+                        "r_max_cm": 0.6,
+                    },
+                ],
+            },
+        ],
+    }
+    materials_patch = {
+        "patch_type": "materials",
+        "materials": [
+            {"material_id": "fuel_3b", "name": "fuel", "role": "fuel", "density_g_cm3": 10.0},
+            {"material_id": "helium", "name": "He", "role": "gas", "density_g_cm3": 0.001},
+            {"material_id": "zircaloy4", "name": "Zr4", "role": "structural", "density_g_cm3": 6.5},
+            {"material_id": "coolant", "name": "coolant", "role": "coolant", "density_g_cm3": 0.7},
+        ],
+    }
+    state = PlanBuildState(state_id="glm52-zero-thickness", requirement_text="r")
+    state.add_patch(PlanPatchEnvelope(
+        patch_id="materials", patch_type="materials",
+        content=materials_patch, status="valid",
+    ))
+
+    result = normalize_universes_patch_content(universes_patch, state=state)
+
+    ops = {op["operation"] for op in result.operations}
+    assert "implicit_universe_merged" in ops
+    assert "zero_thickness_moderator_layer_dropped" in ops
+    fuel_pin = next(u for u in result.content["universes"] if u["universe_id"] == "fuel_variant_3B_fuel")
+    assert "coolant_layer" not in {cell["id"] for cell in fuel_pin["cells"]}
+    assert any(cell["region_kind"] == "background" for cell in fuel_pin["cells"])
+
+    parsed = parse_patch_content("universes", result.content)
+    validation = validate_patch(
+        parsed,
+        context=PatchValidationContext(
+            known_material_ids=["fuel_3b", "helium", "zircaloy4", "coolant"],
+        ),
+    )
+    assert "patch.universes.invalid_radius_order" not in {
+        issue.code for issue in validation.issues if issue.severity == "error"
+    }
+
+
 def test_v19_mu_preflight_passes_after_implicit_normalization() -> None:
     """End-to-end regression: the v19 upstream chain (facts+materials+
     universes) must pass the material_universe gate after the implicit
