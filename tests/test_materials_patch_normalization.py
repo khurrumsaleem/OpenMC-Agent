@@ -269,6 +269,36 @@ def test_fuel_source_variant_id_state_label_canonicalized_to_facts_variant_id() 
     ]
 
 
+def test_uo2_stoichiometric_oxygen_expanded_when_uranium_is_percent_vector() -> None:
+    patch = {
+        "patch_type": "materials",
+        "materials": [
+            {
+                "material_id": "fuel_3b",
+                "name": "UO2 Fuel",
+                "role": "fuel",
+                "density_g_cm3": 10.257,
+                "composition": {
+                    "U234": 0.0219,
+                    "U235": 2.619,
+                    "U236": 0.012,
+                    "U238": 97.3471,
+                    "O16": 2.0,
+                },
+                "composition_basis": "stoichiometric_ratio",
+            },
+        ],
+    }
+
+    result = normalize_materials_patch_content(patch)
+
+    fuel = result.content["materials"][0]
+    assert fuel["composition"]["O16"] == 200.0
+    assert "uo2_stoichiometric_oxygen_expanded" in [
+        op["operation"] for op in result.operations
+    ]
+
+
 def test_fuel_source_variant_id_ambiguous_not_canonicalized() -> None:
     """When the short label matches multiple Facts variants, do not guess."""
     from openmc_agent.plan_builder.state import PlanPatchEnvelope, PlanBuildState

@@ -40,6 +40,7 @@ _MASS_FRACTION_RE = re.compile(
     re.IGNORECASE,
 )
 _NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
+_URANIUM_NUCLIDES = {"U233", "U234", "U235", "U236", "U238"}
 
 
 @dataclass(frozen=True)
@@ -125,17 +126,57 @@ def normalize_materials_patch_content(
 
     source_text = _collect_source_text(state=state, requirement_text=requirement_text)
     requirement = extract_soluble_boron_requirement(source_text)
-    if requirement is None:
-        return MaterialsPatchNormalizationResult(content=normalized, operations=operations)
+    if requirement is not None:
+        for material in normalized.get("materials", []) or []:
+            if not isinstance(material, dict) or not _is_coolant_material(material):
+                continue
+            operation = _normalize_coolant_boron_atom_fraction(material, requirement)
+            if operation is not None:
+                operations.append(operation)
 
     for material in normalized.get("materials", []) or []:
-        if not isinstance(material, dict) or not _is_coolant_material(material):
+        if not isinstance(material, dict):
             continue
-        operation = _normalize_coolant_boron_atom_fraction(material, requirement)
-        if operation is not None:
-            operations.append(operation)
+        uo2_op = _normalize_uo2_stoichiometric_oxygen(material)
+        if uo2_op is not None:
+            operations.append(uo2_op)
 
     return MaterialsPatchNormalizationResult(content=normalized, operations=operations)
+
+
+def _normalize_uo2_stoichiometric_oxygen(material: dict[str, Any]) -> dict[str, Any] | None:
+    """Expand UO2 O/U=2 oxygen onto the same scale as U isotope percents."""
+
+    if str(material.get("role") or "").strip().lower() != "fuel":
+        return None
+    if str(material.get("composition_basis") or "").strip().lower() != "stoichiometric_ratio":
+        return None
+    composition = material.get("composition")
+    if not isinstance(composition, dict):
+        return None
+    uranium_values = [
+        float(value)
+        for name, value in composition.items()
+        if str(name) in _URANIUM_NUCLIDES and isinstance(value, int | float)
+    ]
+    if not uranium_values or not isinstance(composition.get("O16"), int | float):
+        return None
+    uranium_sum = sum(uranium_values)
+    oxygen = float(composition["O16"])
+    if not (50.0 <= uranium_sum <= 150.0 and 1.5 <= oxygen <= 2.5):
+        return None
+    normalized_oxygen = oxygen * uranium_sum
+    if abs(normalized_oxygen - oxygen) <= 1.0e-9:
+        return None
+    composition["O16"] = normalized_oxygen
+    return {
+        "operation": "uo2_stoichiometric_oxygen_expanded",
+        "material_id": material.get("material_id"),
+        "basis": "stoichiometric_ratio",
+        "uranium_sum": uranium_sum,
+        "original_o16": oxygen,
+        "normalized_o16": normalized_oxygen,
+    }
 
 
 def _normalize_material_schema_surface(material: dict[str, Any]) -> list[dict[str, Any]]:

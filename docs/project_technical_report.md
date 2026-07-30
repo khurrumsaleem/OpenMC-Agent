@@ -4,6 +4,10 @@
 
 ### 2026-07-30
 
+- **VERA3B main b6ed333 / GLM-5.2 MU fuel stoichiometry 闭合**：用户真实 canary 已越过 Universes fragment variant alias，当前推进到 MU gate；deterministic preflight `ok=true`，blocking 来自 MU reviewer 对 `fuel_3b` 的 composition semantics：`composition_basis="stoichiometric_ratio"` 下 U 同位素为 percent vector、O16 仍为 `2.0`，会产生 O/U=0.02 的歧义。现 MaterialsPatch normalizer 在入库前对通用 UO2 fuel 窄模式执行 O/U=2 扩展（U sum≈100 且 O≈2 → O≈200），并同步加固 lower-level material normalization，避免已扩展 O16 被二次扩展。
+- **验证结果**：focused material normalization regressions `31 passed`；旧 `phase8c_step3q_vera3b_main_b6ed333` MaterialsPatch 离线复放 O16 `2.0→200.0`，assembly-level normalization 保持 `200.0`。全量非 OpenMC/非 LLM pytest `3913 passed, 2 skipped, 394 deselected`；`compileall` 通过；fake workflow benchmark `21/21`、`pass_rate=100.0%`；baseline diff 因 `data/evals/workflow/baseline/evaluation_report.json` 不存在跳过。
+- **下一步建议**：push 后由用户用新 HEAD 只重跑一次 GLM-5.2 VERA3B planning canary；若继续失败，优先分析 MU reviewer/MU deterministic artifacts，避免重复批量真实 LLM。
+
 - **VERA3B main 86744e1 / GLM-5.2 Universes fuel-variant alias 闭合**：用户真实 canary 确认上一轮 Placement blocker 已不再出现，本轮 Facts accepted、Materials valid 后在 Universes fragmented qualification 失败：fuel universe 采用 `fuel_variant_id="3B_fuel"`，燃料材料采用 LLM 别名 `source_variant_id="state_3b"`。现将燃料 variant id 比较抽为通用 token-equivalence helper，忽略 `fuel/source/state/variant/pin` 等非区分修饰词，`state_3b`、`fuel_3b`、`3B_fuel` 视作同一 source variant；`state_3a` 与 `3B_fuel` 仍 fail-closed。该规则同时接入 Materials normalizer、Universe fragment qualification 与 MU preflight。
 - **验证结果**：新增 focused regressions `5 passed`，相关 Materials/Universes/MU regressions `53 passed`；全量非 OpenMC/非 LLM pytest `3911 passed, 2 skipped, 394 deselected`；`compileall` 通过；fake workflow benchmark `21/21`、`pass_rate=100.0%`；baseline diff 因 `data/evals/workflow/baseline/evaluation_report.json` 不存在跳过。
 - **下一步建议**：push 后由用户用新 HEAD 只重跑一次 GLM-5.2 VERA3B planning canary；若继续失败，优先分析 Universes 后续 fragment 或 MU artifacts，不恢复批量真实 LLM 测试。

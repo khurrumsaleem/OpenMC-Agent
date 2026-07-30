@@ -44,6 +44,18 @@ def test_atom_fraction_not_modified():
     )
 
 
+def test_stoichiometric_already_expanded_oxygen_not_expanded_again():
+    fuel = MaterialSpec(
+        name="fuel", density_unit="g/cm3", density_value=10.0,
+        composition=[_n("U235", 2.619), _n("U238", 97.381), _n("O16", 200.0)],
+        composition_basis=CompositionValueBasis.STOICHIOMETRIC_RATIO,
+    )
+    new_fuel, result = normalize_material_semantics(fuel)
+    assert result.normalization_status == NormalizationStatus.DETERMINISTICALLY_NORMALIZED
+    o16 = [c for c in new_fuel.composition if c.name == "O16"][0]
+    assert o16.percent == 200.0
+
+
 def test_ppm_normalized_to_atom_fraction():
     water = MaterialSpec(
         name="borated_water", density_unit="g/cm3", density_value=0.743,

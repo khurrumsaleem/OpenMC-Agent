@@ -181,9 +181,13 @@ def _normalize_stoichiometric_uo2(
     u_sum = sum(c.percent for c in u_entries)
     o_value = o_entries[0].percent
 
-    # The stoichiometric ratio: O/U.
-    # When U isotopes sum to ~100, O16=2.0 means O/U=2.
-    o_per_u = o_value if u_sum > 50 else (o_value / u_sum if u_sum > 0 else 2.0)
+    # The stoichiometric ratio: O/U.  LLM/material patch inputs appear in two
+    # equivalent scales: U isotopes sum to ~100 with O16=2.0 meaning O/U=2, or
+    # U isotopes sum to ~100 with O16=200 already expanded onto the same scale.
+    if u_sum > 0 and 1.5 <= (o_value / u_sum) <= 2.5:
+        o_per_u = o_value / u_sum
+    else:
+        o_per_u = o_value if u_sum > 50 else (o_value / u_sum if u_sum > 0 else 2.0)
 
     input_summary = {c.name: c.percent for c in composition}
 
