@@ -3966,7 +3966,11 @@ def run_incremental_planning(
         placement_scope_kind = ""
         if isinstance(preflight.get("binding_view"), dict):
             placement_scope_kind = str(preflight.get("binding_view", {}).get("scope_kind") or "")
-        stage.metadata.update({"reviewed_input_hash": pack.input_hash, "review_model": getattr(plan_reviewer_client, "model_name", None)})
+        stage.metadata.update({
+            "reviewed_input_hash": input_hash,
+            "reviewed_evidence_pack_hash": pack.input_hash,
+            "review_model": getattr(plan_reviewer_client, "model_name", None),
+        })
         for name, value in (("placement_binding_view.json", preflight.get("binding_view")), ("placement_contract_matrix.json", pack.contract_matrix), ("placement_evidence_pack.json", pack), ("placement_preflight.json", preflight)):
             path = artifact_writer._write(name, value)
             if path:
@@ -4042,8 +4046,9 @@ def run_incremental_planning(
             return None
         if action is PlanReviewAction.APPROVE:
             transition_stage(stage, PlanStageStatus.ACCEPTED)
-            stage.metadata["accepted_input_hash"] = pack.input_hash
-            state.add_event("planning.placement_gate_accepted", "placement gate accepted", {"input_hash": pack.input_hash})
+            stage.metadata["accepted_input_hash"] = input_hash
+            stage.metadata["accepted_evidence_pack_hash"] = pack.input_hash
+            state.add_event("planning.placement_gate_accepted", "placement gate accepted", {"input_hash": input_hash, "evidence_pack_hash": pack.input_hash})
             _persist_checkpoint("gate:placement")
             return None
         if action is PlanReviewAction.ASK_HUMAN:
@@ -4332,7 +4337,8 @@ def run_incremental_planning(
                 transition_stage(stage, PlanStageStatus.VALIDATING)
                 transition_stage(stage, PlanStageStatus.REVIEWING)
                 transition_stage(stage, PlanStageStatus.ACCEPTED)
-                stage.metadata["accepted_input_hash"] = clone_pack.input_hash
+                stage.metadata["accepted_input_hash"] = placement_gate_input_hash(clone)
+                stage.metadata["accepted_evidence_pack_hash"] = clone_pack.input_hash
                 state.add_event("planning.placement_revision_rereviewed", "placement candidate independently re-reviewed", {})
                 return None
             except Exception as exc:

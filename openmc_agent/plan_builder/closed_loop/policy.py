@@ -96,21 +96,22 @@ def compute_allowed_actions(
 
     if policy.mode is PlanLoopMode.OFF:
         return []
+    error_findings = [item for item in findings if getattr(item, "severity", None) == PlanFindingSeverity.ERROR or (isinstance(item, dict) and item.get("severity") == "error")]
+    has_blocking_deterministic_issue = any(_is_blocking_issue(issue) for issue in deterministic_issues)
     exhausted = (
         additional_llm_calls_used >= policy.max_total_additional_llm_calls
-        or stage_state.review_count >= policy.max_review_rounds_per_gate
+        or (stage_state.review_count >= policy.max_review_rounds_per_gate and (error_findings or has_blocking_deterministic_issue))
         or stage_state.repair_count >= policy.max_repair_rounds_per_gate
         or stage_state.human_round_count >= policy.max_human_rounds_per_gate
         or stage_state.no_progress_count >= policy.max_no_progress_rounds
     )
     if exhausted:
         return [PlanReviewAction.FAIL_CLOSED]
-    error_findings = [item for item in findings if getattr(item, "severity", None) == PlanFindingSeverity.ERROR or (isinstance(item, dict) and item.get("severity") == "error")]
+    if not error_findings and not has_blocking_deterministic_issue:
+        return [PlanReviewAction.APPROVE]
     human_required = any(bool(getattr(item, "requires_human", False) if not isinstance(item, dict) else item.get("requires_human")) for item in error_findings)
     if human_required:
         return [PlanReviewAction.ASK_HUMAN, PlanReviewAction.FAIL_CLOSED] if policy.enable_human_gate else [PlanReviewAction.FAIL_CLOSED]
-    if not error_findings and not any(_is_blocking_issue(issue) for issue in deterministic_issues):
-        return [PlanReviewAction.APPROVE]
     # Phase 8A Step 6B: route source-coverage / unsupported-inference
     # findings to RETRIEVE_EVIDENCE when research is enabled.
     if enable_research:

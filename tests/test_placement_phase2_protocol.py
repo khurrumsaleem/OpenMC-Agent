@@ -419,6 +419,54 @@ def test_controlled_gate_accepts_after_facts_and_placement_review(monkeypatch) -
     assert result.state.plan_loop_stages["plan_gate_placement"].status.value == "accepted"
 
 
+def test_accepted_placement_gate_reuses_lifecycle_input_hash_on_resume(monkeypatch) -> None:
+    state = _state()
+    monkeypatch.setattr(executor, "default_patch_task_order", lambda _: [])
+    monkeypatch.setattr(executor, "required_patch_types_for_state", lambda _: [])
+    monkeypatch.setattr(executor, "assemble_state_if_ready", lambda state, **_: state.model_copy(update={"assembled_plan": {"ok": True}}))
+    calls = {"count": 0}
+
+    def reviewer(prompt: str) -> str:
+        calls["count"] += 1
+        payload = json.loads(prompt.split("INPUT:\n", 1)[1])
+        if "source_excerpts" in payload:
+            return json.dumps({
+                "review_status": "complete",
+                "reviewed_evidence_hashes": [item["evidence_hash"] for item in payload["source_excerpts"]],
+                "coverage_summary": {},
+                "findings": [],
+            })
+        return json.dumps({
+            "review_status": "complete",
+            "reviewed_contract_row_ids": [row["requirement_id"] for row in payload["contract_matrix"]["rows"]],
+            "reviewed_evidence_refs": [item["ref_id"] for item in payload["evidence_items"]],
+            "coverage_summary": {"omitted_contract_row_count": 0},
+            "findings": [],
+        })
+
+    first = run_incremental_planning(
+        requirement=state.requirement_text,
+        state=state,
+        llm_client=lambda _: (_ for _ in ()).throw(AssertionError("no proposer")),
+        plan_loop_policy={"mode": "controlled", "gate_enabled": {"facts": True, "placement": True}},
+        plan_reviewer_client=reviewer,
+    )
+    assert first.ok
+    call_count_after_first = calls["count"]
+
+    second = run_incremental_planning(
+        requirement=first.state.requirement_text,
+        state=first.state,
+        llm_client=lambda _: (_ for _ in ()).throw(AssertionError("no proposer")),
+        plan_loop_policy={"mode": "controlled", "gate_enabled": {"facts": True, "placement": True}},
+        plan_reviewer_client=reviewer,
+    )
+
+    assert second.ok
+    assert calls["count"] == call_count_after_first
+    assert second.state.plan_loop_stages["plan_gate_placement"].metadata["accepted_input_hash"] == placement_gate_input_hash(second.state)
+
+
 def test_previously_skipped_placement_stage_reopens_when_inputs_become_applicable(monkeypatch) -> None:
     """A stale not-applicable checkpoint cannot cause skipped -> reviewing."""
     state = _state()
