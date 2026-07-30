@@ -1018,6 +1018,22 @@ def _normalize_pin_map_intent_bindings(
                         profiles_by_role.setdefault(role, prof)
             break
 
+    # Collect universe IDs by kind for host_universe_id resolution.
+    universe_by_kind: dict[str, str] = {}
+    for env in state.patches.values():
+        if (
+            getattr(env, "patch_type", None) == "universes"
+            and getattr(env, "status", None) == "valid"
+        ):
+            for uni in env.content.get("universes") or []:
+                if not isinstance(uni, dict):
+                    continue
+                uid = uni.get("universe_id")
+                kind = str(uni.get("kind", uni.get("universe_kind", ""))).lower().strip()
+                if uid and kind:
+                    universe_by_kind.setdefault(kind, uid)
+            break
+
     changed = False
     new_intents = []
     for intent in intents:
@@ -1033,6 +1049,18 @@ def _normalize_pin_map_intent_bindings(
         if patched.get("anchor_z_cm") is None and req.get("anchor_z_cm") is not None:
             patched["anchor_z_cm"] = req["anchor_z_cm"]
             changed = True
+        if not patched.get("control_state_id") and req.get("control_state_id"):
+            patched["control_state_id"] = req["control_state_id"]
+            changed = True
+        if (
+            patched.get("application_mode") == "nested_component_override"
+            and not patched.get("host_universe_id")
+        ):
+            host_kind = str(req.get("host_kind", "")).lower().strip()
+            host_uid = universe_by_kind.get(host_kind)
+            if host_uid:
+                patched["host_universe_id"] = host_uid
+                changed = True
         if not patched.get("axial_profile_id") and req.get("required_profile_id"):
             patched["axial_profile_id"] = req["required_profile_id"]
             changed = True

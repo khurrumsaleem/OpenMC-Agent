@@ -157,6 +157,8 @@ def build_placement_contract_matrix(view: PlacementBindingView, issues: list[dic
     rows: list[PlacementContractRow] = []
     for req in view.requirements:
         matching_scopes = [scope for scope in view.assembly_scopes if not req.assembly_type_ids or scope.assembly_type_id in req.assembly_type_ids]
+        if not matching_scopes and view.scope_kind == "single_assembly" and view.assembly_scopes:
+            matching_scopes = list(view.assembly_scopes)
         intents = [(scope, intent) for scope in matching_scopes for intent in scope.localized_insert_intents if intent.get("insert_kind") == req.insert_kind]
         actual_profiles = sorted({str(intent.get("axial_profile_id")) for _, intent in intents if intent.get("axial_profile_id")})
         referenced = set()

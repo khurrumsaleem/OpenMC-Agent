@@ -90,6 +90,9 @@ def normalize_materials_patch_content(
     for material in normalized.get("materials", []) or []:
         if not isinstance(material, dict):
             continue
+        role_op = _canonicalize_material_role(material)
+        if role_op is not None:
+            operations.append(role_op)
         operations.extend(_normalize_material_schema_surface(material))
         fill_op = _fill_empty_composition(material)
         if fill_op is not None:
@@ -251,6 +254,98 @@ def _normalize_material_schema_surface(material: dict[str, Any]) -> list[dict[st
             material["compound_components"] = retained
 
     return operations
+
+
+# --------------------------------------------------------------------------- #
+# Material role canonicalization
+# --------------------------------------------------------------------------- #
+
+_KNOWN_MATERIAL_ROLES = frozenset({
+    "fuel", "coolant", "moderator", "poison", "structural",
+    "gap_gas", "absorber", "clad", "cladding", "unknown",
+})
+
+_ROLE_CANON_MAP: dict[str, str] = {
+    "fuel": "fuel", "fueluo2": "fuel", "fueluox": "fuel", "uo2": "fuel",
+    "fuelmox": "fuel", "mox": "fuel",
+    "coolant": "coolant", "boratedwater": "coolant", "water": "coolant",
+    "lightwater": "coolant",
+    "moderator": "moderator", "heavywater": "moderator", "d2o": "moderator",
+    "poison": "poison", "burnablepoison": "poison", "pyrex": "poison",
+    "gadolinium": "poison", "gad": "poison", "ifba": "poison", "waba": "poison",
+    "structural": "structural", "clad": "clad", "cladding": "clad",
+    "zircaloy": "clad", "zircaloy4": "clad",
+    "ss304": "structural", "ss316": "structural",
+    "inconel": "structural", "inconel718": "structural",
+    "steel": "structural", "ht9": "structural",
+    "absorber": "absorber", "controlrod": "absorber", "aic": "absorber",
+    "agincd": "absorber", "b4c": "absorber", "boroncarbide": "absorber",
+    "gapgas": "gap_gas", "helium": "gap_gas",
+}
+
+_NAME_KEYWORD_ROLE: list[tuple[str, str]] = [
+    ("fuel", "fuel"), ("uo2", "fuel"), ("uranium", "fuel"), ("enrich", "fuel"),
+    ("mox", "fuel"),
+    ("water", "coolant"), ("coolant", "coolant"), ("borated", "coolant"),
+    ("moderator", "moderator"),
+    ("pyrex", "poison"), ("burnable poison", "poison"), ("burnable-poison", "poison"),
+    ("gadolinium", "poison"),
+    ("zircaloy", "clad"), ("cladding", "clad"), ("clad", "clad"),
+    ("stainless steel", "structural"), ("ss304", "structural"), ("ss316", "structural"),
+    ("inconel", "structural"), ("nozzle", "structural"), ("core plate", "structural"),
+    ("absorber", "absorber"), ("control rod", "absorber"), ("aic", "absorber"),
+    ("b4c", "absorber"), ("boron carbide", "absorber"),
+    ("helium", "gap_gas"), ("fill gas", "gap_gas"), ("plenum gas", "gap_gas"),
+]
+
+
+def _canonicalize_material_role(material: dict[str, Any]) -> dict[str, Any] | None:
+    """Normalize a material's ``role`` field to a canonical functional role.
+
+    LLMs frequently emit alloy-specific or material-name labels (e.g.
+    ``fuel_UO2``, ``Pyrex``, ``SS304``, ``Zircaloy-4``) instead of the
+    canonical functional roles (``fuel``, ``poison``, ``structural``,
+    ``clad``, etc.) that the universe preflight and binding systems
+    expect.  This function rewrites the role to its canonical form using
+    role-keyword matching and material-name hints.
+
+    Reactor-neutral: the mapping is driven by generic material-science
+    vocabulary, not by any reactor-specific assumption.
+    """
+    role = str(material.get("role") or "").strip()
+    if not role:
+        return None
+    role_lower = role.lower()
+    norm = re.sub(r"[\s_.\-]", "", role_lower)
+
+    if role_lower in _KNOWN_MATERIAL_ROLES:
+        return None
+
+    canonical: str | None = _ROLE_CANON_MAP.get(norm)
+    if canonical is None:
+        for seg in re.split(r"[_\-\s]+", role_lower):
+            seg_norm = re.sub(r"[\s_.\-]", "", seg)
+            if seg_norm in _ROLE_CANON_MAP:
+                canonical = _ROLE_CANON_MAP[seg_norm]
+                break
+
+    if canonical is None:
+        name = str(material.get("name") or "").lower()
+        for keyword, target in _NAME_KEYWORD_ROLE:
+            if keyword in name:
+                canonical = target
+                break
+
+    if canonical is None or canonical == role:
+        return None
+
+    material["role"] = canonical
+    return {
+        "operation": "material_role_canonicalized",
+        "material_id": material.get("material_id"),
+        "from": role,
+        "to": canonical,
+    }
 
 
 def _fill_empty_composition(material: dict[str, Any]) -> dict[str, Any] | None:
